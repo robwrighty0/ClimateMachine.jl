@@ -2,12 +2,8 @@ export PhasePartition
 # Thermodynamic states
 export ThermodynamicState,
        PhaseDry,
-       PhaseDry_given_pT,
        PhaseEquil,
        PhaseNonEquil,
-       TemperatureSHumEquil,
-       LiquidIcePotTempSHumEquil,
-       LiquidIcePotTempSHumEquil_given_pressure,
        LiquidIcePotTempSHumNonEquil,
        LiquidIcePotTempSHumNonEquil_given_pressure
 
@@ -78,29 +74,82 @@ struct PhaseEquil{FT,PS<:APS{FT}} <: ThermodynamicState{FT}
   "temperature: computed via [`saturation_adjustment`](@ref)"
   T::FT
 end
-function PhaseEquil(e_int::FT,
-                    ρ::FT,
-                    q_tot::FT,
-                    maxiter::Int=3,
-                    tol::FT=FT(1e-1),
-                    sat_adjust::Function=saturation_adjustment,
-                    param_set::PS=MTPS{FT}()
-                    ) where {FT<:Real,PS}
-    # TODO: Remove these safety nets, or at least add warnings
-    # waiting on fix: github.com/vchuravy/GPUifyLoops.jl/issues/104
-    q_tot_safe = clamp(q_tot, FT(0), FT(1))
-    T = sat_adjust(e_int, ρ, q_tot_safe, maxiter, tol, param_set)
-    return PhaseEquil{FT,PS}(param_set, e_int, ρ, q_tot_safe, T)
+function PhaseEquil{FT}(;
+    ρ::Union{FT,Nothing}=nothing,
+    e_int::Union{FT,Nothing}=nothing,
+    q_tot::Union{FT,Nothing}=nothing,
+    T::Union{FT,Nothing}=nothing,
+    θ_liq_ice::Union{FT,Nothing}=nothing,
+    p::Union{FT,Nothing}=nothing,
+    maxiter::Union{Int,Nothing}=nothing,
+    tol::Union{FT,Nothing}=nothing,
+    sat_adjust::Function=saturation_adjustment,
+    param_set::PS=MTPS{FT}()
+    ) where {FT<:Real,PS}
+
+    @assert q_tot ≠ nothing
+    _FT = FT
+    if e_int ≠ nothing && ρ ≠ nothing
+
+        @assert T === nothing
+        @assert θ_liq_ice === nothing
+        @assert p === nothing
+        maxiter === nothing && (maxiter = 3)
+        tol === nothing && (tol = _FT(1e-1))
+
+        # TODO: Remove these safety nets, or at least add warnings
+        # waiting on fix: github.com/vchuravy/GPUifyLoops.jl/issues/104
+        q_tot = clamp(q_tot, _FT(0), _FT(1))
+        T = sat_adjust(e_int, ρ, q_tot, maxiter, tol, param_set)
+
+    elseif θ_liq_ice ≠ nothing && ρ ≠ nothing
+
+        @assert e_int === nothing
+        @assert p === nothing
+        @assert T === nothing
+        maxiter === nothing && (maxiter = 30)
+        tol === nothing && (tol = _FT(1e-1))
+
+        # TODO: expose which numerical method to use for sat adjustment?
+        T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, ρ, q_tot, maxiter, tol, param_set)
+        q_pt = PhasePartition_equil(T, ρ, q_tot, param_set)
+        e_int = internal_energy(T, q_pt, param_set)
+
+    elseif T ≠ nothing && p ≠ nothing
+
+        @assert θ_liq_ice === nothing
+        @assert e_int === nothing
+        @assert ρ === nothing
+        @assert maxiter === nothing
+        @assert tol === nothing
+
+        ρ = air_density(T, p, PhasePartition(q_tot), param_set)
+        q = PhasePartition_equil(T, ρ, q_tot, param_set)
+        e_int = internal_energy(T, q, param_set)
+
+    elseif θ_liq_ice ≠ nothing && p ≠ nothing
+
+        @assert T === nothing
+        @assert e_int === nothing
+        @assert ρ === nothing
+        maxiter === nothing && (maxiter = 30)
+        tol === nothing && (tol = _FT(1e-1))
+
+        # TODO: expose which numerical method to use for sat adjustment?
+        T = saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, p, q_tot, maxiter, tol, param_set)
+        ρ = air_density(T, p, PhasePartition(q_tot), param_set)
+        q = PhasePartition_equil(T, ρ, q_tot, param_set)
+        e_int = internal_energy(T, q, param_set)
+        q_tot = q.tot
+
+    else
+        throw(ArgumentError("PhaseEquil kwarg combination incorrect."))
+    end
+    return PhaseEquil{_FT,PS}(param_set, e_int, ρ, q_tot, T)
 end
-function PhaseEquil(e_int::FT,
-                    ρ::FT,
-                    q_tot::FT,
-                    maxiter::Int=3,
-                    tol::FT=FT(1e-1),
-                    param_set::PS=MTPS{FT}()
-                    ) where {FT<:Real,PS}
-    return PhaseEquil(e_int, ρ, q_tot, maxiter, tol, saturation_adjustment, param_set)
-end
+PhaseEquil(; param_set::PS=MTPS{FT}(), kwargs...) where {FT,PS} =
+  PhaseEquil{FT}(;param_set=param_set, kwargs...)
+
 
 """
     PhaseDry{FT} <: ThermodynamicState
@@ -123,113 +172,30 @@ struct PhaseDry{FT,PS<:APS{FT}} <: ThermodynamicState{FT}
   "density of dry air"
   ρ::FT
 end
-PhaseDry(e_int::FT, ρ::FT, param_set::PS=MTPS{FT}()) where {FT,PS} =
-  PhaseDry{FT,PS}(param_set, e_int, ρ)
+function PhaseDry{FT}(;e_int::Union{FT,Nothing}=nothing,
+                       ρ::Union{FT,Nothing}=nothing,
+                       p::Union{FT,Nothing}=nothing,
+                       T::Union{FT,Nothing}=nothing,
+                       param_set::PS=MTPS{FT}()
+                       ) where {FT<:AbstractFloat,PS}
+    if e_int ≠ nothing && ρ ≠ nothing
+        _FT = eltype(e_int)
+        @assert p === nothing
+        @assert T === nothing
+    elseif p ≠ nothing && T ≠ nothing
+        _FT = eltype(T)
+        @assert e_int === nothing
+        @assert ρ === nothing
+        e_int = internal_energy(T, param_set)
+        ρ = air_density(T, p, param_set)
+    else
+        throw(ArgumentError("PhaseDry kwarg combination incorrect."))
+    end
 
-"""
-    PhaseDry_given_pT(p, T)
-
-Constructs a [`PhaseDry`](@ref) thermodynamic state from:
-
- - `p` pressure
- - `T` temperature
-"""
-function PhaseDry_given_pT(p::FT, T::FT, param_set::PS=MTPS{FT}()) where {FT<:Real,PS}
-  e_int = internal_energy(T, param_set)
-  ρ = air_density(T, p, param_set)
-  return PhaseDry{FT,PS}(param_set, e_int, ρ)
+  return PhaseDry{_FT,PS}(param_set, e_int, ρ)
 end
+PhaseDry(;kwargs...) = PhaseDry{eltype(values(kwargs))}(;kwargs...)
 
-
-"""
-    LiquidIcePotTempSHumEquil(θ_liq_ice, ρ, q_tot)
-
-Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
-
- - `θ_liq_ice` liquid-ice potential temperature
- - `ρ` (moist-)air density
- - `q_tot` total specific humidity
- - `tol` tolerance for saturation adjustment
- - `maxiter` maximum iterations for saturation adjustment
-"""
-function LiquidIcePotTempSHumEquil(θ_liq_ice::FT,
-                                   ρ::FT,
-                                   q_tot::FT,
-                                   maxiter::Int=30,
-                                   tol::FT=FT(1e-1),
-                                   param_set::PS=MTPS{FT}()
-                                   ) where {FT<:Real,PS}
-    T = saturation_adjustment_q_tot_θ_liq_ice(θ_liq_ice, ρ, q_tot, maxiter, tol, param_set)
-    q_pt = PhasePartition_equil(T, ρ, q_tot, param_set)
-    e_int = internal_energy(T, q_pt, param_set)
-    return PhaseEquil{FT,PS}(param_set, e_int, ρ, q_tot, T)
-end
-LiquidIcePotTempSHumEquil(θ_liq_ice::FT,
-                          ρ::FT,
-                          q_tot::FT,
-                          param_set::PS=MTPS{FT}()
-                          ) where {FT<:Real,PS} =
-  LiquidIcePotTempSHumEquil(θ_liq_ice,
-                            ρ,
-                            q_tot,
-                            30,
-                            FT(1e-1),
-                            param_set
-                            )
-
-
-"""
-    LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice, p, q_tot)
-
-Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
-
- - `θ_liq_ice` liquid-ice potential temperature
- - `p` pressure
- - `q_tot` total specific humidity
- - `tol` tolerance for saturation adjustment
- - `maxiter` maximum iterations for saturation adjustment
-"""
-function LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::FT,
-                                                  p::FT,
-                                                  q_tot::FT,
-                                                  maxiter::Int=30,
-                                                  tol::FT=FT(1e-1),
-                                                  param_set::PS=MTPS{FT}()
-                                                  ) where {FT<:Real,PS}
-    T = saturation_adjustment_q_tot_θ_liq_ice_given_pressure(θ_liq_ice, p, q_tot, maxiter, tol, param_set)
-    ρ = air_density(T, p, PhasePartition(q_tot), param_set)
-    q = PhasePartition_equil(T, ρ, q_tot, param_set)
-    e_int = internal_energy(T, q, param_set)
-    return PhaseEquil{FT,PS}(param_set, e_int, ρ, q.tot, T)
-end
-LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice::FT,
-                                         p::FT,
-                                         q_tot::FT,
-                                         param_set::PS=MTPS{FT}()
-                                         ) where {FT<:Real,PS} =
-  LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice,
-                                           p,
-                                           q_tot,
-                                           30,
-                                           FT(1e-1),
-                                           param_set
-                                           )
-
-"""
-    TemperatureSHumEquil(T, p, q_tot)
-
-Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
-
- - `T` temperature
- - `p` pressure
- - `q_tot` total specific humidity
-"""
-function TemperatureSHumEquil(T::FT, p::FT, q_tot::FT, param_set::PS=MTPS{FT}()) where {FT<:Real,PS}
-    ρ = air_density(T, p, PhasePartition(q_tot), param_set)
-    q = PhasePartition_equil(T, ρ, q_tot, param_set)
-    e_int = internal_energy(T, q, param_set)
-    return PhaseEquil{FT,PS}(param_set, e_int, ρ, q_tot, T)
-end
 
 """
    	 PhaseNonEquil{FT} <: ThermodynamicState

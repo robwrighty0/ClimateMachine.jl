@@ -201,15 +201,13 @@ The function returns a tuple of
  - `cv_m` [`cv_m`](@ref)
  - `γ_m = cp_m/cv_m`
 """
-function gas_constants(q::PhasePartition{FT}=q_pt_0(FT), param_set::APS{FT}=MTPS{FT}()) where {FT<:Real}
+function gas_constants(param_set::APS{FT}=MTPS{FT}(), q::PhasePartition{FT}=q_pt_0(FT)) where {FT<:Real}
     R_gas  = gas_constant_air(q, param_set)
     cp = cp_m(q, param_set)
     cv = cv_m(q, param_set)
     γ = cp/cv
     return (R_gas, cp, cv, γ)
 end
-gas_constants(param_set::APS{FT}=MTPS{FT}()) where {FT<:Real} =
-  gas_constants(q_pt_0(FT), param_set)
 
 """
     (R_m, cp_m, cv_m, γ_m) = gas_constants(ts::ThermodynamicState)
