@@ -165,7 +165,7 @@ function main()
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
     end
-
+    
     # Invoke solver (calls solve! function for time-integrator)
     result = CLIMA.invoke!(
         solver_config;

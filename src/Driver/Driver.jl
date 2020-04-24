@@ -435,12 +435,43 @@ Finished
         errf = euclidean_distance(Q, Qe)
         @info @sprintf(
             """
-Euclidean distance
+    Euclidean distance
     norm(Q - Qe)            = %.16e
     norm(Q - Qe) / norm(Qe) = %.16e""",
             errf,
             errf / engfe
         )
+        
+        # Modularise
+        ρ1 = norm(solver_config.Q[:,1,:])
+        ρ0 = norm(Qe[:,1,:])
+        Δρ_rel = (ρ1 - ρ0) / ρ0
+        @info @sprintf(
+        """
+        Update
+            simtime = %8.2f / %8.2f
+            Δρ/ρ0 = %.16e
+        """,
+        ODESolvers.gettime(solver_config.solver),
+        solver_config.timeend,
+        Δρ_rel,
+        )
+        
+        ρe1 = norm(solver_config.Q[:,5,:])
+        ρe0 = norm(Qe[:,5,:])
+        Δρe_rel = (ρe1 - ρe0) / ρe0
+        @info @sprintf(
+        """
+        Update
+            simtime = %8.2f / %8.2f
+            Δρe/ρe0 = %.16e
+        """,
+        ODESolvers.gettime(solver_config.solver),
+        solver_config.timeend,
+        Δρe_rel,
+        )
+        
+        nothing
     end
 
     return engf / eng0
