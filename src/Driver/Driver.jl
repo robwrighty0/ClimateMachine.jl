@@ -419,7 +419,7 @@ Starting %s
     engf = norm(Q)
     @info @sprintf(
         """
-Finished
+    Finished
     norm(Q)            = %.16e
     norm(Q) / norm(Q₀) = %.16e
     norm(Q) - norm(Q₀) = %.16e""",
