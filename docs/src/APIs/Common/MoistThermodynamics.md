@@ -1,7 +1,7 @@
 # Moist Thermodynamics
 
 ```@meta
-CurrentModule = CLIMA.MoistThermodynamics
+CurrentModule = ClimateMachine.MoistThermodynamics
 ```
 
 ## Thermodynamic State Constructors
@@ -11,9 +11,12 @@ PhasePartition
 PhasePartition_equil
 ThermodynamicState
 PhaseDry
+PhaseDry_given_pT
+PhaseDry_given_ρT
 PhaseEquil
 PhaseNonEquil
 TemperatureSHumEquil
+TemperatureSHumEquil_given_pressure
 LiquidIcePotTempSHumEquil
 LiquidIcePotTempSHumNonEquil
 LiquidIcePotTempSHumNonEquil_given_pressure

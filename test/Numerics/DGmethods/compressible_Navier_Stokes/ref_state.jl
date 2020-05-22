@@ -1,20 +1,21 @@
 using MPI
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.Atmos
-using CLIMA.VariableTemplates
-using CLIMA.MoistThermodynamics
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.Atmos
+using ClimateMachine.VariableTemplates
+using ClimateMachine.TemperatureProfiles
+using ClimateMachine.MoistThermodynamics
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.VTK
+using ClimateMachine.VTK
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -27,14 +28,14 @@ if !@isdefined integration_testing
     )
 end
 
-using CLIMA.Atmos
-using CLIMA.Atmos: internal_energy, thermo_state
-import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed
+using ClimateMachine.Atmos
+using ClimateMachine.Atmos: internal_energy, thermo_state
+import ClimateMachine.Atmos: MoistureModel, temperature, pressure, soundspeed
 
-init_state!(bl, state, aux, coords, t) = nothing
+init_state_conservative!(bl, state, aux, coords, t) = nothing
 
 # initial condition
-using CLIMA.Atmos: vars_aux
+using ClimateMachine.Atmos: vars_state_auxiliary
 
 function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
@@ -45,20 +46,20 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
         polynomialorder = N,
     )
 
-    T_s = 320.0
-    RH = 0.01
+    T_s = FT(290)
+    T_profile = IsothermalProfile(param_set, T_s)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        ref_state = HydrostaticState(IsothermalProfile(T_s), RH),
-        init_state = init_state!,
+        ref_state = HydrostaticState(T_profile),
+        init_state_conservative = init_state_conservative!,
     )
 
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
@@ -66,7 +67,12 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
     mkpath("vtk")
     outprefix = @sprintf("vtk/refstate")
-    writevtk(outprefix, dg.auxstate, dg, flattenednames(vars_aux(model, FT)))
+    writevtk(
+        outprefix,
+        dg.state_auxiliary,
+        dg,
+        flattenednames(vars_state_auxiliary(model, FT)),
+    )
     return FT(0)
 end
 
@@ -79,23 +85,19 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
         polynomialorder = N,
     )
 
-    T_min, T_s, Γ = FT(290), FT(320), FT(6.5 * 10^-3)
-    RH = 0.01
+    T_profile = DecayingTemperatureProfile{FT}(param_set)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        ref_state = HydrostaticState(
-            LinearTemperatureProfile(T_min, T_s, Γ),
-            RH,
-        ),
-        init_state = init_state!,
+        ref_state = HydrostaticState(T_profile),
+        init_state_conservative = init_state_conservative!,
     )
 
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
@@ -103,14 +105,19 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
     mkpath("vtk")
     outprefix = @sprintf("vtk/refstate")
-    writevtk(outprefix, dg.auxstate, dg, flattenednames(vars_aux(model, FT)))
+    writevtk(
+        outprefix,
+        dg.state_auxiliary,
+        dg,
+        flattenednames(vars_state_auxiliary(model, FT)),
+    )
     return FT(0)
 end
 
 using Test
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

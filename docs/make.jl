@@ -1,30 +1,29 @@
 Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
 
-using CLIMA, Documenter, Literate
+using ClimateMachine, Documenter, Literate
 
-examples_dir = joinpath(@__DIR__, "..", "examples")      # julia src files
+ENV["GKSwstype"] = "100" # https://github.com/jheinen/GR.jl/issues/278#issuecomment-587090846
+
 generated_dir = joinpath(@__DIR__, "src", "generated") # generated files directory
+rm(generated_dir, force = true, recursive = true)
 mkpath(generated_dir)
-generate_examples = true
 
-include("list_of_examples.jl")           # defines a dict `examples`
-include("list_of_extending_clima.jl")    # defines a dict `extending_clima`
-include("list_of_discussions.jl")        # defines a dict `apis`
-include("list_of_apis.jl")               # defines a dict `discussions`
+include("list_of_getting_started_docs.jl")      # defines `getting_started_docs`
+include("list_of_tutorials.jl")                 # defines `tutorials`
+include("list_of_how_to_guides.jl")             # defines `how_to_guides`
+include("list_of_apis.jl")                      # defines `apis`
+include("list_of_theory_docs.jl")               # defines `theory_docs`
+include("list_of_dev_docs.jl")                  # defines `dev_docs`
 
 pages = Any[
     "Home" => "index.md",
-    "Installation" => "Installation.md",
-    "Examples" => examples,
-    "Extending CLIMA" => extending_clima,
+    "Getting started" => getting_started_docs,
+    "Tutorials" => tutorials,
+    "How-to-guides" => how_to_guides,
     "APIs" => apis,
-    "Theory & design philosophy" => discussions,
-    # TODO: Move everything below here into one of the above sections
-    "Developer docs" => Any[
-        "CodingConventions.md",
-        "AcceptableUnicode.md",
-        "VariableList.md",
-    ],
+    "Contribution guide" => "Contributing.md",
+    "Theory" => theory_docs,
+    "Developer docs" => dev_docs,
 ]
 
 mathengine = MathJax(Dict(
@@ -39,11 +38,11 @@ format = Documenter.HTML(
     mathengine = mathengine,
     collapselevel = 1,
     # prettyurls = !("local" in ARGS),
-    # canonical = "https://climate-machine.github.io/CLIMA/stable/",
+    # canonical = "https://CliMA.github.io/ClimateMachine.jl/stable/",
 )
 
 makedocs(
-    sitename = "CLIMA",
+    sitename = "ClimateMachine",
     doctest = false,
     strict = false,
     linkcheck = false,
@@ -51,14 +50,14 @@ makedocs(
     checkdocs = :exports,
     # checkdocs = :all,
     clean = true,
-    modules = [Documenter, CLIMA],
+    modules = [Documenter, ClimateMachine],
     pages = pages,
 )
 
 include("clean_build_folder.jl")
 
 deploydocs(
-    repo = "github.com/climate-machine/CLIMA.git",
+    repo = "github.com/CliMA/ClimateMachine.jl.git",
     target = "build",
     push_preview = true,
 )

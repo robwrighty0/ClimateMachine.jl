@@ -1,40 +1,45 @@
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
-using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid, VerticalDirection
-using CLIMA.Mesh.Filters
-using CLIMA.DGmethods: DGModel, init_ode_state
-using CLIMA.DGmethods.NumericalFluxes:
-    Rusanov, CentralNumericalFluxGradient, CentralNumericalFluxDiffusive
-using CLIMA.ODESolvers
-using CLIMA.GeneralizedMinimalResidualSolver
-using CLIMA.ColumnwiseLUSolver: ManyColumnLU
-using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.MoistThermodynamics:
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies:
+    StackedCubedSphereTopology, cubedshellwarp, grid1d
+using ClimateMachine.Mesh.Grids:
+    DiscontinuousSpectralElementGrid, VerticalDirection
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.DGmethods: DGModel, init_ode_state
+using ClimateMachine.DGmethods.NumericalFluxes:
+    RusanovNumericalFlux,
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxSecondOrder
+using ClimateMachine.ODESolvers
+using ClimateMachine.GeneralizedMinimalResidualSolver
+using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
+using ClimateMachine.VTK: writevtk, writepvtu
+using ClimateMachine.GenericCallbacks:
+    EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.MoistThermodynamics:
     air_density,
     soundspeed_air,
     internal_energy,
     PhaseDry_given_pT,
     PhasePartition
-using CLIMA.Atmos:
+using ClimateMachine.TemperatureProfiles: IsothermalProfile
+using ClimateMachine.Atmos:
     AtmosModel,
     SphericalOrientation,
     DryModel,
     NoPrecipitation,
     NoRadiation,
     ConstantViscosityWithDivergence,
-    vars_state,
-    vars_aux,
+    vars_state_conservative,
+    vars_state_auxiliary,
     Gravity,
     HydrostaticState,
-    IsothermalProfile,
     AtmosAcousticGravityLinearModel,
     altitude,
     latitude,
     longitude,
     gravitational_potential
-using CLIMA.VariableTemplates: flattenednames
+using ClimateMachine.VariableTemplates: flattenednames
 
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
@@ -46,8 +51,8 @@ using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 const output_vtk = false
 
 function main()
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 
@@ -60,8 +65,8 @@ function main()
     outputtime = 60 * 60
 
     expected_result = Dict()
-    expected_result[Float32] = 9.5064378310656000e+13
-    expected_result[Float64] = 9.5073452847081828e+13
+    expected_result[Float32] = 9.2987451244544000e+13
+    expected_result[Float64] = 9.2993570967854438e+13
 
     for FT in (Float32, Float64)
         result = run(
@@ -107,34 +112,36 @@ function run(
         meshwarp = cubedshellwarp,
     )
 
+    T_profile = IsothermalProfile(param_set, setup.T_ref)
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
         orientation = SphericalOrientation(),
-        ref_state = HydrostaticState(IsothermalProfile(setup.T_ref), FT(0)),
+        ref_state = HydrostaticState(T_profile),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = Gravity(),
-        init_state = setup,
+        init_state_conservative = setup,
     )
     linearmodel = AtmosAcousticGravityLinearModel(model)
 
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
     lineardg = DGModel(
         linearmodel,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         direction = VerticalDirection(),
-        auxstate = dg.auxstate,
+        state_auxiliary = dg.state_auxiliary,
     )
 
     # determine the time step
@@ -153,11 +160,11 @@ function run(
     odesolver = ARK2GiraldoKellyConstantinescu(
         dg,
         lineardg,
-        linearsolver,
+        LinearBackwardEulerSolver(linearsolver; isadjustable = false),
         Q;
         dt = dt,
         t0 = 0,
-        split_nonlinear_linear = false,
+        split_explicit_implicit = false,
     )
 
     filterorder = 18
@@ -288,9 +295,9 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state(model, eltype(Q)))
-    auxnames = flattenednames(vars_aux(model, eltype(Q)))
-    writevtk(filename, Q, dg, statenames, dg.auxstate, auxnames)
+    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
+    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0
