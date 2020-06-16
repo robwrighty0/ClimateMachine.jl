@@ -1,13 +1,13 @@
 # Atmosphere model configurations
 
 The struct `AtmosModel` defines a specific subtype of a balance law
-(i.e. conservation equations) specific to atmospheric modelling. A
+(i.e. conservation equations) specific to atmospheric modeling. A
 complete description of a `model` is provided by the fields listed
 below. In this implementation of the `AtmosModel` we concern ourselves
 with the conservative form of the compressible equations of moist fluid
 motion given a set of initial, boundary and forcing(source) conditions.
 
-### [LES Configuration](@id LESConfig) (with defaults)
+### LES Configuration (with defaults)
 Default field values for the LES `AtmosModel` definition are included
 below. Users are directed to the model subcomponent pages to view the
 possible options for each subcomponent.
@@ -15,14 +15,7 @@ possible options for each subcomponent.
     ::Type{AtmosLESConfigType},
     param_set::AbstractParameterSet;
     orientation::O = FlatOrientation(),
-    ref_state::RS = HydrostaticState(
-        LinearTemperatureProfile(
-            FT(200),
-            FT(280),
-            FT(grav(param_set)) / FT(cp_d(param_set)),
-        ),
-        FT(0),
-    ),
+    ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),)
     turbulence::T = SmagorinskyLilly{FT}(0.21),
     hyperdiffusion::HD = NoHyperDiffusion(),
     moisture::M = EquilMoist{FT}(),
@@ -43,7 +36,7 @@ possible options for each subcomponent.
     whether the problem is solved in a `box (LES)` or a `sphere (GCM)`)
 
 
-### [GCM Configuration](@id GCMConfig)(with defaults)
+### GCM Configuration (with defaults)
 Default field values for the GCM `AtmosModel` definition are included
 below. Users are directed to the model subcomponent pages to view the
 possible options for each subcomponent.
@@ -52,14 +45,7 @@ possible options for each subcomponent.
     ::Type{AtmosGCMConfigType},
     param_set::AbstractParameterSet;
     orientation::O = SphericalOrientation(),
-    ref_state::RS = HydrostaticState(
-        LinearTemperatureProfile(
-            FT(200),
-            FT(280),
-            FT(grav(param_set)) / FT(cp_d(param_set)),
-        ),
-        FT(0),
-    ),
+    ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),)
     turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
     hyperdiffusion::HD = NoHyperDiffusion(),
     moisture::M = EquilMoist{FT}(),

@@ -1,30 +1,68 @@
 # AtmosModel
 
+```@meta
+CurrentModule = ClimateMachine
+```
+
 ## AtmosModel type
 
 ```@docs
+ClimateMachine.Atmos.NoOrientation
+ClimateMachine.Atmos.FlatOrientation
+ClimateMachine.Atmos.SphericalOrientation
 ClimateMachine.Atmos.AtmosModel
 ```
 
-## State Variables
+## Turbulence / SGS
 ```@docs
-ClimateMachine.Atmos.vars_state_conservative
+ClimateMachine.Atmos.turbulence_tensors
+ClimateMachine.Atmos.principal_invariants
+ClimateMachine.Atmos.symmetrize
+ClimateMachine.Atmos.norm2
+ClimateMachine.Atmos.strain_rate_magnitude
+ClimateMachine.Atmos.ConstantViscosityWithDivergence
+ClimateMachine.Atmos.SmagorinskyLilly
+ClimateMachine.Atmos.Vreman
+ClimateMachine.Atmos.AnisoMinDiss
 ```
 
-## Fluxes
+## Moisture
 
-### Nondiffusive Fluxes
 ```@docs
-ClimateMachine.Atmos.flux_first_order!
+ClimateMachine.Atmos.NoPrecipitation
+ClimateMachine.Atmos.DryModel
+ClimateMachine.Atmos.EquilMoist
+ClimateMachine.Atmos.Rain
 ```
 
-### Diffusive Fluxes
+## Reference states
+
 ```@docs
-ClimateMachine.Atmos.flux_second_order!
+ClimateMachine.Atmos.RemainderModel
+ClimateMachine.Atmos.HydrostaticState
+ClimateMachine.Atmos.InitStateBC
+ClimateMachine.Atmos.NoReferenceState
 ```
 
-## Sources
+## Stabilization
+
 ```@docs
-ClimateMachine.Atmos.source!
+ClimateMachine.Atmos.RayleighSponge
+ClimateMachine.Atmos.StandardHyperDiffusion
 ```
 
+## BCs
+```@docs
+ClimateMachine.Atmos.AtmosBC
+ClimateMachine.Atmos.DragLaw
+ClimateMachine.Atmos.Impermeable
+ClimateMachine.Atmos.PrescribedMoistureFlux
+ClimateMachine.Atmos.FreeSlip
+ClimateMachine.Atmos.NoHyperDiffusion
+ClimateMachine.Atmos.PrescribedTemperature
+ClimateMachine.Atmos.PrescribedEnergyFlux
+ClimateMachine.Atmos.ImpermeableTracer
+ClimateMachine.Atmos.Impenetrable
+ClimateMachine.Atmos.Insulating
+ClimateMachine.Atmos.NoSlip
+```

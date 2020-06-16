@@ -1,23 +1,30 @@
 # Diagnostics
 
 ```@meta
-CurrentModule = ClimateMachine.Diagnostics
+CurrentModule = ClimateMachine
 ```
 
-## `Diagnostic Fields`
-
-Diagnostics computes the physically relevant fields for postprocessing.
-
-### Types
-
 ```@docs
-ClimateMachine.Diagnostics.VecGrad
-ClimateMachine.Diagnostics.Vorticity
+Diagnostics
 ```
 
-### Functions
+## Diagnostic Fields
+
+Diagnostics computes the physically relevant fields for post-processing.
+
+### Types / Functions
 
 ```@docs
-ClimateMachine.Diagnostics.compute_vec_grad
-ClimateMachine.Diagnostics.compute_vorticity
+Diagnostics.DiagnosticsGroup
+Diagnostics.VectorGradients
+Diagnostics.Vorticity
+```
+
+### Methods
+
+```@docs
+Diagnostics.setup_dump_state_diagnostics
+Diagnostics.setup_atmos_core_diagnostics
+Diagnostics.setup_dump_aux_diagnostics
+Diagnostics.setup_atmos_default_diagnostics
 ```

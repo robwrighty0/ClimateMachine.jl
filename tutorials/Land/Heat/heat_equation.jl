@@ -40,7 +40,7 @@
 
 # # Preliminary configuration
 
-# ## Loading code
+# ## [Loading code](@id Loading-code-heat)
 
 # First, we'll load our pre-requisites:
 #  - load external packages:
@@ -59,10 +59,9 @@ const param_set = EarthParameterSet()
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.Writers
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
-using ClimateMachine.DGmethods: BalanceLaw, LocalGeometry
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.DGMethods: BalanceLaw, LocalGeometry
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
@@ -71,7 +70,7 @@ using ClimateMachine.SingleStackUtils
 
 #  - import necessary ClimateMachine modules: (`import`ing enables us to
 #  provide implementations of these structs/methods)
-import ClimateMachine.DGmethods:
+import ClimateMachine.DGMethods:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -130,9 +129,10 @@ m = HeatModel{FT}();
 
 # ## Define the variables
 
-# All of the methods defined in this section were `import`ed in # [Loading
-# code](@ref) to let us provide implementations for our `HeatModel` as they
-# will be used by the solver.
+# All of the methods defined in this section were `import`ed in
+# [Loading code](@ref Loading-code-heat) to let us provide
+# implementations for our `HeatModel` as they will be used by
+# the solver.
 
 # Specify auxiliary variables for `HeatModel`
 vars_state_auxiliary(::HeatModel, FT) = @vars(z::FT, T::FT);
@@ -230,7 +230,7 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
-    diffusive.α∇ρcT = m.α * ∇transform.ρcT
+    diffusive.α∇ρcT = -m.α * ∇transform.ρcT
 end;
 
 # We have no sources, nor non-diffusive fluxes.
@@ -256,12 +256,12 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
 )
-    flux.ρcT -= diffusive.α∇ρcT
+    flux.ρcT += diffusive.α∇ρcT
 end;
 
 # ### Boundary conditions
 
-# Second-order terms in our equations, ``∇⋅(G)`` where ``G = α∇ρcT``, are
+# Second-order terms in our equations, ``∇⋅(F)`` where ``F = -α∇ρcT``, are
 # internally reformulated to first-order unknowns.
 # Boundary conditions must be specified for all unknowns, both first-order and
 # second-order unknowns which have been reformulated.
@@ -305,7 +305,7 @@ function boundary_state!(
     if bctype == 1 # bottom
         state⁺.ρcT = m.ρc * m.T_bottom
     elseif bctype == 2 # top
-        diff⁺.α∇ρcT = -n⁻ * m.flux_top
+        diff⁺.α∇ρcT = n⁻ * m.flux_top
     end
 end;
 
@@ -437,7 +437,7 @@ end;
 
 # This is the main `ClimateMachine` solver invocation. While users do not have
 # access to the time-stepping loop, code may be injected via `user_callbacks`,
-# which is a `Tuple` of [`GenericCallbacks`](@ref).
+# which is a `Tuple` of callbacks in [`GenericCallbacks`](@ref ClimateMachine.GenericCallbacks).
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 # # Post-processing

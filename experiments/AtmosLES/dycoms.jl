@@ -1,16 +1,16 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 
 using Distributions
@@ -25,7 +25,7 @@ using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.DGmethods:
+import ClimateMachine.DGMethods:
     vars_state_conservative,
     vars_state_auxiliary,
     vars_integrals,
@@ -37,7 +37,7 @@ import ClimateMachine.DGmethods:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-import ClimateMachine.DGmethods: boundary_state!
+import ClimateMachine.DGMethods: boundary_state!
 import ClimateMachine.Atmos: flux_second_order!
 
 # -------------------- Radiation Model -------------------------- #
@@ -344,7 +344,11 @@ end
 
 function config_diagnostics(driver_config)
     interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+    )
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
@@ -379,7 +383,12 @@ function main()
     dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
+        Filters.apply!(
+            solver_config.Q,
+            ("moisture.ρq_tot",),
+            solver_config.dg.grid,
+            TMARFilter(),
+        )
         nothing
     end
 

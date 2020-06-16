@@ -110,8 +110,9 @@ function kinematic_model_nodal_update_auxiliary_state!(
     q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
     aux.T = air_temperature(param_set, aux.e_int, q)
     ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
+    # TODO: add super_saturation method in moist thermo
     aux.S = max(0, aux.q_vap / q_vap_saturation(ts_neq) - FT(1)) * FT(100)
-    aux.RH = aux.q_vap / q_vap_saturation(ts_neq) * FT(100)
+    aux.RH = relative_humidity(ts_neq)
 
     aux.rain_w = terminal_velocity(param_set, aux.q_rai, state.ρ)
 
@@ -340,7 +341,7 @@ function main()
         GenericCallbacks.EveryXSimulationSteps(filter_freq) do (init = false)
             Filters.apply!(
                 solver_config.Q,
-                (ρq_liq_ind[1], ρq_ice_ind[1], ρq_rai_ind[1]),
+                (:ρq_liq, :ρq_ice, :ρq_rai),
                 solver_config.dg.grid,
                 TMARFilter(),
             )
@@ -348,18 +349,26 @@ function main()
         end
 
     # output for paraview
+
+    # initialize base output prefix directory from rank 0
+    vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
+    if MPI.Comm_rank(mpicomm) == 0
+        mkpath(vtkdir)
+    end
+    MPI.Barrier(mpicomm)
+
     step = [0]
     cb_vtk =
         GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = false)
-            mkpath("vtk/")
-            outprefix = @sprintf(
-                "vtk/new_ex_2_mpirank%04d_step%04d",
+            out_dirname = @sprintf(
+                "new_ex_2_mpirank%04d_step%04d",
                 MPI.Comm_rank(mpicomm),
                 step[1]
             )
-            @info "doing VTK output" outprefix
+            out_path_prefix = joinpath(vtkdir, out_dirname)
+            @info "doing VTK output" out_path_prefix
             writevtk(
-                outprefix,
+                out_path_prefix,
                 solver_config.Q,
                 solver_config.dg,
                 flattenednames(vars_state_conservative(model, FT)),

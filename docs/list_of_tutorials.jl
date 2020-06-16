@@ -4,7 +4,7 @@
 
 generate_tutorials = true
 
-tutorials = Any[]
+tutorials = []
 
 # Allow flag to skip generated
 # tutorials since this is by
@@ -12,35 +12,47 @@ tutorials = Any[]
 # docs build.
 if generate_tutorials
 
-    tutorials_dir = joinpath(@__DIR__, "..", "tutorials")      # julia src files
-
-    non_tutorial_files =
-        ["KinematicModel.jl", "clean_build_folder.jl", "plothelpers.jl"]
-    skip_execute = [
-        "heldsuarez.jl",                 # broken
-        "risingbubble.jl",               # broken
-        "topo.jl",                       # broken
-        "dry_rayleigh_benard.jl",        # takes too long
-        "nonnegative.jl",                # takes too long
-        "ex_2_Kessler.jl",               # takes too long
-        "ex_1_saturation_adjustment.jl", # takes too long
-    ]
-
     # generate tutorials
     import Literate
 
-    tutorials_jl = [
-        joinpath(root, f)
-        for (root, dirs, files) in Base.Filesystem.walkdir(tutorials_dir)
-        for f in files
-    ]
-    filter!(x -> endswith(x, ".jl"), tutorials_jl) # only grab .jl files
-    filter!(x -> !any(occursin.(non_tutorial_files, Ref(x))), tutorials_jl)
+    include("pages_helper.jl")
 
+    tutorials_dir = joinpath(@__DIR__, "..", "tutorials")
+
+    tutorials = [
+        "Atmos" => [
+            "Dry Idealized GCM" => "Atmos/heldsuarez.jl",
+            "Flow in Single Element Stack" => "Atmos/burgers_single_stack.jl",
+        ],
+        "Ocean" => [],
+        "Land" => ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
+        "Numerics" => [
+            "System Solvers" => [
+                "Conjugate Gradient" => "Numerics/SystemSolvers/cg.jl",
+                "Batched Generalized Minimal Residual" =>
+                    "Numerics/SystemSolvers/bgmres.jl",
+            ],
+            "DG Methods" => ["Topology" => "topo.jl"],
+        ],
+        "Diagnostics" => [
+            "Debug" => [
+                "State Statistics Regression" =>
+                    "Diagnostics/Debug/StateCheck.jl",
+            ],
+        ],
+        "Contributing" => ["Notes on Literate" => "literate_markdown.jl"],
+    ]
+
+    # Prepend tutorials_dir
+    tutorials_jl = flatten_to_array_of_strings(get_second(tutorials))
     println("Building literate tutorials:")
     for tutorial in tutorials_jl
         println("    $(tutorial)")
     end
+    transform(x) = joinpath(basename(generated_dir), replace(x, ".jl" => ".md"))
+    tutorials = transform_second(x -> transform(x), tutorials)
+
+    tutorials_jl = map(x -> joinpath(tutorials_dir, x), tutorials_jl)
 
     for tutorial in tutorials_jl
         gen_dir =
@@ -50,26 +62,7 @@ if generate_tutorials
         code = strip(read(script, String))
         mdpost(str) = replace(str, "@__CODE__" => code)
         Literate.markdown(input, gen_dir, postprocess = mdpost)
-        if !any(occursin.(skip_execute, Ref(input)))
-            Literate.notebook(input, gen_dir, execute = true)
-        end
+        Literate.notebook(input, gen_dir, execute = true)
     end
-
-    # TODO: Should we use AutoPages.jl?
-
-    # These files mirror the .jl files in `ClimateMachine.jl/tutorials/`:
-    tutorials = Any[
-        "Atmos" => Any[
-            "Dry Idealized GCM" => "generated/Atmos/heldsuarez.md",
-            "Rising Thermal Bubble" => "generated/Atmos/risingbubble.md",
-        ],
-        "Ocean" => Any[],
-        "Land" => Any["Heat" => Any["Heat Equation" => "generated/Land/Heat/heat_equation.md"],],
-        "Numerics" => Any["LinearSolvers" => Any[
-            "Conjugate Gradient" => "generated/Numerics/LinearSolvers/cg.md",
-            "Batched Generalized Minimal Residual" => "generated/Numerics/LinearSolvers/bgmres.md",
-        ],],
-        "Contributing" => Any["Notes on Literate" => "generated/literate_markdown.md",],
-    ]
 
 end

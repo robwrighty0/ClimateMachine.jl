@@ -10,14 +10,14 @@ using DocStringExtensions
 using LinearAlgebra, StaticArrays
 using ..ConfigTypes
 using ..VariableTemplates
-using ..MoistThermodynamics
+using ..Thermodynamics
 using ..TemperatureProfiles
-import ..MoistThermodynamics: internal_energy
+import ..Thermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection, HorizontalDirection, min_node_distance, EveryDirection
 
-import ClimateMachine.DGmethods:
+import ClimateMachine.DGMethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
@@ -51,7 +51,7 @@ import ClimateMachine.DGmethods:
     integral_set_auxiliary_state!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
-import ..DGmethods.NumericalFluxes:
+import ..DGMethods.NumericalFluxes:
     boundary_state!,
     boundary_flux_second_order!,
     normal_boundary_flux_second_order!,
@@ -93,7 +93,7 @@ struct AtmosModel{FT, PS, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
-    "Orientation ([`ClimateMachine.FlatOrientation`](@ref)(LES in a box) or [`ClimateMachine.SphericalOrientation`](GCM))"
+    "Orientation: [`FlatOrientation`](@ref FlatOrientation)(for LES in a box) or [`SphericalOrientation`](@ref SphericalOrientation) (for GCM)"
     orientation::O
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
@@ -316,6 +316,7 @@ include("boundaryconditions.jl")
 include("linear.jl")
 include("remainder.jl")
 include("courant.jl")
+include("filters.jl")
 
 @doc """
     flux_first_order!(
@@ -474,7 +475,16 @@ end
 @inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
     ρinv = 1 / state.ρ
     u = ρinv * state.ρu
-    return abs(dot(nM, u)) + soundspeed(m, m.moisture, state, aux)
+    uN = abs(dot(nM, u))
+    ss = soundspeed(m, m.moisture, state, aux)
+
+    FT = typeof(state.ρ)
+    ws = fill(uN + ss, MVector{number_state_conservative(m, FT), FT})
+    vars_ws = Vars{vars_state_conservative(m, FT)}(ws)
+
+    wavespeed_tracers!(m.tracers, vars_ws, nM, state, aux, t)
+
+    return ws
 end
 
 
