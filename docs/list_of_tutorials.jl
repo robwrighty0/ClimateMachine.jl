@@ -23,6 +23,7 @@ if generate_tutorials
         "Atmos" => [
             "Dry Idealized GCM" => "Atmos/heldsuarez.jl",
             "Dry Density Current" => "Atmos/densitycurrent.jl",
+            "Flow in Single Element Stack" => "Atmos/burgers_single_stack.jl",
         ],
         "Ocean" => [],
         "Land" => ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
