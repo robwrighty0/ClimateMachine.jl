@@ -164,6 +164,8 @@ function main()
         nothing
     end
 
+    #cb_check_cons = 
+
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,

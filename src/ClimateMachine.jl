@@ -18,12 +18,9 @@ include(joinpath(
     "CloudPhysics",
     "Microphysics.jl",
 ))
-include(joinpath(
-    "Atmos",
-    "PhysicsTests",
-    "PhysicsTests.jl",
-))
 include(joinpath("Common", "SurfaceFluxes", "SurfaceFluxes.jl"))
+include(joinpath("Common", "TestUtilities", "PhysicsTests.jl"))
+include(joinpath("Common", "TestUtilities", "TestUtilities.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
 include(joinpath("Numerics", "DGMethods", "Courant.jl"))
