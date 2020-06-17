@@ -1,8 +1,9 @@
 module PhysicsTests
 
 using DocStringExtensions
+using ClimateMachine.MPIStateArrays
 
-export PhysicsTest, CheckMassConservation, CheckMomentumConservation, CheckMoistureConservation
+export PhysicsTest, CheckMassConservation, CheckMomentumConservation, CheckMoistureConservation, test_conservation
 
 abstract type PhysicsTest end
 """
@@ -43,7 +44,7 @@ struct CheckMomentumConservation <: PhysicsTest
     "Final State"
     Qₑ::MPIStateArray
 end
-function test_conservation(X::CheckEnergyConservation, bl)
+function test_conservation(X::CheckMomentumConservation, bl)
     ρₑ = norm(X.Qₑ[:,5,:])
     ρ₀ = norm(Q₀[:,5,:])
     Δρe_rel = (ρeₑ - ρe₀) / ρe₀
@@ -54,7 +55,7 @@ end
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct CheckEnergyConservation <: PhysicsTest
+struct CheckMoistureConservation <: PhysicsTest
     "Initial State"
     Q₀::MPIStateArray
     "Final State"

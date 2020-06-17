@@ -11,6 +11,7 @@ module TestUtilities
 export build_callback_conservation
 
 using LinearAlgebra
+using Test
 using ..Mesh.Grids
 using ..GenericCallbacks
 using ..MPIStateArrays

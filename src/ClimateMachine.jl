@@ -19,8 +19,6 @@ include(joinpath(
     "Microphysics.jl",
 ))
 include(joinpath("Common", "SurfaceFluxes", "SurfaceFluxes.jl"))
-include(joinpath("Common", "TestUtilities", "PhysicsTests.jl"))
-include(joinpath("Common", "TestUtilities", "TestUtilities.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
 include(joinpath("Numerics", "DGMethods", "Courant.jl"))
@@ -41,6 +39,8 @@ include(joinpath("Diagnostics", "Diagnostics.jl"))
 include(joinpath("Diagnostics", "Debug", "StateCheck.jl"))
 include(joinpath("Utilities", "Checkpoint", "Checkpoint.jl"))
 include(joinpath("Utilities", "Callbacks", "Callbacks.jl"))
+include(joinpath("Common", "TestUtilities", "PhysicsTests.jl"))
+include(joinpath("Common", "TestUtilities", "TestUtilities.jl"))
 include(joinpath("Driver", "Driver.jl"))
 
 end
