@@ -11,6 +11,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
+using ClimateMachine.TestUtilities
 
 using Distributions
 using StaticArrays
@@ -143,7 +144,7 @@ function main()
     ymax = FT(2000)
     zmax = FT(2000)
     t0 = FT(0)
-    timeend = FT(2000)
+    timeend = FT(3600*5)
 
     driver_config = config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
@@ -164,12 +165,15 @@ function main()
         nothing
     end
 
-    #cb_check_cons = 
+    cb_check_cons = build_callback_conservation(solver_config,
+                                                driver_config,
+                                                1000,
+                                                FT(0.0002))
 
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter,),
+        user_callbacks = (cbtmarfilter,cb_check_cons),
         check_euclidean_distance = true,
     )
 
