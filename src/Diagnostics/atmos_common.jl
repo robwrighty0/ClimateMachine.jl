@@ -25,15 +25,15 @@ function atmos_collect_onetime(mpicomm, dg, Q)
         nvertelem = topology.stacksize
         nhorzelem = div(nrealelem, nvertelem)
 
-        localvgeo = array_device(Q) isa CPU ? grid.vgeo : Array(grid.vgeo)
+        vgeo = array_device(Q) isa CPU ? grid.vgeo : Array(grid.vgeo)
 
         AtmosCollected.zvals = zeros(FT, Nqk * nvertelem)
         AtmosCollected.MH_z = zeros(FT, Nqk * nvertelem)
 
         @visitQ nhorzelem nvertelem Nqk Nq begin
             evk = Nqk * (ev - 1) + k
-            z = localvgeo[ijk, grid.x3id, e]
-            MH = localvgeo[ijk, grid.MHid, e]
+            z = vgeo[ijk, grid.x3id, e]
+            MH = vgeo[ijk, grid.MHid, e]
             AtmosCollected.zvals[evk] = z
             AtmosCollected.MH_z[evk] += MH
         end

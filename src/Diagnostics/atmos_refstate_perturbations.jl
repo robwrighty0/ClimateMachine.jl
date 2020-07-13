@@ -45,8 +45,8 @@ function setup_atmos_refstate_perturbations(
     return DiagnosticsGroup(
         "AtmosRefStatePerturbations",
         Diagnostics.atmos_refstate_perturbations_init,
-        Diagnostics.atmos_refstate_perturbations_fini,
         Diagnostics.atmos_refstate_perturbations_collect,
+        Diagnostics.atmos_refstate_perturbations_fini,
         interval,
         out_prefix,
         writer,

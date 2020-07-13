@@ -59,8 +59,8 @@ function setup_atmos_default_perturbations(
     return DiagnosticsGroup(
         "AtmosLESDefaultPerturbations",
         Diagnostics.atmos_les_default_perturbations_init,
-        Diagnostics.atmos_les_default_perturbations_fini,
         Diagnostics.atmos_les_default_perturbations_collect,
+        Diagnostics.atmos_les_default_perturbations_fini,
         interval,
         out_prefix,
         writer,

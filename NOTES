@@ -1,0 +1,7 @@
+- Switch to one implementation per variable and add a parameter that can be used to memoize reusable stuff (like `thermo_state`)
+- Fix `generate_init_vars`: add code to check if each `dvar` _should_ be present by checking if its implementation's type signature matches what's in `bl`
+
+Organizing:
+- For each `dvar` in the group, find its `dvtype` (HorizontalAverage, whatever): generate `dvtype_dvars_map`
+- For each `dvar`, find the parameters to pass to its implementation
+
