@@ -1,22 +1,18 @@
-using Test, Pkg, CuArrays
+using Test, Pkg, CUDA
 
 ENV["JULIA_LOG_LEVEL"] = "WARN"
 
-@test CuArrays.functional()
+@test CUDA.functional()
 
-for submodule in [#"Utilities/ParametersType",
-                  #"Utilities/RootSolvers",
-                  #"Common/PlanetParameters",
-                  #"Common/MoistThermodynamics",
-                  #"Atmos/Parameterizations/SurfaceFluxes",
-                  #"Atmos/Parameterizations/TurbulenceConvection",
-                  #"Mesh",
-                  #"DGmethods",
-                  "ODESolvers",
-                  "Arrays"
-                  ]
-
-  println("Starting tests for $submodule")
-  t = @elapsed include(joinpath(submodule,"runtests.jl"))
-  println("Completed tests for $submodule, $(round(Int, t)) seconds elapsed")
+for submodule in [
+    #"Common/Thermodynamics",
+    #"Common/SurfaceFluxes",
+    "Arrays",
+    #"Numerics/Mesh",
+    #"Numerics/DGMethods",
+    "Numerics/ODESolvers",
+]
+    println("Starting tests for $submodule")
+    t = @elapsed include(joinpath(submodule, "runtests.jl"))
+    println("Completed tests for $submodule, $(round(Int, t)) seconds elapsed")
 end
