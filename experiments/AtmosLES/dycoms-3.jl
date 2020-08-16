@@ -396,8 +396,6 @@ function config_diagnostics(driver_config)
           default_dgngrp, 
           turb_dgngrp, 
           core_dgngrp, 
-          state_dgngrp,
-          aux_dgngrp,
         ]
     )
 end
