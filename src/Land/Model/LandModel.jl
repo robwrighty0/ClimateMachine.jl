@@ -21,7 +21,8 @@ import ..BalanceLaws:
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
     nodal_update_auxiliary_state!
-using ..DGMethods: LocalGeometry, DGModel
+using ..DGMethods: LocalGeometry, DGModel, post_tendency_hook!
+import ..DGMethods: post_tendency_hook!
 export LandModel
 
 """
@@ -219,4 +220,116 @@ include("soil_water.jl")
 include("soil_heat.jl")
 include("soil_bc.jl")
 include("source.jl")
+
+function post_tendency_hook!(
+    dg,
+    land::LandModel,
+    tendency,
+    state_prognostic,
+    t,
+    α,
+    β;
+    event,
+)
+
+    device = array_device(state_prognostic)
+
+    grid = dg.grid
+    topology = grid.topology
+
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
+    Nq = N + 1
+
+    realelems = topology.realelems
+    nelem = length(realelems)
+
+    Np = dofs_per_element(grid)
+
+    event = kernel_post_tendency_source!(
+        land,
+        Val(dim),
+        Val(N),
+        tendency.data,
+        state_prognostic.data,
+        dg.state_auxiliary.data,
+        t,
+        α,
+        realelems;
+        ndrange = Np * nelem,
+        dependencies = (event,),
+    )
+
+    return event
+end
+
+@kernel function kernel_post_tendency_source!(
+    land::LandModel,
+    ::Val{dim},
+    ::Val{N},
+    tendency,
+    state_prognostic,
+    state_auxiliary,
+    t,
+    α,
+    elems,
+) where {dim, N}
+    @uniform begin
+        FT = eltype(state_prognostic)
+        num_state_prognostic = number_states(land, Prognostic())
+        num_state_auxiliary = number_states(land, Auxiliary())
+
+        Nq = N + 1
+
+        Nqk = dim == 2 ? 1 : Nq
+
+        Np = Nq * Nq * Nqk
+
+        local_tendency = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+    end
+
+    I = @index(Global, Linear)
+    eI = (I - 1) ÷ Np + 1
+    n = (I - 1) % Np + 1
+
+    @inbounds begin
+        e = elems[eI]
+
+        # XXX: Should we only read the values we need?
+        #      If so we *could* use FilterIndices
+        @unroll for s in 1:num_state_prognostic
+            local_tendency[s] = tendency[n, s, e]
+        end
+
+        @unroll for s in 1:num_state_prognostic
+            local_state_prognostic[s] = state_prognostic[n, s, e]
+        end
+
+        @unroll for s in 1:num_state_auxiliary
+            local_state_auxiliary[s] = state_auxiliary[n, s, e]
+        end
+
+        @unroll for s in 1:num_state_prognostic
+            local_tendency[s] /= α
+        end
+
+
+        post_tendency_source!(
+            land,
+            Vars{vars_state(land, Prognostic(), FT)}(local_tendency),
+            Vars{vars_state(land, Prognostic(), FT)}(local_state_prognostic),
+            Vars{vars_state(land, Auxiliary(), FT)}(local_state_auxiliary),
+            t,
+        )
+
+        # XXX: Should we write only read the values we need to?
+        #      If so we *could* use FilterIndices
+        @unroll for s in 1:num_state_auxiliary
+            tendency[n, s, e] = local_tendency[s] * α
+        end
+    end
+end
+
 end # Module

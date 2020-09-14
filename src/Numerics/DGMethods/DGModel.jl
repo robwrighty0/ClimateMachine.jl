@@ -576,11 +576,49 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         ),
     )
 
+    comp_stream = post_tendency_hook!(
+        dg,
+        dg.balance_law,
+        tendency,
+        state_prognostic,
+        t,
+        α,
+        β;
+        event = comp_stream,
+    )
+
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     wait(device, comp_stream)
 end
+
+"""
+    post_tendency_hook!(
+        dg,
+        balance_law,
+        tendency,
+        state_prognostic,
+        t,
+        α,
+        β;
+        event)
+
+Allows the modification of tendency prior to return. Any events launched by the
+kernel should be synchronized with `event` and an updated event should be
+returned for synchronization.
+
+Main purpose to is to allow more complex interactions with, for instance filter
+or reuse of some tendency computation in a source (e.g., land model).
+
+!!! warning
+
+    Before using this function, the developer should be aware that `tendency` is
+    not just the evaluation of the model, but also contains scaling by `α` and
+    `β` which should be accounted for. In general, if at all possible a model
+    should be implemented via the standard balance law interface.
+"""
+post_tendency_hook!(_...; event) = event
 
 function init_ode_state(
     dg::DGModel,

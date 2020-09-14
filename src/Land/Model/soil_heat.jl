@@ -126,7 +126,8 @@ function get_initial_temperature(
     return m.T(aux, t)
 end
 
-vars_state(heat::SoilHeatModel, st::Prognostic, FT) = @vars(ρe_int::FT)
+vars_state(heat::SoilHeatModel, st::Prognostic, FT) =
+    @vars(ρe_int::FT, ∇κ∇T::FT)
 vars_state(heat::SoilHeatModel, st::Auxiliary, FT) = @vars(T::FT)
 vars_state(heat::SoilHeatModel, st::Gradient, FT) = @vars(T::FT)
 vars_state(heat::SoilHeatModel, st::GradientFlux, FT) =
@@ -227,4 +228,5 @@ function flux_second_order!(
         -ρe_int_l .* get_diffusive_water_flux(soil.water, diffusive)
     diffusive_heat_flux = -diffusive.soil.heat.κ∇T
     flux.soil.heat.ρe_int += diffusive_heat_flux + diffusive_water_flux
+    flux.soil.heat.∇κ∇T += diffusive_heat_flux
 end
