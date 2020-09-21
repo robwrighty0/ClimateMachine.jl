@@ -109,7 +109,7 @@ using ClimateMachine.BalanceLaws:
     soil_heat_model = PrescribedTemperatureModel((aux, t) -> temperature_value)
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
-    sources = (freeze_thaw_source,)
+    sources = ()#freeze_thaw_source,)
     m = LandModel(
         param_set,
         m_soil;

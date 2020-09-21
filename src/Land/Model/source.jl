@@ -1,5 +1,7 @@
 #### Land sources
 
+export FreezeThaw
+
 function land_source!(
     f::Function,
     land::LandModel,

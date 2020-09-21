@@ -618,7 +618,7 @@ or reuse of some tendency computation in a source (e.g., land model).
     `β` which should be accounted for. In general, if at all possible a model
     should be implemented via the standard balance law interface.
 """
-post_tendency_hook!(_...; event) = event
+post_tendency_hook!(args...; event) = event
 
 function init_ode_state(
     dg::DGModel,
