@@ -29,15 +29,61 @@ function land_source!(
 
 abstract type Source end
 
-abstract type PostTendencySource end
+abstract type PostTendencySource{FT <: AbstractFloat} end
+
+
+
+
+function phase_transition_timescale!(
+    land::LandModel,
+    heat::SoilHeatModel,
+    tendency::Vars,
+    aux::Vars,
+    state::Vars,
+)
+    FT = eltype(state)
+    _LH_f0 = FT(LH_f0(land.param_set))
+    _ρliq = FT(ρ_cloud_liq(land.param_set))
+    _ρice = FT(ρ_cloud_ice(land.param_set))
+    _Tfreeze = FT(T_freeze(land.param_set))#
+
+    ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
+    θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
+    T = get_temperature(land.soil.heat,aux,t)
+    m_w = (_ρliq * θ_l * heaviside(_Tfreeze - T) +
+           _ρice * θ_i * heaviside(T - _Tfreeze)
+           )
+     ∇κ∇T = tendency.soil.heat.∇κ∇T
+    τpt = LH_f0*m_w/abs(∇κ∇T)
+    # Zero this out so we don't really compute a tendency for it (need to
+    # incrementally added time stepping methods since we want to tendency to be 
+    # ∇κ∇T for a single tendency without previous values)
+    tendency.soil.heat.∇κ∇T = 0
+    return τpt
+
+end
+
+
+function phase_transition_timescale(
+    land::LandModel,
+    heat::PrescribedTemperatureModel,
+    tendency::Vars,
+    aux::Vars,
+    state::Vars,
+)
+    FT = eltype(state)
+    return FT(0.0)
+
+end
 
 """
     FreezeThaw <: PostTendencySource
 The function which computes the freeze/thaw source term for Richard's equation.
 """
-Base.@kwdef struct FreezeThaw <: PostTendencySource
-    "Freeze thaw timescale function"
-    τft::Function = nothing
+Base.@kwdef struct FreezeThaw{FT} <: PostTendencySource{FT} 
+    "Freeze thaw"
+    Δt::FT = FT(NaN)
+    τLTE::FT = FT(NaN)
 end
 
 
@@ -50,26 +96,19 @@ function land_post_tendency_source!(
     t,
 )
     FT = eltype(state)
+    _LH_f0 = FT(LH_f0(param_set))
     _ρliq = FT(ρ_cloud_liq(land.param_set))
     _ρice = FT(ρ_cloud_ice(land.param_set))
     _Tfreeze = FT(T_freeze(land.param_set))
 
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
+    T = get_temperature(land.soil.heat,aux,t)
 
-
-    # We've piggybacked on the tendency calculation to store this
-    ∇κ∇T = tendency.soil.heat.∇κ∇T
-
-    τft = source_type.τft(land, ∇κ∇T, state, aux) # we also would like the option of using a constant timescale for a test
-    # plus the default should be to run without this.
-
-
-
-    # Zero this out so we don't really compute a tendency for it (need to
-    # incrementally added time stepping methods since we want to tendency to be 
-    # ∇κ∇T for a single tendency without previous values)
-    tendency.soil.heat.∇κ∇T = 0
+    Δt = source_type.Δt
+    τLTE = source_type.τLTE
+    τpt = phase_transition_timescale(land, land.soil.heat, tendency, state, aux)
+    τft = max(Δt, τLTE, τpt)
 
     F_T =
         1.0 / τft * (
