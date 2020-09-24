@@ -249,7 +249,7 @@ function post_tendency_hook!(
 
     Np = dofs_per_element(grid)
 
-    event = kernel_post_tendency_source!(
+    event = kernel_post_tendency_source!(device, (Np,))(
         land,
         Val(dim),
         Val(N),
