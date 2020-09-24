@@ -320,7 +320,8 @@ end
         end
 
 
-        post_tendency_source!(
+        land_post_tendency_source!(
+            land.source,
             land,
             Vars{vars_state(land, Prognostic(), FT)}(local_tendency),
             Vars{vars_state(land, Prognostic(), FT)}(local_state_prognostic),
