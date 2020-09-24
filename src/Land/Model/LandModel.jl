@@ -236,33 +236,35 @@ function post_tendency_hook!(
     event,
 )
 
-    device = array_device(state_prognostic)
+    if any(map(x -> x isa PostTendencySource, land.source))
+        device = array_device(state_prognostic)
 
-    grid = dg.grid
-    topology = grid.topology
+        grid = dg.grid
+        topology = grid.topology
 
-    dim = dimensionality(grid)
-    N = polynomialorder(grid)
-    Nq = N + 1
+        dim = dimensionality(grid)
+        N = polynomialorder(grid)
+        Nq = N + 1
 
-    realelems = topology.realelems
-    nelem = length(realelems)
+        realelems = topology.realelems
+        nelem = length(realelems)
 
-    Np = dofs_per_element(grid)
+        Np = dofs_per_element(grid)
 
-    event = kernel_post_tendency_source!(device, (Np,))(
-        land,
-        Val(dim),
-        Val(N),
-        tendency.data,
-        state_prognostic.data,
-        dg.state_auxiliary.data,
-        t,
-        α,
-        realelems;
-        ndrange = Np * nelem,
-        dependencies = (event,),
-    )
+        event = kernel_post_tendency_source!(device, (Np,))(
+            land,
+            Val(dim),
+            Val(N),
+            tendency.data,
+            state_prognostic.data,
+            dg.state_auxiliary.data,
+            t,
+            α,
+            realelems;
+            ndrange = Np * nelem,
+            dependencies = (event,),
+        )
+    end
 
     return event
 end
