@@ -2,6 +2,17 @@
 
 export FreezeThaw
 
+function heaviside(x::FT) where {FT}
+    if x>eps(FT)
+        output = FT(1)
+    else
+        output = FT(0)
+    end
+    return output
+end
+
+
+
 function land_source!(
     f::Function,
     land::LandModel,
@@ -64,7 +75,7 @@ function phase_transition_timescale!(
 end
 
 
-function phase_transition_timescale(
+function phase_transition_timescale!(
     land::LandModel,
     heat::PrescribedTemperatureModel,
     tendency::Vars,
@@ -96,7 +107,7 @@ function land_post_tendency_source!(
     t,
 )
     FT = eltype(state)
-    _LH_f0 = FT(LH_f0(param_set))
+    _LH_f0 = FT(LH_f0(land.param_set))
     _ρliq = FT(ρ_cloud_liq(land.param_set))
     _ρice = FT(ρ_cloud_ice(land.param_set))
     _Tfreeze = FT(T_freeze(land.param_set))
@@ -107,7 +118,7 @@ function land_post_tendency_source!(
 
     Δt = source_type.Δt
     τLTE = source_type.τLTE
-    τpt = phase_transition_timescale(land, land.soil.heat, tendency, state, aux)
+    τpt = phase_transition_timescale!(land, land.soil.heat, tendency, state, aux)
     τft = max(Δt, τLTE, τpt)
 
     F_T =

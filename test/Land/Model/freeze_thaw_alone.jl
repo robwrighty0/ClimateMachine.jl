@@ -78,9 +78,10 @@ using ClimateMachine.BalanceLaws:
     Δ = get_grid_spacing(N_poly, nelem_vert, zmax, zmin)
     cs = FT(3e6)
     κ = FT(1.5)
-    τft = FT(cs * Δ^FT(2.0) / κ)
-    determine_τft = (land, ∇κ∇T, state, aux) -> τft
-    freeze_thaw_source = FreezeThaw(τft = determine_τft)
+    τLTE = FT(cs * Δ^FT(2.0) / κ)
+    
+    freeze_thaw_source = FreezeThaw{FT}(Δt = dt,
+                                    τLTE = τLTE)
 
     soil_param_functions =
         SoilParamFunctions{FT}(porosity = 0.75, Ksat = 0.0, S_s = 1e-3)
@@ -109,7 +110,7 @@ using ClimateMachine.BalanceLaws:
     soil_heat_model = PrescribedTemperatureModel((aux, t) -> temperature_value)
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
-    sources = ()#freeze_thaw_source,)
+    sources = (freeze_thaw_source,)
     m = LandModel(
         param_set,
         m_soil;
@@ -157,7 +158,7 @@ using ClimateMachine.BalanceLaws:
         step[1] += 1
         nothing
     end
-
+    
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 
     t = ODESolvers.gettime(solver_config.solver)
@@ -175,6 +176,7 @@ using ClimateMachine.BalanceLaws:
     ]
     t = [all_data[k]["t"][1] for k in 1:n_outputs]
     total_water = m_ice + m_liq
+    τft = max(dt, τLTE)
     m_liq_of_t = m_liq[1] * exp.(-1.0 .* (t .- t[1]) ./ τft)
     m_ice_of_t = -m_liq_of_t .+ (m_ice[1] + m_liq[1])
 
