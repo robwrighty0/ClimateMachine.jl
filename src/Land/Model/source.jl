@@ -64,8 +64,13 @@ function phase_transition_timescale!(
     m_w = (_ρliq * θ_l * heaviside(_Tfreeze - T) +
            _ρice * θ_i * heaviside(T - _Tfreeze)
            )
-     ∇κ∇T = tendency.soil.heat.∇κ∇T
-    τpt = LH_f0*m_w/abs(∇κ∇T)
+    ∇κ∇T = tendency.soil.heat.∇κ∇T
+    if isnan(∇κ∇T)
+        τpt = 0.0
+    else
+        τpt = LH_f0*m_w/abs(∇κ∇T)
+    end
+    
     # Zero this out so we don't really compute a tendency for it (need to
     # incrementally added time stepping methods since we want to tendency to be 
     # ∇κ∇T for a single tendency without previous values)

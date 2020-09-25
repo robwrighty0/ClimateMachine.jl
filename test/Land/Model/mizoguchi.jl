@@ -168,7 +168,7 @@ soil_heat_model = SoilHeatModel(
 );
 
 m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
-sources = ()#freeze_thaw_source,)
+sources = (freeze_thaw_source,)
 m = LandModel(
     param_set,
     m_soil;
@@ -201,6 +201,8 @@ Q = solver_config.Q
 ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
 θ_i_ind =
     varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :θ_i)
+ρe_int_ind =
+    varsindex(vars_state(m, Prognostic(), FT), :soil, :heat, :ρe_int)
 
 all_data = Dict([k => Dict() for k in 1:n_outputs]...)
 step = [1]
@@ -210,8 +212,9 @@ callback = GenericCallbacks.EveryXSimulationTime(
     t = ODESolvers.gettime(solver_config.solver)
     ϑ_l = Q[:, ϑ_l_ind, :]
     θ_i = Q[:, θ_i_ind, :]
+    ρe_int = Q[:, ρe_int_ind, :]
     all_vars =
-        Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i)
+        Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int)
     all_data[step[1]] = all_vars
     step[1] += 1
     nothing
@@ -222,7 +225,8 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 t = ODESolvers.gettime(solver_config.solver)
 ϑ_l = Q[:, ϑ_l_ind, :]
 θ_i = Q[:, θ_i_ind, :]
-all_vars = Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i)
+ρe_int = Q[:, ρe_int_ind, :]
+all_vars = Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int)
 
 all_data[n_outputs] = all_vars
 
