@@ -51,6 +51,7 @@ function phase_transition_timescale!(
     tendency::Vars,
     aux::Vars,
     state::Vars,
+    t::Real,
 )
     FT = eltype(state)
     _LH_f0 = FT(LH_f0(land.param_set))
@@ -68,7 +69,7 @@ function phase_transition_timescale!(
     if isnan(∇κ∇T)
         τpt = 0.0
     else
-        τpt = LH_f0*m_w/abs(∇κ∇T)
+        τpt = _LH_f0*m_w/abs(∇κ∇T)
     end
     
     # Zero this out so we don't really compute a tendency for it (need to
@@ -86,6 +87,7 @@ function phase_transition_timescale!(
     tendency::Vars,
     aux::Vars,
     state::Vars,
+    t::Real
 )
     FT = eltype(state)
     return FT(0.0)
@@ -117,13 +119,13 @@ function land_post_tendency_source!(
     _ρice = FT(ρ_cloud_ice(land.param_set))
     _Tfreeze = FT(T_freeze(land.param_set))
 
-    ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
+    ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, FT(0.0))
     θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
     T = get_temperature(land.soil.heat,aux,t)
 
     Δt = source_type.Δt
     τLTE = source_type.τLTE
-    τpt = phase_transition_timescale!(land, land.soil.heat, tendency, state, aux)
+    τpt = phase_transition_timescale!(land, land.soil.heat, tendency, aux, state, t)
     τft = max(Δt, τLTE, τpt)
 
     F_T =
