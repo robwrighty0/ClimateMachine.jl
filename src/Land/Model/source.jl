@@ -76,7 +76,8 @@ function phase_transition_timescale!(
     # incrementally added time stepping methods since we want to tendency to be 
     # ∇κ∇T for a single tendency without previous values)
     tendency.soil.heat.∇κ∇T = 0
-    return τpt
+    ratio = abs(FT(0.01)*(T-_Tfreeze))
+    return ratio
 
 end
 
@@ -125,7 +126,7 @@ function land_post_tendency_source!(
 
     Δt = source_type.Δt
     τLTE = source_type.τLTE
-    τpt = phase_transition_timescale!(land, land.soil.heat, tendency, aux, state, t)
+    τpt = τLTE*phase_transition_timescale!(land, land.soil.heat, tendency, aux, state, t)
     τft = max(Δt, τLTE, τpt)
 
     F_T =

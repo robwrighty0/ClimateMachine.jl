@@ -449,6 +449,7 @@ imaginary numbers, resulting in domain errors. Exit in this
 case with an error.
 """
 function effective_saturation(porosity::FT, ϑ_l::FT) where {FT}
+    ϑ_l = max(eps(FT),ϑ_l)
     ϑ_l < 0 && error("Effective saturation is negative")
     S_l = ϑ_l / porosity
     return S_l

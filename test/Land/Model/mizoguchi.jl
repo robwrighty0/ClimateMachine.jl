@@ -84,21 +84,21 @@ nelem_vert = 20
 zmax = FT(0)
 zmin = FT(-0.2)
 t0 = FT(0)
-timeend = FT(30)
+timeend = FT(3600*12)
 dt = FT(5)
 
 n_outputs = 30
 every_x_simulation_time = ceil(Int, timeend / n_outputs)
 Δ = get_grid_spacing(N_poly, nelem_vert, zmax, zmin)
 cs = FT(3e6)
-κ = FT(1.5)
+κ = FT(0.15)
 τLTE = FT(cs * Δ^FT(2.0) / κ)
 
 freeze_thaw_source = FreezeThaw{FT}(Δt = dt,
                                     τLTE = τLTE)
 
 porosity = FT(0.535)
-ν_ss_quartz = FT(0.3)
+ν_ss_quartz = FT(0.2)
 ν_ss_minerals = FT(0.8)
 ν_ss_om = FT(0.0)
 ν_ss_gravel = FT(0.0);
@@ -152,7 +152,7 @@ soil_water_model = SoilWaterModel(
     ),
 )
 
-surface_heat_flux = (aux, t) -> eltype(aux)(-28)*(aux.soil.heat.T-eltype(aux)(273.15-6))
+surface_heat_flux = (aux, t) -> eltype(aux)(28)*(aux.soil.heat.T-eltype(aux)(273.15-6))
 T_init = aux -> eltype(aux)(279.85)
 soil_heat_model = SoilHeatModel(
     FT;
