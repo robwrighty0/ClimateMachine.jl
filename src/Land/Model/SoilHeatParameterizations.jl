@@ -136,6 +136,8 @@ end
 Compute the expression for relative saturation.
 """
 function relative_saturation(θ_l::FT, θ_i::FT, porosity::FT) where {FT}
+    θ_l = max(θ_l, eps(FT))
+    θ_i = max(θ_i, eps(FT))
     S_r = (θ_l + θ_i) / porosity
     return S_r
 end

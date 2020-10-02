@@ -79,20 +79,17 @@ using ClimateMachine.BalanceLaws:
     cs = FT(3e6)
     κ = FT(1.5)
     τLTE = FT(cs * Δ^FT(2.0) / κ)
-    
     freeze_thaw_source = FreezeThaw{FT}(Δt = dt,
                                     τLTE = τLTE)
 
     soil_param_functions =
         SoilParamFunctions{FT}(porosity = 0.75, Ksat = 0.0, S_s = 1e-3)
 
-    zero_value = FT(0.0)
-    bottom_flux = (aux, t) -> zero_value
-    surface_flux = (aux, t) -> zero_value
+    bottom_flux = (aux, t) -> eltype(aux)(0.0)
+    surface_flux = (aux, t) -> eltype(aux)(0.0)
     surface_state = nothing
     bottom_state = nothing
-    initial_value = FT(0.33)
-    ϑ_l0 = (aux) -> initial_value
+    ϑ_l0 = (aux) -> eltype(aux)(0.33)
     soil_water_model = SoilWaterModel(
         FT;
         initialϑ_l = ϑ_l0,
@@ -106,8 +103,7 @@ using ClimateMachine.BalanceLaws:
         ),
     )
 
-    temperature_value = FT(267.15)
-    soil_heat_model = PrescribedTemperatureModel((aux, t) -> temperature_value)
+    soil_heat_model = PrescribedTemperatureModel((aux, t) -> eltype(aux)(267.15))
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
     sources = (freeze_thaw_source,)
@@ -179,8 +175,6 @@ using ClimateMachine.BalanceLaws:
     τft = max(dt, τLTE)
     m_liq_of_t = m_liq[1] * exp.(-1.0 .* (t .- t[1]) ./ τft)
     m_ice_of_t = -m_liq_of_t .+ (m_ice[1] + m_liq[1])
-
-    @test mean(abs.(m_ice + m_liq .- total_water)) < 1e-9
     @test mean(abs.(m_liq .- m_liq_of_t)) < 1e-9
     @test mean(abs.(m_ice .- m_ice_of_t)) < 1e-9
 end
