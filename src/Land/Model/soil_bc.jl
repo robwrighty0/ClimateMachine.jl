@@ -444,8 +444,9 @@ function top_boundary_conditions!(
 )
     if bc.surface_state != nothing
         ϑ_l, θ_i = get_water_content(land.soil.water, aux⁻, state⁻, t)
+        eff_porosity = land.soil.param_functions.porosity - θ_i
         θ_l =
-            volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
+            volumetric_liquid_fraction(ϑ_l, eff_porosity)
         ρc_s = volumetric_heat_capacity(
             θ_l,
             θ_i,
@@ -536,8 +537,9 @@ function bottom_boundary_conditions!(
 )
     if bc.bottom_state != nothing
         ϑ_l, θ_i = get_water_content(land.soil.water, aux⁻, state⁻, t)
+        eff_porosity = land.soil.param_functions.porosity - θ_i
         θ_l =
-            volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
+            volumetric_liquid_fraction(ϑ_l, eff_porosity)
         ρc_s = volumetric_heat_capacity(
             θ_l,
             θ_i,

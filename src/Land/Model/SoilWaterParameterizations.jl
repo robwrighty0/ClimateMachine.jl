@@ -419,17 +419,17 @@ hydraulic_head(z, ψ) = z + ψ
 """
     volumetric_liquid_fraction(
         ϑ_l::FT,
-        porosity::FT,
+        eff_porosity::FT,
     ) where {FT}
 
-Compute the volumetric liquid fraction from the porosity and the augmented liquid
+Compute the volumetric liquid fraction from the effective porosity and the augmented liquid
 fraction.
 """
-function volumetric_liquid_fraction(ϑ_l::FT, porosity::FT) where {FT}
-    if ϑ_l < porosity
+function volumetric_liquid_fraction(ϑ_l::FT, eff_porosity::FT) where {FT}
+    if ϑ_l < eff_porosity
         θ_l = ϑ_l
     else
-        θ_l = porosity
+        θ_l = eff_porosity
     end
     return θ_l
 end
@@ -471,13 +471,15 @@ function pressure_head(
     porosity::FT,
     S_s::FT,
     ϑ_l::FT,
+    θ_i::FT,
 ) where {FT}
-
-    S_l = effective_saturation(porosity, ϑ_l)
-    if S_l < 1
+    eff_porosity  = porosity-θ_i
+    S_l_eff = effective_saturation(eff_porosity, ϑ_l)
+    if S_l_eff < 1
+        S_l = effective_saturation(porosity, ϑ_l)
         ψ = matric_potential(model, S_l)
     else
-        ψ = (ϑ_l - porosity) / S_s
+        ψ = (ϑ_l - eff_porosity) / S_s
     end
     return ψ
 end

@@ -60,7 +60,8 @@ function phase_transition_timescale!(
     _Tfreeze = FT(T_freeze(land.param_set))#
 
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
-    θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
+    eff_porosity = land.soil.param_functions.porosity - θ_i
+    θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
     T = get_temperature(land.soil.heat,aux,t)
     m_w = (_ρliq * θ_l * heaviside(_Tfreeze - T) +
            _ρice * θ_i * heaviside(T - _Tfreeze)
@@ -71,13 +72,13 @@ function phase_transition_timescale!(
     else
         τpt = _LH_f0*m_w/abs(∇κ∇T)
     end
-    
+    #println(τpt)
     # Zero this out so we don't really compute a tendency for it (need to
     # incrementally added time stepping methods since we want to tendency to be 
     # ∇κ∇T for a single tendency without previous values)
     tendency.soil.heat.∇κ∇T = 0
-    ratio = abs(FT(0.01)*(T-_Tfreeze))
-    return ratio
+    ratio = abs(FT(100)/(T-_Tfreeze))
+    return ratio#τpt
 
 end
 
@@ -121,14 +122,15 @@ function land_post_tendency_source!(
     _Tfreeze = FT(T_freeze(land.param_set))
 
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, FT(0.0))
-    θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
+    eff_porosity = land.soil.param_functions.porosity - θ_i
+    θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
     T = get_temperature(land.soil.heat,aux,t)
 
     Δt = source_type.Δt
     τLTE = source_type.τLTE
     τpt = τLTE*phase_transition_timescale!(land, land.soil.heat, tendency, aux, state, t)
     τft = max(Δt, τLTE, τpt)
-
+#    println(τft)
     F_T =
         1.0 / τft * (
             _ρliq * θ_l * heaviside(_Tfreeze - T) -
