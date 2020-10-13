@@ -449,8 +449,8 @@ imaginary numbers, resulting in domain errors. Exit in this
 case with an error.
 """
 function effective_saturation(porosity::FT, ϑ_l::FT) where {FT}
-    ϑ_l = max(eps(FT),ϑ_l)
-    ϑ_l < 0 && error("Effective saturation is negative")
+    ϑ_l = max(eps(FT), ϑ_l)
+#    ϑ_l < FT(0) && error("Effective saturation is negative.")
     S_l = ϑ_l / porosity
     return S_l
 end
@@ -473,9 +473,10 @@ function pressure_head(
     ϑ_l::FT,
     θ_i::FT,
 ) where {FT}
+    θ_i < FT(0) && error("Volumetric ice fraction is negative.")
     eff_porosity  = porosity-θ_i
     S_l_eff = effective_saturation(eff_porosity, ϑ_l)
-    if S_l_eff < 1
+    if S_l_eff < FT(1)
         S_l = effective_saturation(porosity, ϑ_l)
         ψ = matric_potential(model, S_l)
     else
@@ -496,7 +497,6 @@ function matric_potential(model::vanGenuchten{FT}, S_l::FT) where {FT}
     n = model.n
     m = model.m
     α = model.α
-
     ψ_m = -((S_l^(-FT(1) / m) - FT(1)) * α^(-n))^(FT(1) / n)
     return ψ_m
 end
@@ -514,7 +514,6 @@ function matric_potential(model::Haverkamp{FT}, S_l::FT) where {FT}
     n = model.n
     m = model.m
     α = model.α
-
     ψ_m = -((S_l^(-FT(1) / m) - FT(1)) * α^(-n))^(FT(1) / n)
     return ψ_m
 end
@@ -530,7 +529,6 @@ Compute the Brooks and Corey function for matric potential.
 function matric_potential(model::BrooksCorey{FT}, S_l::FT) where {FT}
     ψb = model.ψb
     m = model.m
-
     ψ_m = -ψb * S_l^(-FT(1) / m)
     return ψ_m
 end

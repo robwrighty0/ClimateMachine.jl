@@ -1,9 +1,9 @@
 #### Land sources
-
-export FreezeThaw
+using Printf
+export FreezeThaw, FreezeThawSource
 
 function heaviside(x::FT) where {FT}
-    if x>eps(FT)
+    if x> FT(0)
         output = FT(1)
     else
         output = FT(0)
@@ -26,6 +26,8 @@ function land_source!(
     f(land, source, state, diffusive, aux, t, direction)
 end
 
+
+
 function land_source!(
     ::Nothing,
     land::LandModel,
@@ -38,7 +40,7 @@ function land_source!(
 ) end
 
 
-abstract type Source end
+abstract type Source{FT <: AbstractFloat} end
 
 abstract type PostTendencySource{FT <: AbstractFloat} end
 
@@ -60,25 +62,21 @@ function phase_transition_timescale!(
     _Tfreeze = FT(T_freeze(land.param_set))#
 
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
+    θ_i = max(eps(FT), θ_i)
     eff_porosity = land.soil.param_functions.porosity - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
+    θ_l = max(θ_l, eps(FT))
     T = get_temperature(land.soil.heat,aux,t)
     m_w = (_ρliq * θ_l * heaviside(_Tfreeze - T) +
            _ρice * θ_i * heaviside(T - _Tfreeze)
            )
     ∇κ∇T = tendency.soil.heat.∇κ∇T
-    if isnan(∇κ∇T)
-        τpt = 0.0
-    else
-        τpt = _LH_f0*m_w/abs(∇κ∇T)
-    end
-    #println(τpt)
+    τpt = _LH_f0*m_w/abs(∇κ∇T)
     # Zero this out so we don't really compute a tendency for it (need to
     # incrementally added time stepping methods since we want to tendency to be 
     # ∇κ∇T for a single tendency without previous values)
     tendency.soil.heat.∇κ∇T = 0
-    ratio = abs(FT(100)/(T-_Tfreeze))
-    return ratio#τpt
+    return (m_w, τpt)
 
 end
 
@@ -107,6 +105,47 @@ Base.@kwdef struct FreezeThaw{FT} <: PostTendencySource{FT}
 end
 
 
+
+"""
+    FreezeThaw <: PostTendencySource
+The function which computes the freeze/thaw source term for Richard's equation.
+"""
+Base.@kwdef struct FreezeThawSource{FT} <: Source{FT} 
+    "Freeze thaw"
+    Δt::FT = FT(NaN)
+    τLTE::FT = FT(NaN)
+end
+
+function land_source!(
+    source_type::FreezeThawSource,
+    land::LandModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    FT = eltype(state)
+    _ρliq = FT(ρ_cloud_liq(land.param_set))
+    _ρice = FT(ρ_cloud_ice(land.param_set))
+    _Tfreeze = FT(T_freeze(land.param_set))
+
+    ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
+    eff_porosity = land.soil.param_functions.porosity - θ_i
+    θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
+    T = get_temperature(land.soil.heat, aux, t)
+    τ = max(source_type.Δt, source_type.τLTE)
+    τft = τ*abs(FT(100*land.soil.param_functions.porosity)/(T-_Tfreeze))
+    freeze_thaw = 1.0/τft *(_ρliq*θ_l*heaviside(_Tfreeze - T) -
+                            _ρice*θ_i*heaviside(T - _Tfreeze))
+
+    source.soil.water.ϑ_l -= freeze_thaw/_ρliq
+    source.soil.water.θ_i += freeze_thaw/_ρice
+end
+
+
+
 function land_post_tendency_source!(
     source_type::FreezeThaw,
     land::LandModel,
@@ -119,24 +158,43 @@ function land_post_tendency_source!(
     _LH_f0 = FT(LH_f0(land.param_set))
     _ρliq = FT(ρ_cloud_liq(land.param_set))
     _ρice = FT(ρ_cloud_ice(land.param_set))
-    _Tfreeze = FT(T_freeze(land.param_set))
+    _Tfreeze = FT(T_freeze(land.param_set))#
 
-    ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, FT(0.0))
+    ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     eff_porosity = land.soil.param_functions.porosity - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
     T = get_temperature(land.soil.heat,aux,t)
+    m_w = (_ρliq * θ_l * heaviside(_Tfreeze - T) +
+           _ρice * θ_i * heaviside(T - _Tfreeze)
+           )
+    ∇κ∇T = tendency.soil.heat.∇κ∇T
+    τpt = _LH_f0*m_w/abs(∇κ∇T)
+    # Zero this out so we don't really compute a tendency for it (need to
+    # incrementally added time stepping methods since we want to tendency to be 
+    # ∇κ∇T for a single tendency without previous values)
+    tendency.soil.heat.∇κ∇T = 0
 
+    
     Δt = source_type.Δt
     τLTE = source_type.τLTE
-    τpt = τLTE*phase_transition_timescale!(land, land.soil.heat, tendency, aux, state, t)
-    τft = max(Δt, τLTE, τpt)
-#    println(τft)
-    F_T =
-        1.0 / τft * (
-            _ρliq * θ_l * heaviside(_Tfreeze - T) -
-            _ρice * θ_i * heaviside(T - _Tfreeze)
-        )
-
+    τpt_est = τLTE*abs(m_w*_LH_f0/FT(3e6)/(T-_Tfreeze))
+    x = [Δt, τpt_est, τpt]
+    x = x[.~(isinf.(x))]
+    x = x[.~(isnan.(x))]
+    τft = maximum(x)
+#    if aux.z > -0.02 && t > 1780.0 #&& t < 6500.0
+#        @printf("%f %f %f %f %f %f %f %f %f %f\n", t, aux.z, τpt, τpt_est, τft, m_w, T, _Tfreeze, θ_l, θ_i)
+#    end
+    if m_w > eps(FT)
+        F_T =
+                1.0 / τft * (
+                _ρliq * θ_l * heaviside(_Tfreeze - T) -
+                _ρice * θ_i * heaviside(T - _Tfreeze)
+            )
+    else
+        F_T = FT(0.0)
+    end
+    
     tendency.soil.water.ϑ_l -= F_T / _ρliq
     tendency.soil.water.θ_i += F_T / _ρice
 end
