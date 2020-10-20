@@ -10,6 +10,9 @@ using Printf
 
 export @tic, @toc, tictoc
 
+# explicitly enable due to issues with pre-compilation
+const tictoc_enabled = false
+
 # disable to reduce overhead
 const tictoc_track_memory = true
 
@@ -49,20 +52,29 @@ const atexit_function_registered = Ref(false)
 
 # `@tic` helper
 function _tic(nm)
+    @static if !tictoc_enabled
+        return quote end
+    end
     exti = Symbol("tictoc__", nm)
     global timing_info_names
     if exti in timing_info_names
-        throw(ArgumentError("$(nm) already used in @tic"))
+        err_ex = quote
+            throw(ArgumentError("$(nm) already used in @tic"))
+        end
+    else
+        err_ex = quote end
     end
     push!(timing_info_names, exti)
     @static if tictoc_track_memory
         quote
+            $(err_ex)
             global $(exti)
             $(exti).curr = time_ns()
             $(exti).mem = Base.gc_num()
         end
     else
         quote
+            $(err_ex)
             global $(exti)
             $(exti).curr = time_ns()
         end
@@ -88,6 +100,9 @@ end
 
 # `@toc` helper
 function _toc(nm)
+    @static if !tictoc_enabled
+        return quote end
+    end
     exti = Symbol("tictoc__", nm)
     @static if tictoc_track_memory
         quote
@@ -166,6 +181,9 @@ Call at program start (only once!) to set up the globals used by the
 macros and to register the at-exit callback.
 """
 function tictoc()
+    @static if !tictoc_enabled
+        return 0
+    end
     global timing_info_names
     for nm in timing_info_names
         exti = Symbol(nm)

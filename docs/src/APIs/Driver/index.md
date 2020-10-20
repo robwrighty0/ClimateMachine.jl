@@ -3,6 +3,7 @@
 ```@meta
 CurrentModule = ClimateMachine
 ```
+
 ## Solver types
 
 ```@docs
@@ -12,6 +13,8 @@ MultirateSolverType
 AbstractSolverType
 DiscreteSplittingType
 ExplicitSolverType
+ImplicitSolverType
+SplitExplicitSolverType
 ConfigTypes
 IMEXSolverType
 ```
@@ -23,6 +26,7 @@ DriverConfiguration
 SolverConfiguration
 InterpolationConfiguration
 DiagnosticsConfiguration
+ConservationCheck
 ```
 
 ## Initialize / solve

@@ -1,4 +1,4 @@
-# # [Density Current](@id EX-DC-docs)
+# # Density Current
 #
 # In this example, we demonstrate the usage of the `ClimateMachine`
 #  to solve the density current test by Straka 1993.
@@ -52,7 +52,7 @@
 #
 # ## Boilerplate (Using Modules)
 #
-# #### [Skip Section](@ref init)
+# #### [Skip Section](@ref init-dc)
 #
 # Before setting up our experiment, we recognize that we need to import some
 # pre-defined functions from other packages. Julia allows us to use existing
@@ -68,6 +68,7 @@ using ClimateMachine
 ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 # - Required so that we inherit the appropriate model types for the large-eddy
 #   simulation (LES) and global-circulation-model (GCM) configurations.
 using ClimateMachine.ConfigTypes
@@ -116,7 +117,7 @@ using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-# ## [Initial Conditions](@id init)
+# ## [Initial Conditions](@id init-dc)
 #md # !!! note
 #md #     The following variables are assigned in the initial condition
 #md #     - `state.ρ` = Scalar quantity for initial density profile
@@ -126,7 +127,7 @@ const param_set = EarthParameterSet()
 #md #     - `state.tracers.ρχ` = Vector of four tracers (here, for demonstration
 #md #       only; we can interpret these as dye injections for visualisation
 #md #       purposes)
-function init_densitycurrent!(bl, state, aux, (x, y, z), t)
+function init_densitycurrent!(problem, bl, state, aux, (x, y, z), t)
     ## Problem float-type
     FT = eltype(state)
 
@@ -202,18 +203,18 @@ function config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
     ##md #     - [`param_set`](https://CliMA.github.io/CLIMAParameters.jl/dev/)
     ##md #     - [`turbulence`](@ref Turbulence-Closures-docs)
     ##md #     - [`source`](@ref atmos-sources)
-    ##md #     - [`init_state`](@ref init)
+    ##md #     - [`init_state`](@ref init-dc)
 
     _C_smag = FT(0.21)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                             # Flow in a box, requires the AtmosLESConfigType
         param_set;                                      # Parameter set corresponding to earth parameters
+        init_state_prognostic = init_densitycurrent!,   # Apply the initial condition
+        ref_state = ref_state,                          # Reference state
         turbulence = Vreman(_C_smag),                   # Turbulence closure model
         moisture = DryModel(),                          # Exclude moisture variables
         source = (Gravity(),),                          # Gravity is the only source term here
         tracers = NoTracers(),                          # Tracer model with diffusivity coefficients
-        ref_state = ref_state,                          # Reference state
-        init_state_prognostic = init_densitycurrent!, # Apply the initial condition
     )
 
     ## Finally, we pass a `Problem Name` string, the mesh information, and the

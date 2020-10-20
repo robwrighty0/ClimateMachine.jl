@@ -21,7 +21,13 @@ function DGModel(
     numerical_flux_first_order,
     numerical_flux_second_order,
     numerical_flux_gradient;
-    state_auxiliary = create_state(balance_law, grid, Auxiliary()),
+    fill_nan = false,
+    state_auxiliary = create_state(
+        balance_law,
+        grid,
+        Auxiliary(),
+        fill_nan = fill_nan,
+    ),
     state_gradient_flux = create_state(balance_law, grid, GradientFlux()),
     states_higher_order = (
         create_state(balance_law, grid, GradientLaplacian()),
@@ -32,7 +38,7 @@ function DGModel(
     modeldata = nothing,
 )
     state_auxiliary =
-        init_state(state_auxiliary, balance_law, grid, Auxiliary())
+        init_state(state_auxiliary, balance_law, grid, direction, Auxiliary())
     DGModel(
         balance_law,
         grid,
@@ -99,7 +105,6 @@ function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
 end
 
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
-
 
     balance_law = dg.balance_law
     device = array_device(state_prognostic)
@@ -577,13 +582,19 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     wait(device, comp_stream)
 end
 
-function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
+function init_ode_state(
+    dg::DGModel,
+    args...;
+    init_on_cpu = false,
+    fill_nan = false,
+)
     device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
 
     balance_law = dg.balance_law
     grid = dg.grid
 
-    state_prognostic = create_state(balance_law, grid, Prognostic())
+    state_prognostic =
+        create_state(balance_law, grid, Prognostic(), fill_nan = fill_nan)
 
     topology = grid.topology
     Np = dofs_per_element(grid)
@@ -657,16 +668,72 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     return state
 end
 
-function restart_auxiliary_state(bl, grid, aux_data)
+function restart_auxiliary_state(bl, grid, aux_data, direction)
     state_auxiliary = create_state(bl, grid, Auxiliary())
-    state_auxiliary = init_state(state_auxiliary, bl, grid, Auxiliary())
+    state_auxiliary =
+        init_state(state_auxiliary, bl, grid, direction, Auxiliary())
     state_auxiliary .= aux_data
     return state_auxiliary
 end
 
-# fallback
-function update_auxiliary_state!(dg, balance_law, state_prognostic, t, elems)
-    return false
+# TODO: this should really be a separate function
+"""
+    init_state_auxiliary!(
+        bl::BalanceLaw,
+        f!, 
+        statearray_auxiliary,
+        grid,
+        direction;
+        state_temporary = nothing
+    )
+
+Apply `f!(bl, state_auxiliary, tmp, geom)` at each node, storing the result in
+`statearray_auxiliary`, where `tmp` are the values at the corresponding node in
+`state_temporary` and `geom` contains the geometry information.
+"""
+function init_state_auxiliary!(
+    balance_law,
+    init_f!,
+    state_auxiliary,
+    grid,
+    direction;
+    state_temporary = nothing,
+)
+    topology = grid.topology
+    dim = dimensionality(grid)
+    Np = dofs_per_element(grid)
+    polyorder = polynomialorder(grid)
+    vgeo = grid.vgeo
+    device = array_device(state_auxiliary)
+    nrealelem = length(topology.realelems)
+
+    event = Event(device)
+    event = kernel_nodal_init_state_auxiliary!(
+        device,
+        min(Np, 1024),
+        Np * nrealelem,
+    )(
+        balance_law,
+        Val(dim),
+        Val(polyorder),
+        init_f!,
+        state_auxiliary.data,
+        isnothing(state_temporary) ? nothing : state_temporary.data,
+        Val(isnothing(state_temporary) ? @vars() : vars(state_temporary)),
+        vgeo,
+        topology.realelems,
+        dependencies = (event,),
+    )
+
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    wait(device, event)
 end
 
 function update_auxiliary_state_gradient!(
@@ -763,8 +830,13 @@ function reverse_indefinite_stack_integral!(
     wait(device, event)
 end
 
-# TODO: Move to BalanceLaws
-function nodal_update_auxiliary_state!(
+# By default, we call update_auxiliary_state!, given
+# nodal_update_auxiliary_state!, defined for the
+# particular balance_law:
+
+
+# TODO: this should really be a separate function
+function update_auxiliary_state!(
     f!,
     dg::DGModel,
     m::BalanceLaw,
@@ -785,12 +857,12 @@ function nodal_update_auxiliary_state!(
 
     Np = dofs_per_element(grid)
 
-    nodal_update_auxiliary_state! =
+    knl_nodal_update_auxiliary_state! =
         kernel_nodal_update_auxiliary_state!(device, min(Np, 1024))
     ### update state_auxiliary variables
     event = Event(device)
     if diffusive
-        event = nodal_update_auxiliary_state!(
+        event = knl_nodal_update_auxiliary_state!(
             m,
             Val(dim),
             Val(N),
@@ -805,7 +877,7 @@ function nodal_update_auxiliary_state!(
             dependencies = (event,),
         )
     else
-        event = nodal_update_auxiliary_state!(
+        event = knl_nodal_update_auxiliary_state!(
             m,
             Val(dim),
             Val(N),
@@ -904,4 +976,70 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
     state_prognostic = create_state(balance_law, grid, Prognostic())
 
     return state_prognostic
+end
+
+"""
+    continuous_field_gradient!(::BalanceLaw, ∇state::MPIStateArray,
+                               vars_out, state::MPIStateArray, vars_in, grid;
+                               direction = EveryDirection())
+
+Take the gradient of the variables `vars_in` located in the array `state`
+and stores it in the variables `vars_out` of `∇state`. This function computes
+element wise gradient without accounting for numerical fluxes and hence
+its primary purpose is to take the gradient of continuous reference fields.
+
+## Examples
+```julia
+FT = eltype(state_auxiliary)
+grad_Φ = similar(state_auxiliary, vars=@vars(∇Φ::SVector{3, FT}))
+continuous_field_gradient!(
+    model,
+    grad_Φ,
+    ("∇Φ",),
+    state_auxiliary,
+    ("orientation.Φ",),
+    grid,
+)
+```
+"""
+function continuous_field_gradient!(
+    m::BalanceLaw,
+    ∇state::MPIStateArray,
+    vars_out,
+    state::MPIStateArray,
+    vars_in,
+    grid,
+    direction = EveryDirection(),
+)
+    topology = grid.topology
+    nrealelem = length(topology.realelems)
+
+    N = polynomialorder(grid)
+    dim = dimensionality(grid)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    Nfp = Nq * Nqk
+    device = array_device(state)
+
+    I = varsindices(vars(state), vars_in)
+    O = varsindices(vars(∇state), vars_out)
+
+    event = Event(device)
+
+    event = kernel_continuous_field_gradient!(device, (Nq, Nq, Nqk))(
+        m,
+        Val(dim),
+        Val(N),
+        direction,
+        ∇state.data,
+        state.data,
+        grid.vgeo,
+        grid.D,
+        grid.ω,
+        Val(I),
+        Val(O),
+        ndrange = (nrealelem * Nq, Nq, Nqk),
+        dependencies = (event,),
+    )
+    wait(device, event)
 end

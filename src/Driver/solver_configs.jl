@@ -8,7 +8,7 @@
 
 Parameters needed by `ClimateMachine.solve!()` to run a simulation.
 """
-struct SolverConfiguration{FT}
+mutable struct SolverConfiguration{FT}
     name::String
     mpicomm::MPI.Comm
     param_set::AbstractParameterSet
@@ -41,6 +41,9 @@ DGMethods.courant(
     direction = EveryDirection(),
 ) = DGMethods.courant(f, sc.dg, sc.dg.balance_law, Q, dt, simtime, direction)
 
+get_direction(::ClimateMachineConfigType) = EveryDirection()
+get_direction(::SingleStackConfigType) = VerticalDirection()
+
 """
     ClimateMachine.SolverConfiguration(
         t0::FT,
@@ -70,8 +73,12 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `modeldata=nothing`: passed through to `DGModel`.
 # - `Courant_number=0.4`: for the simulation.
 # - `diffdir=EveryDirection()`: restrict diffusivity direction.
+# - `direction=EveryDirection()`: restrict diffusivity direction.
 # - `timeend_dt_adjust=true`: should `dt` be adjusted to hit `timeend` exactly
 # - `CFL_direction=EveryDirection()`: direction for `calculate_dt`
+
+Note that `diffdir`, `direction`, and `CFL_direction` are `VerticalDirection()`
+when `driver_config.config_type isa SingleStackConfigType`.
 """
 function SolverConfiguration(
     t0::FT,
@@ -83,9 +90,12 @@ function SolverConfiguration(
     ode_dt = nothing,
     modeldata = nothing,
     Courant_number = nothing,
-    diffdir = EveryDirection(),
+    diffdir = get_direction(driver_config.config_type),
+    direction = get_direction(driver_config.config_type),
     timeend_dt_adjust = true,
-    CFL_direction = EveryDirection(),
+    CFL_direction = get_direction(driver_config.config_type),
+    fixed_number_of_steps = Settings.fixed_number_of_steps,
+    skip_update_aux = false,
 ) where {FT <: AbstractFloat}
     @tic SolverConfiguration
 
@@ -98,7 +108,7 @@ function SolverConfiguration(
     # Create the DG model and initialize the ODE state. If we're restarting,
     # use state data from the checkpoint.
     if Settings.restart_from_num > 0
-        s_Q, s_aux, t0 = Callbacks.read_checkpoint(
+        s_Q, s_aux, t0 = read_checkpoint(
             Settings.checkpoint_dir,
             driver_config.name,
             driver_config.array_type,
@@ -106,18 +116,25 @@ function SolverConfiguration(
             Settings.restart_from_num,
         )
 
-        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux)
+        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux, direction)
 
-        dg = DGModel(
-            bl,
-            grid,
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            numerical_flux_gradient,
-            state_auxiliary = state_auxiliary,
-            diffusion_direction = diffdir,
-            modeldata = modeldata,
-        )
+        if hasproperty(driver_config.config_info, :dg)
+            dg = driver_config.config_info.dg
+
+            dg.state_auxiliary .= state_auxiliary
+        else
+            dg = DGModel(
+                bl,
+                grid,
+                numerical_flux_first_order,
+                numerical_flux_second_order,
+                numerical_flux_gradient;
+                state_auxiliary = state_auxiliary,
+                direction = direction,
+                diffusion_direction = diffdir,
+                modeldata = modeldata,
+            )
+        end
 
         @info @sprintf(
             "Initializing %s from time %8.2f",
@@ -126,20 +143,58 @@ function SolverConfiguration(
         )
         Q = restart_ode_state(dg, s_Q; init_on_cpu = init_on_cpu)
     else
-        dg = DGModel(
-            bl,
-            grid,
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            numerical_flux_gradient,
-            diffusion_direction = diffdir,
-            modeldata = modeldata,
-        )
+        if hasproperty(driver_config.config_info, :dg)
+            dg = driver_config.config_info.dg
+        else
+            dg = DGModel(
+                bl,
+                grid,
+                numerical_flux_first_order,
+                numerical_flux_second_order,
+                numerical_flux_gradient;
+                fill_nan = Settings.debug_init,
+                direction = direction,
+                diffusion_direction = diffdir,
+                modeldata = modeldata,
+            )
+        end
+
+        if Settings.debug_init
+            write_debug_init_vtk_and_pvtu(
+                "init_auxiliary",
+                driver_config,
+                dg,
+                dg.state_auxiliary,
+                flattenednames(vars_state(bl, Auxiliary(), FT)),
+            )
+        end
 
         @info @sprintf("Initializing %s", driver_config.name,)
         Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
+
+        if Settings.debug_init
+            write_debug_init_vtk_and_pvtu(
+                "init_prognostic",
+                driver_config,
+                dg,
+                Q,
+                flattenednames(vars_state(bl, Prognostic(), FT)),
+            )
+        end
     end
-    update_auxiliary_state!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
+    if !skip_update_aux
+        update_auxiliary_state!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
+    end
+
+    if Settings.debug_init
+        write_debug_init_vtk_and_pvtu(
+            "first_update_auxiliary",
+            driver_config,
+            dg,
+            dg.state_auxiliary,
+            flattenednames(vars_state(bl, Auxiliary(), FT)),
+        )
+    end
 
     # default Courant number
     # TODO: Think about revising this or drop it entirely.
@@ -170,8 +225,13 @@ function SolverConfiguration(
             CFL_direction,
         )
     end
-    numberofsteps = convert(Int, cld(timeend - t0, ode_dt))
-    timeend_dt_adjust && (ode_dt = (timeend - t0) / numberofsteps)
+    if fixed_number_of_steps < 0
+        numberofsteps = convert(Int, cld(timeend - t0, ode_dt))
+        timeend_dt_adjust && (ode_dt = (timeend - t0) / numberofsteps)
+    else
+        numberofsteps = fixed_number_of_steps
+        timeend = fixed_number_of_steps * ode_dt
+    end
 
     # create the solver
     solver = solversetup(ode_solver_type, dg, Q, ode_dt, t0, diffdir)
@@ -192,4 +252,43 @@ function SolverConfiguration(
         init_args,
         solver,
     )
+end
+
+function write_debug_init_vtk_and_pvtu(
+    suffix_name,
+    driver_config,
+    dg,
+    state,
+    state_names,
+)
+    mpicomm = driver_config.mpicomm
+    bl = driver_config.bl
+
+    vprefix = @sprintf(
+        "%s_mpirank%04d_%s",
+        driver_config.name,
+        MPI.Comm_rank(mpicomm),
+        suffix_name,
+    )
+    out_prefix = joinpath(Settings.output_dir, vprefix)
+
+    writevtk(
+        out_prefix,
+        state,
+        dg,
+        state_names;
+        number_sample_points = Settings.vtk_number_sample_points,
+    )
+
+    # Generate the pvtu file for these vtk files
+    if MPI.Comm_rank(mpicomm) == 0
+        pprefix = @sprintf("%s_%s", driver_config.name, suffix_name)
+        pvtuprefix = joinpath(Settings.output_dir, pprefix)
+
+        # name of each of the ranks vtk files
+        prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
+            @sprintf("%s_mpirank%04d_%s", driver_config.name, i - 1, suffix_name,)
+        end
+        writepvtu(pvtuprefix, prefixes, state_names, eltype(state))
+    end
 end

@@ -30,12 +30,13 @@ struct ConstantHyperDiffusion{dim, dir, FT} <: HyperDiffusionProblem
     D::SMatrix{3, 3, FT, 9}
 end
 
-function init_hyperdiffusion_tensor!(
-    problem::ConstantHyperDiffusion,
+function nodal_init_state_auxiliary!(
+    balance_law::HyperDiffusion,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
 )
-    aux.D = problem.D
+    aux.D = balance_law.problem.D
 end
 
 function initial_condition!(
@@ -98,7 +99,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 end
 
 
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     dim,
@@ -281,7 +282,7 @@ let
                     "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
                     "_level$(l)" :
                         nothing
-                    result[l] = run(
+                    result[l] = test_run(
                         mpicomm,
                         ArrayType,
                         dim,

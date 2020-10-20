@@ -28,7 +28,6 @@ using Logging, Printf, Dates
 using Random
 
 using ClimateMachine.VariableTemplates
-
 import ClimateMachine.BalanceLaws: vars_state
 
 import ClimateMachine.DGMethods:
@@ -36,7 +35,7 @@ import ClimateMachine.DGMethods:
     flux_second_order!,
     source!,
     boundary_state!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
@@ -53,9 +52,10 @@ vars_state(::ConservationTestModel, ::Prognostic, T) = @vars(q::T, p::T)
 
 vars_state(::ConservationTestModel, ::AbstractStateType, T) = @vars()
 
-function init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     ::ConservationTestModel,
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 )
     x, y, z = g.coord
@@ -154,7 +154,7 @@ function numerical_boundary_flux_first_order!(
     end
 end
 
-function run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, FT, dt)
+function test_run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, FT, dt)
 
     topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
 
@@ -224,7 +224,7 @@ let
         Rrange = range(FT(1), stop = FT(2), step = FT(1 // 4))
 
         @info (ArrayType, FT)
-        delta_mass = run(
+        delta_mass = test_run(
             mpicomm,
             ArrayType,
             polynomialorder,

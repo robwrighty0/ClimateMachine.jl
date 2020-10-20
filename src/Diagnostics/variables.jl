@@ -122,13 +122,17 @@ function setup_variables()
     )
     Variables["qt"] = DiagnosticVariable(
         "qt",
-        var_attrib("kg kg^-1", "total specific humidity", ""),
+        var_attrib(
+            "kg kg^-1",
+            "mass fraction of total water in air (qv+ql+qi)",
+            "mass_fraction_of_water_in_air",
+        ),
     )
     Variables["ql"] = DiagnosticVariable(
         "ql",
         var_attrib(
             "kg kg^-1",
-            "liquid water specific humidity",
+            "mass fraction of liquid water in air",
             "mass_fraction_of_cloud_liquid_water_in_air",
         ),
     )
@@ -136,8 +140,16 @@ function setup_variables()
         "qv",
         var_attrib(
             "kg kg^-1",
-            "water vapor specific humidity",
-            "specific humidity",
+            "mass fraction of water vapor in air",
+            "specific_humidity",
+        ),
+    )
+    Variables["qi"] = DiagnosticVariable(
+        "qi",
+        var_attrib(
+            "kg kg^-1",
+            "mass fraction of ice in air",
+            "mass_fraction_of_cloud_ice_in_air",
         ),
     )
     Variables["thl"] = DiagnosticVariable(
@@ -209,6 +221,14 @@ function setup_variables()
         var_attrib(
             "kg kg^-1 m s^-1",
             "vertical eddy flux of liquid water specific humidity",
+            "",
+        ),
+    )
+    Variables["cov_w_qi"] = DiagnosticVariable(
+        "cov_w_qi",
+        var_attrib(
+            "kg kg^-1 m s^-1",
+            "vertical eddy flux of cloud ice specific humidity",
             "",
         ),
     )
@@ -432,4 +452,24 @@ function setup_variables()
             "",
         ),
     )
+    Variables["E_k"] = DiagnosticVariable(
+        "E_k",
+        var_attrib(
+            "",
+            "volumetrically-averaged dimensionless kinetic energy",
+            "",
+        ),
+    )
+    Variables["dE"] = DiagnosticVariable(
+        "dE",
+        var_attrib(
+            "",
+            "volumetrically-averaged kinetic energy dissipation",
+            "",
+        ),
+    )
+    Variables["mass_loss"] =
+        DiagnosticVariable("mass_loss", var_attrib("", "", ""))
+    Variables["energy_loss"] =
+        DiagnosticVariable("energy_loss", var_attrib("", "", ""))
 end

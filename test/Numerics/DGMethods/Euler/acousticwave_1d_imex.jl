@@ -19,7 +19,7 @@ using ClimateMachine.Thermodynamics:
     air_density,
     soundspeed_air,
     internal_energy,
-    PhaseDry_given_pT,
+    PhaseDry_pT,
     PhasePartition
 using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
@@ -66,9 +66,9 @@ function main()
     expected_result[Float32] = 9.5066030866432000e+13
     expected_result[Float64] = 9.5073452847149594e+13
 
-    for FT in (Float32, Float64)
+    for FT in (Float64, Float32)
         for split_explicit_implicit in (false, true)
-            result = run(
+            result = test_run(
                 mpicomm,
                 polynomialorder,
                 numelem_horz,
@@ -84,7 +84,7 @@ function main()
     end
 end
 
-function run(
+function test_run(
     mpicomm,
     polynomialorder,
     numelem_horz,
@@ -118,15 +118,15 @@ function run(
     δ_χ = @SVector [FT(ii) for ii in 1:ntracers]
 
     model = AtmosModel{FT}(
-        AtmosLESConfigType,
+        AtmosGCMConfigType,
         param_set;
+        init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        tracers = NTracers{length(δ_χ), FT}(δ_χ),
         source = Gravity(),
-        init_state_prognostic = setup,
+        tracers = NTracers{length(δ_χ), FT}(δ_χ),
     )
     linearmodel = AtmosAcousticGravityLinearModel(model)
 
@@ -160,6 +160,14 @@ function run(
     Q = init_ode_state(dg, FT(0))
 
     linearsolver = ManyColumnLU()
+    # linearsolver = BatchedGeneralizedMinimalResidual(
+    #    lineardg,
+    #    Q;
+    #    atol = 1.0e-6, #sqrt(eps(FT)) * 0.01,
+    #    rtol = 1.0e-8, #sqrt(eps(FT)) * 0.01,
+    #    # Maximum number of Krylov iterations in a column
+    #)
+
 
     if split_explicit_implicit
         rem_dg = remainder_DGModel(
@@ -174,12 +182,17 @@ function run(
     odesolver = ARK2GiraldoKellyConstantinescu(
         split_explicit_implicit ? rem_dg : dg,
         lineardg,
-        LinearBackwardEulerSolver(linearsolver; isadjustable = false),
+        LinearBackwardEulerSolver(
+            linearsolver;
+            isadjustable = true,
+            preconditioner_update_freq = -1,
+        ),
         Q;
         dt = dt,
         t0 = 0,
         split_explicit_implicit = split_explicit_implicit,
     )
+    @test getsteps(odesolver) == 0
 
     filterorder = 18
     filter = ExponentialFilter(grid, 0, filterorder)
@@ -248,6 +261,8 @@ function run(
         callbacks = callbacks,
     )
 
+    @test getsteps(odesolver) == nsteps
+
     # final statistics
     engf = norm(Q)
     @info @sprintf """Finished
@@ -266,7 +281,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
     nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
+function (setup::AcousticWaveSetup)(problem, bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
@@ -280,7 +295,7 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
     Δp = setup.γ * f * g
     p = aux.ref_state.p + Δp
 
-    ts = PhaseDry_given_pT(bl.param_set, p, setup.T_ref)
+    ts = PhaseDry_pT(bl.param_set, p, setup.T_ref)
     q_pt = PhasePartition(ts)
     e_pot = gravitational_potential(bl.orientation, aux)
     e_int = internal_energy(ts)

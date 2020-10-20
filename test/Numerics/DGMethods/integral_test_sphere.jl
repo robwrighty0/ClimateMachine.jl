@@ -31,7 +31,7 @@ import ClimateMachine.BalanceLaws:
     reverse_indefinite_stack_integral!,
     boundary_state!,
     compute_gradient_argument!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!,
     integral_set_auxiliary_state!,
     reverse_integral_load_auxiliary_state!,
@@ -77,9 +77,10 @@ boundary_state!(_, ::IntegralTestSphereModel, _...) = nothing
 init_state_prognostic!(::IntegralTestSphereModel, _...) = nothing
 wavespeed(::IntegralTestSphereModel, _...) = 1
 
-function init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     m::IntegralTestSphereModel,
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 )
 
@@ -135,7 +136,7 @@ if !@isdefined integration_testing
 end
 
 using Test
-function run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
+function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
     grid = DiscontinuousSpectralElementGrid(
         topl,
         FloatType = FT,
@@ -190,7 +191,7 @@ let
             Nvert = 2^(l - 1) * base_Nvert
             Rrange = grid1d(FT(Rinner), FT(Router); nelem = Nvert)
             topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
-            err[l] = run(
+            err[l] = test_run(
                 mpicomm,
                 topl,
                 ArrayType,

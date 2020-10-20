@@ -36,6 +36,8 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
     dt::RT
     "time"
     t::RT
+    "elapsed time steps"
+    steps::Int
     "storage for transfer tendency"
     dQ2fast::MSA
 
@@ -59,13 +61,14 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
             fast_solver,
             RT(dt),
             RT(t0),
+            0,
             dQ2fast,
         )
     end
 end
 
 function dostep!(
-    Qvec,
+    Qslow,
     split::SplitExplicitSolver{SS},
     param,
     time::Real,
@@ -73,8 +76,7 @@ function dostep!(
     slow = split.slow_solver
     fast = split.fast_solver
 
-    Qslow = Qvec.slow
-    Qfast = Qvec.fast
+    Qfast = slow.rhs!.modeldata.Q_2D
 
     dQslow = slow.dQ
     dQ2fast = split.dQ2fast

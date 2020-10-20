@@ -145,7 +145,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t, spline_fun)
     return nothing
 end
 
-function kinematic_model_nodal_update_auxiliary_state!(
+function nodal_update_auxiliary_state!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,
@@ -180,7 +180,7 @@ function kinematic_model_nodal_update_auxiliary_state!(
         # supersaturation
         q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
         aux.T = air_temperature(param_set, aux.e_int, q)
-        ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
+        ts_neq = PhaseNonEquil_ρTq(param_set, state.ρ, aux.T, q)
         # TODO: add super_saturation method in moist thermo
         aux.S = max(0, aux.q_vap / q_vap_saturation(ts_neq) - FT(1)) * FT(100)
         aux.RH = relative_humidity(ts_neq) * FT(100)
@@ -191,7 +191,7 @@ function kinematic_model_nodal_update_auxiliary_state!(
             terminal_velocity(param_set, snow_param_set, state.ρ, aux.q_sno)
 
         # more diagnostics
-        ts_eq = TemperatureSHumEquil(param_set, aux.T, state.ρ, aux.q_tot)
+        ts_eq = PhaseEquil_ρTq(param_set, state.ρ, aux.T, aux.q_tot)
         q_eq = PhasePartition(ts_eq)
 
         aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(liquid_param_set, q_eq, q)
@@ -466,7 +466,7 @@ function source!(
         T = air_temperature(param_set, e_int, q)
         _Lf = latent_heat_fusion(param_set, T)
         # equilibrium state at current T
-        ts_eq = TemperatureSHumEquil(param_set, T, state.ρ, q_tot)
+        ts_eq = PhaseEquil_ρTq(param_set, state.ρ, T, q_tot)
         q_eq = PhasePartition(ts_eq)
 
         # zero out the source terms
@@ -912,13 +912,13 @@ function main()
     end
     MPI.Barrier(mpicomm)
 
-    step = [0]
+    vtkstep = [0]
     cb_vtk =
         GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = false)
             out_dirname = @sprintf(
                 "microphysics_test_4_mpirank%04d_step%04d",
                 MPI.Comm_rank(mpicomm),
-                step[1]
+                vtkstep[1]
             )
             out_path_prefix = joinpath(vtkdir, out_dirname)
             @info "doing VTK output" out_path_prefix
@@ -930,7 +930,7 @@ function main()
                 solver_config.dg.state_auxiliary,
                 flattenednames(vars_state(model, Auxiliary(), FT)),
             )
-            step[1] += 1
+            vtkstep[1] += 1
             nothing
         end
 

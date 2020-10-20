@@ -34,6 +34,8 @@ using CLIMAParameters: AbstractParameterSet
 using CLIMAParameters.Planet
 const APS = AbstractParameterSet
 
+Base.broadcastable(param_set::APS) = Ref(param_set)
+
 # Allow users to skip error on non-convergence
 # by importing:
 # ```julia
@@ -48,10 +50,12 @@ error_on_non_convergence() = true
 # Allow users to skip printing warnings on non-convergence
 print_warning() = true
 
-@inline q_pt_0(::Type{FT}) where {FT} = PhasePartition{FT}(FT(0), FT(0), FT(0))
+@inline q_pt_0(::Type{FT}) where {FT} = PhasePartition(FT(0), FT(0), FT(0))
 
 include("states.jl")
 include("relations.jl")
 include("isentropic.jl")
+
+Base.broadcastable(dap::DryAdiabaticProcess) = Ref(dap)
 
 end #module Thermodynamics.jl

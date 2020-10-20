@@ -4,7 +4,7 @@ using Logging
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
-using ClimateMachine.BalanceLaws: nodal_update_auxiliary_state!
+using ClimateMachine.BalanceLaws: update_auxiliary_state!
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
@@ -191,7 +191,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
     end
 end
 
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     topl,
@@ -434,7 +434,7 @@ let
                         "_level$(l)" :
                             nothing
 
-                        result[l], Δmass = run(
+                        result[l], Δmass = test_run(
                             mpicomm,
                             ArrayType,
                             topl,

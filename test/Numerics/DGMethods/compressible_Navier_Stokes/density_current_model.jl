@@ -1,7 +1,13 @@
-
-# Load Packages
+using Test
+using Dates
+using LinearAlgebra
 using MPI
+using Printf
+using Random
+using StaticArrays
+
 using ClimateMachine
+using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -17,12 +23,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
 using ClimateMachine.VTK
-using Random
-using ClimateMachine.Atmos: vars_state
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, grav, MSLP
@@ -62,6 +63,7 @@ year = {1993}
 }
 """
 function Initialise_Density_Current!(
+    problem,
     bl,
     state::Vars,
     aux::Vars,
@@ -95,7 +97,7 @@ function Initialise_Density_Current!(
     π_exner = FT(1) - _grav / (_cp_d * θ) * x3 # exner pressure
     ρ = _MSLP / (_R_d * θ) * (π_exner)^(_cv_d / _R_d) # density
 
-    ts = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
+    ts = PhaseEquil_ρθq(bl.param_set, ρ, θ, q_tot)
     q_pt = PhasePartition(ts)
 
     U, V, W = FT(0), FT(0), FT(0)  # momentum components
@@ -110,7 +112,7 @@ function Initialise_Density_Current!(
     state.moisture.ρq_tot = ρ * q_pt.tot
 end
 # --------------- Driver definition ------------------ #
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     topl,
@@ -134,10 +136,10 @@ function run(
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = Initialise_Density_Current!,
         ref_state = HydrostaticState(T_profile),
         turbulence = AnisoMinDiss{FT}(1),
         source = source,
-        init_state_prognostic = Initialise_Density_Current!,
     )
     # -------------- Define DGModel --------------------------- #
     dg = DGModel(
@@ -180,14 +182,14 @@ function run(
         end
     end
 
-    step = [0]
+    vtkstep = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init = false)
         mkpath("./vtk-dc/")
         outprefix = @sprintf(
             "./vtk-dc/DC_%dD_mpirank%04d_step%04d",
             dim,
             MPI.Comm_rank(mpicomm),
-            step[1]
+            vtkstep[1]
         )
         @debug "doing VTK output" outprefix
         writevtk(
@@ -198,7 +200,7 @@ function run(
             dg.state_auxiliary,
             flattenednames(vars_state(model, Auxiliary(), FT)),
         )
-        step[1] += 1
+        vtkstep[1] += 1
         nothing
     end
 
@@ -236,7 +238,7 @@ let
             brickrange,
             periodicity = (false, true, false),
         )
-        engf_eng0 = run(
+        engf_eng0 = test_run(
             mpicomm,
             ArrayType,
             topl,

@@ -13,8 +13,8 @@ using ...Mesh.Filters: apply!
 using ...Mesh.Grids: VerticalDirection
 using ...Mesh.Geometry
 using ...DGMethods
+using ...DGMethods: init_state_auxiliary!
 using ...DGMethods.NumericalFluxes
-using ...DGMethods.NumericalFluxes: RusanovNumericalFlux
 using ...BalanceLaws
 
 import ..Ocean: coriolis_parameter
@@ -38,7 +38,7 @@ import ...BalanceLaws:
     reverse_indefinite_stack_integral!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
-import ..Ocean: ocean_init_state!, ocean_init_aux!
+import ..Ocean: ocean_init_state!, ocean_init_aux!, ocean_boundary_state!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
@@ -67,10 +67,12 @@ fₒ = first coriolis parameter (constant term)
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{C, PS, P, T} <: BalanceLaw
+struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, T} <: BalanceLaw
     param_set::PS
     problem::P
     coupling::C
+    momentum_advection::MA
+    tracer_advection::TA
     ρₒ::T
     cʰ::T
     cᶻ::T
@@ -86,6 +88,8 @@ struct HydrostaticBoussinesqModel{C, PS, P, T} <: BalanceLaw
         param_set::PS,
         problem::P;
         coupling::C = Uncoupled(),
+        momentum_advection::MA = nothing,
+        tracer_advection::TA = NonLinearAdvectionTerm(),
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
@@ -97,11 +101,13 @@ struct HydrostaticBoussinesqModel{C, PS, P, T} <: BalanceLaw
         κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
-    ) where {FT <: AbstractFloat, PS, P, C}
-        return new{C, PS, P, FT}(
+    ) where {FT <: AbstractFloat, PS, P, C, MA, TA}
+        return new{C, PS, P, MA, TA, FT}(
             param_set,
             problem,
             coupling,
+            momentum_advection,
+            tracer_advection,
             ρₒ,
             cʰ,
             cᶻ,
@@ -177,8 +183,19 @@ end
 sets the initial value for auxiliary variables (those that aren't related to vertical integrals)
 dispatches to ocean_init_aux! which is defined in a problem file such as SimpleBoxProblem.jl
 """
-function init_state_auxiliary!(m::HBModel, A::Vars, geom::LocalGeometry)
-    return ocean_init_aux!(m, m.problem, A, geom)
+function init_state_auxiliary!(
+    m::HBModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+    direction,
+)
+    init_state_auxiliary!(
+        m,
+        (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
+        state_auxiliary,
+        grid,
+        direction,
+    )
 end
 
 """
@@ -444,27 +461,17 @@ t -> time, not used
     t::Real,
     direction,
 )
-    @inbounds begin
-        # ∇h • (g η)
-        hydrostatic_pressure!(m, m.coupling, F, Q, A, t)
+    # ∇ʰ • (g η)
+    hydrostatic_pressure!(m, m.coupling, F, Q, A, t)
 
-        # ∇h • (- ∫(αᵀ θ))
-        pkin = A.pkin
-        Iʰ = @SMatrix [
-            1 -0
-            -0 1
-            -0 -0
-        ]
-        F.u += grav(m.param_set) * pkin * Iʰ
+    # ∇ʰ • (- ∫(αᵀ θ))
+    kinematic_pressure!(m, F, Q, A, t)
 
-        # ∇h • (v ⊗ u)
-        # F.u += v * u'
+    # ∇ʰ • (v ⊗ u)
+    momentum_advection!(m, m.momentum_advection, F, Q, A, t)
 
-        # ∇ • (u θ)
-        θ = Q.θ
-        v = @SVector [Q.u[1], Q.u[2], A.w]
-        F.θ += v * θ
-    end
+    # ∇ • (u θ)
+    tracer_advection!(m, m.tracer_advection, F, Q, A, t)
 
     return nothing
 end
@@ -478,6 +485,52 @@ end
     ]
 
     F.u += grav(m.param_set) * η * Iʰ
+
+    return nothing
+end
+
+@inline function kinematic_pressure!(m::HBModel, F, Q, A, t)
+    pkin = A.pkin
+    Iʰ = @SMatrix [
+        1 -0
+        -0 1
+        -0 -0
+    ]
+    F.u += grav(m.param_set) * pkin * Iʰ
+
+    return nothing
+end
+
+momentum_advection!(::HBModel, ::Nothing, _...) = nothing
+@inline function momentum_advection!(
+    ::HBModel,
+    ::NonLinearAdvectionTerm,
+    F,
+    Q,
+    A,
+    t,
+)
+    u = Q.u
+    @inbounds v = @SVector [Q.u[1], Q.u[2], A.w]
+
+    F.u += v * u'
+
+    return nothing
+end
+
+tracer_advection!(::HBModel, ::Nothing, _...) = nothing
+@inline function tracer_advection!(
+    ::HBModel,
+    ::NonLinearAdvectionTerm,
+    F,
+    Q,
+    A,
+    t,
+)
+    θ = Q.θ
+    @inbounds v = @SVector [Q.u[1], Q.u[2], A.w]
+
+    F.θ += v * θ
 
     return nothing
 end
@@ -551,23 +604,12 @@ end
 
 @inline function coriolis_force!(m::HBModel, ::Uncoupled, S, Q, A, t)
     # f × u
-    f = coriolis_parameter(m, A.y)
+    f = coriolis_parameter(m, m.problem, A.y)
     u, v = Q.u # Horizontal components of velocity
     S.u -= @SVector [-f * v, f * u]
 
     return nothing
 end
-
-"""
-    coriolis_parameter(::HBModel)
-
-northern hemisphere coriolis
-
-# Arguments
-- `m`: model object to dispatch on and get coriolis parameters
-- `y`: y-coordinate in the box
-"""
-@inline coriolis_parameter(m::HBModel, y) = m.fₒ + m.β * y
 
 """
     wavespeed(::HBModel)
@@ -634,15 +676,13 @@ end
 
 @inline compute_flow_deviation!(dg, ::HBModel, ::Uncoupled, _...) = nothing
 
+
 """
     update_auxiliary_state_gradient!(::HBModel)
 
     ∇hu to w for integration
     performs integration for w and pkin (should be moved to its own integral kernels)
     copies down w and wz0 because we don't have 2D structures
-
-    now for actual update aux stuff
-    implements convective adjustment by bumping the vertical diffusivity up by a factor of 1000 if dθdz < 0
 """
 function update_auxiliary_state_gradient!(
     dg::DGModel,
@@ -653,17 +693,12 @@ function update_auxiliary_state_gradient!(
 )
     FT = eltype(Q)
     A = dg.state_auxiliary
+    D = dg.state_gradient_flux
 
-    # store ∇ʰu as integrand for w
-    function f!(m::HBModel, Q, A, D, t)
-        @inbounds begin
-            # load -∇ʰu as ∂ᶻw
-            A.w = -D.∇ʰu
-        end
-
-        return nothing
-    end
-    nodal_update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
+    # load -∇ʰu as ∂ᶻw
+    index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
+    index_∇ʰu = varsindex(vars_state(m, GradientFlux(), FT), :∇ʰu)
+    @views @. A.data[:, index_w, elems] = -D.data[:, index_∇ʰu, elems]
 
     # compute integrals for w and pkin
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
@@ -673,7 +708,6 @@ function update_auxiliary_state_gradient!(
     # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
     # has a limited recursion depth for the types allowed.
     number_aux = number_states(m, Auxiliary())
-    index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
     index_wz0 = varsindex(vars_state(m, Auxiliary(), FT), :wz0)
     Nq, Nqk, _, _, nelemv, nelemh, nhorzrealelem, _ = basic_grid_info(dg)
 
@@ -686,8 +720,32 @@ function update_auxiliary_state_gradient!(
     return true
 end
 
+"""
+    boundary_state!(nf, ::HBModel, args...)
+
+applies boundary conditions for the hyperbolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline function boundary_state!(nf, ocean::HBModel, args...)
+    boundary_conditions = ocean.problem.boundary_conditions
+    return ocean_boundary_state!(nf, boundary_conditions, ocean, args...)
+end
+
+"""
+    ocean_boundary_state!(nf, bc::OceanBC, ::HBModel)
+
+splits boundary condition application into velocity and temperature conditions
+"""
+@inline function ocean_boundary_state!(nf, bc::OceanBC, ocean::HBModel, args...)
+    ocean_velocity_boundary_state!(nf, bc.velocity, ocean, args...)
+    ocean_temperature_boundary_state!(nf, bc.temperature, ocean, args...)
+
+    return nothing
+end
+
+include("bc_velocity.jl")
+include("bc_temperature.jl")
 include("LinearHBModel.jl")
-include("BoundaryConditions.jl")
 include("Courant.jl")
 
 end

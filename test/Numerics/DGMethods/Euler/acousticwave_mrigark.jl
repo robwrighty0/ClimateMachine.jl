@@ -23,7 +23,7 @@ using ClimateMachine.Thermodynamics:
     air_density,
     soundspeed_air,
     internal_energy,
-    PhaseDry_given_pT,
+    PhaseDry_pT,
     PhasePartition
 using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
@@ -32,7 +32,7 @@ using ClimateMachine.Atmos:
     NoPrecipitation,
     NoRadiation,
     NTracers,
-    ConstantViscosityWithDivergence,
+    ConstantDynamicViscosity,
     vars_state,
     Gravity,
     HydrostaticState,
@@ -74,7 +74,7 @@ function main()
     @testset "acoustic wave" begin
         for FT in (Float64,)# Float32)
             for explicit in (true, false)
-                result = run(
+                result = test_run(
                     mpicomm,
                     polynomialorder,
                     numelem_horz,
@@ -91,7 +91,7 @@ function main()
     end
 end
 
-function run(
+function test_run(
     mpicomm,
     polynomialorder,
     numelem_horz,
@@ -129,13 +129,13 @@ function run(
     fullmodel = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        tracers = NTracers{length(δ_χ), FT}(δ_χ),
         source = Gravity(),
-        init_state_prognostic = setup,
+        tracers = NTracers{length(δ_χ), FT}(δ_χ),
     )
     dg = DGModel(
         fullmodel,
@@ -307,7 +307,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
     nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
+function (setup::AcousticWaveSetup)(problem, bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
@@ -321,7 +321,7 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
     Δp = setup.γ * f * g
     p = aux.ref_state.p + Δp
 
-    ts = PhaseDry_given_pT(bl.param_set, p, setup.T_ref)
+    ts = PhaseDry_pT(bl.param_set, p, setup.T_ref)
     q_pt = PhasePartition(ts)
     e_pot = gravitational_potential(bl.orientation, aux)
     e_int = internal_energy(ts)

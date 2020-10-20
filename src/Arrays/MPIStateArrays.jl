@@ -9,7 +9,7 @@ using MPI
 using StaticArrays
 
 using ..TicToc
-using ..VariableTemplates: @vars, varsindex
+using ..VariableTemplates: @vars, varsindex, varsindices, varsize
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
@@ -80,6 +80,11 @@ mutable struct MPIStateArray{
         mpi_knows_cuda = nothing,
     ) where {FT, V}
         data = similar(DA, FT, Np, nstate, numelem)
+
+
+        if varsize(V) > 0 && varsize(V) != nstate
+            error("var sizes and numbers of states do not match")
+        end
 
         if isnothing(mpi_knows_cuda)
             mpi_knows_cuda = MPI.has_cuda()
@@ -154,7 +159,10 @@ mutable struct MPIStateArray{
     end
 end
 
-Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
+function Base.fill!(Q::MPIStateArray, x)
+    fill!(Q.data, x)
+    return Q
+end
 
 vars(Q::MPIStateArray{FT, V}) where {FT, V} = V
 function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
@@ -164,6 +172,31 @@ function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
     else
         return getfield(Q, sym)
     end
+end
+
+"""
+    getstateview(Q, fieldname)
+
+Returns of real element view of the state `fieldname`. The MPI state array `Q`
+must have been generated in a `Vars`-aware fashion. This is mainly to allow accessing fields which line inside of the nested `Vars` state.
+
+The state specified by 'fieldname' can be a 'String', 'Symbol', or 'Expr'
+
+# Examples
+```julia-repl
+julia> S = @vars(x::Float64, y::@vars(α::Float64, β::SVector{3, Float64}))
+julia> Q = MPIStateArray{Float64, S}(MPI.COMM_WORLD, Array, 2, 5, 3)
+julia> β = MPIStateArrays.getstateview(Q, "y.β")
+julia> β = MPIStateArrays.getstateview(Q, :(y.β))
+julia> x = MPIStateArrays.getstateview(Q, :x)
+```
+"""
+function getstateview(
+    Q::MPIStateArray{FT, V},
+    fieldname::Union{String, Symbol, Expr},
+) where {FT, V}
+    varrange = varsindices(V, fieldname)
+    return view(realview(Q), :, varrange[1]:varrange[end], :)
 end
 
 """
@@ -193,7 +226,7 @@ Elements are stored as 'realelems` followed by `ghostelems`.
   * `nabrtorank` is the list of neighboring mpiranks
   * `nabrtovmaprecv` is an `Array` of `UnitRange` that give the ghost data to be
     received from neighboring mpiranks (indexes into `vmaprecv`)
-  * nabrtovmapsend` is an `Array` of `UnitRange` for which elements to send to
+  * `nabrtovmapsend` is an `Array` of `UnitRange` for which elements to send to
     which neighboring mpiranks indexing into the `vmapsend`
   * `weights` is an optional array which gives weight for each degree of freedom
     to be used when computing the 2-norm of the array
@@ -241,14 +274,18 @@ end
 
 # FIXME: should general cases be handled?
 function Base.similar(
-    Q::MPIStateArray{OLDFT, V},
+    Q::MPIStateArray,
     ::Type{A},
-    ::Type{FT},
-) where {A <: AbstractArray, FT <: Number, OLDFT, V}
+    ::Type{FT};
+    vars::Type{V} = vars(Q),
+    nstate = size(Q.data)[2]
+) where {A <: AbstractArray, FT <: Number, V}
     MPIStateArray{FT, V}(
         Q.mpicomm,
         A,
-        size(Q.data)...,
+        size(Q.data)[1],
+        nstate,
+        size(Q.data)[3],
         Q.realelems,
         Q.ghostelems,
         Q.vmaprecv,
@@ -261,15 +298,26 @@ function Base.similar(
 end
 function Base.similar(
     Q::MPIStateArray{FT},
-    ::Type{A},
-) where {A <: AbstractArray, FT <: Number}
-    similar(Q, A, FT)
+    ::Type{A};
+    vars::Type{V} = vars(Q),
+    nstate = size(Q.data)[2]
+) where {A <: AbstractArray, FT <: Number, V}
+    similar(Q, A, FT; vars = V, nstate = nstate)
 end
-function Base.similar(Q::MPIStateArray, ::Type{FT}) where {FT <: Number}
-    similar(Q, typeof(Q.data), FT)
+function Base.similar(
+    Q::MPIStateArray,
+    ::Type{FT};
+    vars::Type{V} = vars(Q),
+    nstate = size(Q.data)[2]
+) where {FT <: Number, V}
+    similar(Q, typeof(Q.data), FT; vars = V, nstate = nstate)
 end
-function Base.similar(Q::MPIStateArray{FT}) where {FT}
-    similar(Q, FT)
+function Base.similar(
+    Q::MPIStateArray{FT};
+    vars::Type{V} = vars(Q),
+    nstate = size(Q.data)[2]
+) where {FT, V}
+    similar(Q, FT; vars = V, nstate = nstate)
 end
 
 Base.size(Q::MPIStateArray, x...; kw...) = size(Q.realdata, x...; kw...)
@@ -748,6 +796,8 @@ array_device(::Union{Array, SArray, MArray}) = CPU()
 array_device(::CuArray) = CUDADevice()
 array_device(s::SubArray) = array_device(parent(s))
 array_device(Q::MPIStateArray) = array_device(Q.data)
+array_device(ra::Base.ReshapedArray{T, N, A}) where {T, N, A <: MPIStateArray} =
+    array_device(parent(ra))
 
 realview(Q::Union{Array, SArray, MArray}) = Q
 realview(Q::MPIStateArray) = Q.realdata

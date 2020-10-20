@@ -22,7 +22,7 @@ import ClimateMachine.BalanceLaws:
     wavespeed,
     update_auxiliary_state!,
     boundary_state!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
@@ -53,9 +53,10 @@ function init_state_prognostic!(
     state.coord = coord
 end
 
-function init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     ::VarsTestModel{dim},
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 ) where {dim}
     x, y, z = aux.coord = g.coord
@@ -63,7 +64,7 @@ function init_state_auxiliary!(
 end
 
 using Test
-function run(mpicomm, dim, Ne, N, FT, ArrayType)
+function test_run(mpicomm, dim, Ne, N, FT, ArrayType)
 
     brickrange = ntuple(j -> range(FT(0); length = Ne[j] + 1, stop = 3), dim)
     topl = StackedBrickTopology(
@@ -112,7 +113,7 @@ let
             err = zeros(FT, lvls)
             for l in 1:lvls
                 @info (ArrayType, FT, dim)
-                run(
+                test_run(
                     mpicomm,
                     dim,
                     ntuple(j -> 2^(l - 1) * numelem[j], dim),

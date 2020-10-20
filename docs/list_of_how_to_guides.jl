@@ -3,8 +3,15 @@
 ####
 
 how_to_guides = Any[
-    "Common" => Any["Thermodynamics" => "HowToGuides/Common/Thermodynamics.md",],
-    "Atmos" => Any["TemperatureProfiles" => "HowToGuides/Atmos/TemperatureProfiles.md",],
+    "Common" => Any[
+        "Thermodynamics" => "HowToGuides/Common/Thermodynamics.md",
+        "Universal Functions" => "HowToGuides/Common/UniversalFunctions.md",
+    ],
+    "Atmos" => Any[
+        "Temperature profiles" => "HowToGuides/Atmos/TemperatureProfiles.md",
+        "Reference profiles" => "HowToGuides/Atmos/AtmosReferenceState.md",
+        "Moisture model" => "HowToGuides/Atmos/MoistureModelChoices.md",
+    ],
     "Ocean" => Any[
     # "Home" => "HowToGuides/Ocean/index.md"
     ],

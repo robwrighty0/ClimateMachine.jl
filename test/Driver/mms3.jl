@@ -12,68 +12,36 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
-import ClimateMachine.Atmos:
-    MoistureModel,
-    temperature,
-    pressure,
-    soundspeed,
-    total_specific_enthalpy,
-    thermo_state
+
+import ClimateMachine.Thermodynamics: total_specific_enthalpy
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
+
+import CLIMAParameters
+# Assume zero reference temperature
+CLIMAParameters.Planet.T_0(::EarthParameterSet) = 0
 
 using LinearAlgebra
 using MPI
 using StaticArrays
 using Test
 
-include("mms_solution_generated.jl")
+const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+include(joinpath(
+    clima_dir,
+    "test",
+    "Numerics",
+    "DGMethods",
+    "compressible_Navier_Stokes",
+    "mms_solution_generated.jl",
+))
 
-"""
-    MMSDryModel
+total_specific_enthalpy(ts::PhaseDry{FT}, e_tot::FT) where {FT <: Real} =
+    zero(FT)
 
-Assumes the moisture components is in the dry limit.
-"""
-struct MMSDryModel <: MoistureModel end
-
-function total_specific_enthalpy(
-    bl::AtmosModel,
-    moist::MMSDryModel,
-    state::Vars,
-    aux::Vars,
-)
-    zero(eltype(state))
-end
-function thermo_state(
-    bl::AtmosModel,
-    moist::MMSDryModel,
-    state::Vars,
-    aux::Vars,
-)
-    PS = typeof(bl.param_set)
-    return PhaseDry{eltype(state), PS}(
-        bl.param_set,
-        internal_energy(bl, state, aux),
-        state.ρ,
-    )
-end
-function pressure(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
-    T = eltype(state)
-    γ = T(7) / T(5)
-    ρinv = 1 / state.ρ
-    return (γ - 1) * (state.ρe - ρinv / 2 * sum(abs2, state.ρu))
-end
-function soundspeed(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
-    T = eltype(state)
-    γ = T(7) / T(5)
-    ρinv = 1 / state.ρ
-    p = pressure(bl, bl.moisture, state, aux)
-    sqrt(ρinv * γ * p)
-end
-
-function mms3_init_state!(bl, state::Vars, aux::Vars, (x1, x2, x3), t)
+function mms3_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
     state.ρ = ρ_g(t, x1, x2, x3, Val(3))
     state.ρu = SVector(
         U_g(t, x1, x2, x3, Val(3)),
@@ -121,16 +89,20 @@ function main()
 
     expected_result = FT(3.403104838700577e-02)
 
+    problem = AtmosProblem(
+        boundarycondition = InitStateBC(),
+        init_state_prognostic = mms3_init_state!,
+    )
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        problem = problem,
         orientation = NoOrientation(),
         ref_state = NoReferenceState(),
-        turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
-        moisture = MMSDryModel(),
+        turbulence = ConstantDynamicViscosity(FT(μ_exact), WithDivergence()),
+        moisture = DryModel(),
         source = mms3_source!,
-        boundarycondition = InitStateBC(),
-        init_state_prognostic = mms3_init_state!,
     )
 
     brickrange = (

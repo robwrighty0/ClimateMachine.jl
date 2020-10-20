@@ -4,9 +4,13 @@
 
 apis = [
     "Home" => "APIs/index.md",
-    "Driver" => "APIs/Driver/index.md",
+    "Driver" => [
+        "Top level interface" => "APIs/Driver/index.md",
+        "Checkpoint" => "APIs/Driver/Checkpoint.md",
+    ],
     "Atmos" => [
         "AtmosModel" => "APIs/Atmos/AtmosModel.md",
+        "Microphysics_0M" => "APIs/Atmos/Microphysics_0M.md",
         "Microphysics" => "APIs/Atmos/Microphysics.md",
         "Temperature Profiles" => "APIs/Atmos/TemperatureProfiles.md",
     ],
@@ -15,15 +19,21 @@ apis = [
         "Land Model" => "APIs/Land/LandModel.md",
         "Soil Water Parameterizations" =>
             "APIs/Land/SoilWaterParameterizations.md",
+        "Soil Heat Parameterizations" =>
+            "APIs/Land/SoilHeatParameterizations.md",
     ],
     "Common" => [
         "Orientations" => "APIs/Common/Orientations.md",
+        "Spectra" => "APIs/Common/Spectra.md",
         "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md",
         "Thermodynamics" => "APIs/Common/Thermodynamics.md",
         "Turbulence Closures" => "APIs/Common/TurbulenceClosures.md",
         "Turbulence Convection" => "APIs/Common/TurbulenceConvection.md",
     ],
-    "Balance Laws" => "APIs/BalanceLaws/BalanceLaws.md",
+    "Balance Laws" => [
+        "Balance Laws" => "APIs/BalanceLaws/BalanceLaws.md",
+        "Problems" => "APIs/BalanceLaws/Problems.md",
+    ],
     "Arrays" => "APIs/Arrays/Arrays.md",
     "Diagnostics" => [
         "Diagnostics groups" => "APIs/Diagnostics/Diagnostics.md",
@@ -41,7 +51,6 @@ apis = [
     "Utilities" => [
         "Variable Templates" => "APIs/Utilities/VariableTemplates.md",
         "Single Stack Utilities" => "APIs/Utilities/SingleStackUtils.md",
-        "Checkpoint" => "APIs/Utilities/Checkpoint.md",
         "Tic Toc" => "APIs/Utilities/TicToc.md",
     ],
 ]

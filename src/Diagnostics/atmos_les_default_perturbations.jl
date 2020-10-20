@@ -8,6 +8,42 @@ using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..Thermodynamics
 
+"""
+    setup_atmos_default_perturbations(
+        ::AtmosLESConfigType,
+        interval::String,
+        out_prefix::String;
+        writer::AbstractWriter,
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the
+"AtmosLESDefaultPerturbations" diagnostics for the LES configuration.
+All the diagnostics in the group will run at the specified `interval`,
+and written to files prefixed by `out_prefix` using `writer`.
+"""
+function setup_atmos_default_perturbations(
+    ::AtmosLESConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosLESDefaultPerturbations",
+        Diagnostics.atmos_les_default_perturbations_init,
+        Diagnostics.atmos_les_default_perturbations_fini,
+        Diagnostics.atmos_les_default_perturbations_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 # Compute sums for density-averaged horizontal averages
 #
 # These are trimmed down versions of `atmos_les_default_simple_sums!()`:
@@ -182,8 +218,7 @@ function atmos_les_default_perturbations_init(
             flattenednames(vars_atmos_les_default_perturbations(atmos, FT)),
         )
         for varname in varnames
-            var = Variables[varname]
-            vars[varname] = (tuple(collect(keys(dims))...), FT, var.attrib)
+            vars[varname] = (tuple(collect(keys(dims))...), FT, OrderedDict())
         end
 
         # create the output file
@@ -248,8 +283,8 @@ function atmos_les_default_perturbations_collect(
     # Compute thermo variables
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
     @visitQ nhorzelem nvertelem Nqk Nq begin
-        state = extract_state_prognostic(dg, state_data, ijk, e)
-        aux = extract_state_auxiliary(dg, aux_data, ijk, e)
+        state = extract_state(dg, state_data, ijk, e, Prognostic())
+        aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
 
         thermo = thermo_vars(atmos, view(thermo_array, ijk, :, e))
         compute_thermo!(atmos, state, aux, thermo)
@@ -258,7 +293,7 @@ function atmos_les_default_perturbations_collect(
     # Interpolate the state and thermo variables.
     interpol = dgngrp.interpol
     istate =
-        ArrayType{FT}(undef, interpol.Npl, number_state_prognostic(atmos, FT))
+        ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Prognostic()))
     interpolate_local!(interpol, Q.realdata, istate)
 
     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))
