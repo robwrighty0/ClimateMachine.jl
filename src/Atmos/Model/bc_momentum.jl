@@ -34,11 +34,10 @@ function atmos_momentum_boundary_state!(
     t,
     args...,
 )
-    #state⁺.ρ = state⁻.ρ
-    #u⁺ = state⁺.ρu / state⁺.ρ
-    #u⁻ = state⁻.ρu / state⁻.ρ
-    #state⁺.ρu = state⁺.ρ * (u⁻ - 2 * dot(u⁻, n) .* SVector(n))
-    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n) 
+    #state⁺.ρu = state⁻.ρu - 2 * dot(state⁻.ρu, n) .* SVector(n)
+    u⁺ = state⁺.ρu / state⁺.ρ
+    u⁻ = state⁻.ρu / state⁻.ρ
+    state⁺.ρu = state⁻.ρ * u⁻ - 2 * state⁻.ρ * dot(u⁻, n) .* SVector(n)
 end
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxGradient,
@@ -53,24 +52,32 @@ function atmos_momentum_boundary_state!(
     t,
     args...,
 )
-  #u⁺ = state⁺.ρu / state⁺.ρ
-  #u⁻ = state⁻.ρu / state⁻.ρ
-  #state⁺.ρu = state⁺.ρ * (u⁻ - dot(u⁻, n) .* SVector(n))
-  state⁺.ρu -= dot(state⁻.ρu, n) .* SVector(n)
+    state⁺.ρu -= dot(state⁻.ρu, n) .* SVector(n)
 end
 function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
     bc_momentum::Impenetrable{FreeSlip},
     atmos,
-    args...,
-)
-@show("Coordinates = ", aux⁻.coord) ;                                                                                                                                                                      
-@show("TW_Mass=", fluxᵀn.ρ,"TW_Energy=", fluxᵀn.ρe, "TW_geopot=", aux⁻.orientation.∇Φ, "TW_Momentum=", fluxᵀn.ρu) : nothing ; 
+    fluxᵀn,
+    n,
+    state⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
+    aux⁻,
+    state⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
+    aux⁺,
+    bctype,
+    t,
+) 
+  @show("Coordinates = ", aux⁻.coord) ; 
+  @show("TW_Mass=", fluxᵀn.ρ,"TW_Energy=", fluxᵀn.ρe, "TW_∂ϕ∂zgeopot=", aux⁻.orientation.∇Φ[3], "TW_Momentum=", fluxᵀn.ρu) : nothing ; 
   if atmos.moisture isa EquilMoist
-  @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot);
+    @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot);
   elseif atmos.moisture isa NonEquilMoist
-  @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot, fluxᵀn.moisture.ρq_ice, fluxᵀn.moisture.ρq_liq) ; 
-  end 
+    @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot, fluxᵀn.moisture.ρq_ice, fluxᵀn.moisture.ρq_liq) ; 
+  end
   @show(".......");
 end
 
@@ -189,4 +196,6 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     # both sides involve projections of normals, so signs are consistent
     fluxᵀn.ρu += state⁻.ρ * τn
     fluxᵀn.ρe += state⁻.ρu' * τn
+
+  t > 90 ? @show("BW_Mass=", fluxᵀn.ρ,"BW_Energy=", fluxᵀn.ρe) : nothing
 end
