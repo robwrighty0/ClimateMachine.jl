@@ -74,10 +74,15 @@ function atmos_momentum_normal_boundary_flux_second_order!(
 ### Debug Block Start
 #
   FT = eltype(state⁻)
+  ts⁻ = recover_thermo_state(atmos, atmos.moisture, state_int⁻, aux_int⁻)
+  p⁻ = air_pressure(ts⁻) - aux⁻.ref_state.p
+  ts⁺ = recover_thermo_state(atmos, atmos.moisture, state_int⁺, aux_int⁺)
+  p⁺ = air_pressure(ts⁺) - aux⁺.ref_state.p
   if aux⁻.coord[3] >= FT(20000)
     @show("Coordinates = ", aux⁻.coord) ; 
     @show(aux⁺.ref_state.p, aux⁻.ref_state.p)
     @show("TW_Mass=", fluxᵀn.ρ,"TW_Energy=", fluxᵀn.ρe, "TW_∂ϕ∂zgeopot=", aux⁻.orientation.∇Φ[3], "TW_Momentum=", fluxᵀn.ρu) ; 
+    @show("Delta_p=", p⁺ - p⁻) ;
   if atmos.moisture isa EquilMoist
     @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot);
   elseif atmos.moisture isa NonEquilMoist
