@@ -19,8 +19,6 @@ No surface drag on momentum parallel to the boundary.
 """
 struct FreeSlip <: MomentumDragBC end
 
-
-
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxFirstOrder,
     bc_momentum::Impenetrable{FreeSlip},
@@ -34,10 +32,11 @@ function atmos_momentum_boundary_state!(
     t,
     args...,
 )
+    FT = eltype(state⁻)
     #state⁺.ρu = state⁻.ρu - 2 * dot(state⁻.ρu, n) .* SVector(n)
-    u⁺ = state⁺.ρu / state⁺.ρ
-    u⁻ = state⁻.ρu / state⁻.ρ
-    state⁺.ρu = state⁻.ρ * u⁻ - 2 * state⁻.ρ * dot(u⁻, n) .* SVector(n)
+    state⁺.ρ = state⁻.ρ
+    ρu_bc = SVector{3,FT}(state⁻.ρu[1], state⁻.ρu[2], FT(0))
+    state⁺.ρu = ρu_bc - 2 * state⁻.ρ * dot(state⁻.ρu, n) .* SVector(n)
 end
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxGradient,
@@ -77,6 +76,7 @@ function atmos_momentum_normal_boundary_flux_second_order!(
 #
 ### Debug Block Start
 #
+  FT = eltype(state⁻)
   if aux⁻.coord[3] >= FT(20000)
     @show("Coordinates = ", aux⁻.coord) ; 
     @show(aux⁺.ref_state.p, aux⁻.ref_state.p)
