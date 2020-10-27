@@ -33,7 +33,13 @@ function atmos_momentum_boundary_state!(
     args...,
 )
     FT = eltype(state⁻)
-    state⁺.ρu = state⁻.ρu - 2 * dot(state⁻.ρu, n) .* SVector(n)
+    u⁻ = state⁻.ρu / state⁻.ρ
+    # Reflective boundary condition
+    u_bc = u⁻ - dot(n,u⁻) .* SVector(n)
+    # Central approximation to b.c. value determines + state
+    u⁺ = 2 * u_bc - u⁻
+    # Assign required plus state
+    state⁺.ρu = state⁻.ρ * u⁺
 end
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxGradient,
@@ -48,7 +54,7 @@ function atmos_momentum_boundary_state!(
     t,
     args...,
 )
-    state⁺.ρu -= dot(state⁻.ρu, n) .* SVector(n)
+    state⁺.ρu = state⁻.ρu - dot(state⁻.ρu, n) .* SVector(n)
 end
 function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
@@ -73,6 +79,7 @@ function atmos_momentum_normal_boundary_flux_second_order!(
 #
 ### Debug Block Start
 #
+#=
   FT = eltype(state⁻)
   ts⁻ = recover_thermo_state(atmos, atmos.moisture, state⁻, aux⁻)
   p⁻ = air_pressure(ts⁻) - aux⁻.ref_state.p
@@ -90,8 +97,9 @@ function atmos_momentum_normal_boundary_flux_second_order!(
   end
   @show(".......");
   end
+=# 
 #
-### Debug Block Start
+### Debug Block End
 #
 end
 
