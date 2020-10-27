@@ -33,10 +33,7 @@ function atmos_momentum_boundary_state!(
     args...,
 )
     FT = eltype(state⁻)
-    #state⁺.ρu = state⁻.ρu - 2 * dot(state⁻.ρu, n) .* SVector(n)
-    state⁺.ρ = state⁻.ρ
-    ρu_bc = SVector{3,FT}(state⁻.ρu[1], state⁻.ρu[2], FT(0))
-    state⁺.ρu = ρu_bc - 2 * state⁻.ρ * dot(state⁻.ρu, n) .* SVector(n)
+    state⁺.ρu = state⁻.ρu - 2 * state⁻.ρ * dot(state⁻.ρu, n) .* SVector(n)
 end
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxGradient,
