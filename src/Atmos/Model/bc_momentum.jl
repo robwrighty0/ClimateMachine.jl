@@ -33,7 +33,7 @@ function atmos_momentum_boundary_state!(
     args...,
 )
     FT = eltype(state⁻)
-    state⁺.ρu = state⁻.ρu - 2 * state⁻.ρ * dot(state⁻.ρu, n) .* SVector(n)
+    state⁺.ρu = state⁻.ρu - 2 * dot(state⁻.ρu, n) .* SVector(n)
 end
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxGradient,
@@ -74,9 +74,9 @@ function atmos_momentum_normal_boundary_flux_second_order!(
 ### Debug Block Start
 #
   FT = eltype(state⁻)
-  ts⁻ = recover_thermo_state(atmos, atmos.moisture, state_int⁻, aux_int⁻)
+  ts⁻ = recover_thermo_state(atmos, atmos.moisture, state⁻, aux⁻)
   p⁻ = air_pressure(ts⁻) - aux⁻.ref_state.p
-  ts⁺ = recover_thermo_state(atmos, atmos.moisture, state_int⁺, aux_int⁺)
+  ts⁺ = recover_thermo_state(atmos, atmos.moisture, state⁺, aux⁺)
   p⁺ = air_pressure(ts⁺) - aux⁺.ref_state.p
   if aux⁻.coord[3] >= FT(20000)
     @show("Coordinates = ", aux⁻.coord) ; 
