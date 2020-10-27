@@ -70,15 +70,27 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     aux⁺,
     bctype,
     t,
+    state_int⁻,
+    diffusive_int⁻,
+    aux_int⁻,
 ) 
-  @show("Coordinates = ", aux⁻.coord) ; 
-  @show("TW_Mass=", fluxᵀn.ρ,"TW_Energy=", fluxᵀn.ρe, "TW_∂ϕ∂zgeopot=", aux⁻.orientation.∇Φ[3], "TW_Momentum=", fluxᵀn.ρu) : nothing ; 
+#
+### Debug Block Start
+#
+  if aux⁻.coord[3] >= FT(20000)
+    @show("Coordinates = ", aux⁻.coord) ; 
+    @show(aux⁺.ref_state.p, aux⁻.ref_state.p)
+    @show("TW_Mass=", fluxᵀn.ρ,"TW_Energy=", fluxᵀn.ρe, "TW_∂ϕ∂zgeopot=", aux⁻.orientation.∇Φ[3], "TW_Momentum=", fluxᵀn.ρu) ; 
   if atmos.moisture isa EquilMoist
     @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot);
   elseif atmos.moisture isa NonEquilMoist
     @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot, fluxᵀn.moisture.ρq_ice, fluxᵀn.moisture.ρq_liq) ; 
   end
   @show(".......");
+  end
+#
+### Debug Block Start
+#
 end
 
 
@@ -196,6 +208,4 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     # both sides involve projections of normals, so signs are consistent
     fluxᵀn.ρu += state⁻.ρ * τn
     fluxᵀn.ρe += state⁻.ρu' * τn
-
-  t > 90 ? @show("BW_Mass=", fluxᵀn.ρ,"BW_Energy=", fluxᵀn.ρe) : nothing
 end
