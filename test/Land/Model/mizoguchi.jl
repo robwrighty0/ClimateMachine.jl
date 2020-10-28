@@ -1,8 +1,4 @@
-# Test that freeze thaw alone reproduces expected behavior: exponential behavior
-# for liquid water content, ice content, and total water conserved
-
-#To be fixed - the grid spacing part, there is some onus on the user to define the τft function appropriately in the PrescribedTemperatureCase. We will define it in the SoilHeatModel case.
-# another issue - passing spacing?
+# Test that freezing front agrees with lab data from Mizoguchi.
 using MPI
 using OrderedCollections
 using StaticArrays
@@ -11,7 +7,7 @@ using Test
 using Logging
 disable_logging(Logging.Warn)
 using DelimitedFiles
-using Plots
+#using Plots
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -94,12 +90,12 @@ include(joinpath(
 ));
 
 N_poly = 1
-nelem_vert = 20
+nelem_vert = 25
 zmax = FT(0)
 zmin = FT(-0.2)
 t0 = FT(0)
-timeend = FT(3600*120)
-n_outputs = 600
+timeend = FT(3600)
+n_outputs = 60
 every_x_simulation_time = ceil(Int, timeend / n_outputs)
 Δ = get_grid_spacing(N_poly, nelem_vert, zmax, zmin)
 
@@ -134,15 +130,6 @@ soil_param_functions =
                            κ_sat_unfrozen = κ_sat_unfrozen,
                            κ_sat_frozen = κ_sat_frozen,
                            );
-cs = FT(3e6)
-κ = FT(1.0)
-#making this larger makes a big difference! in the top value of total water.
-# but also makes freezing front behavior less kink-y
-τLTE = FT(cs * Δ^FT(2.0) / κ)
-dt = FT(10)
-
-freeze_thaw_source = FreezeThaw{FT}(Δt = dt,
-                                    τLTE = τLTE)
 
 bottom_flux = (aux, t) -> eltype(aux)(0.0)
 surface_flux = (aux, t) -> eltype(aux)(0.0)
@@ -151,12 +138,13 @@ bottom_state = nothing
 ϑ_l0 = (aux) -> eltype(aux)(0.33)
 vg_α = 1.11
 vg_n = 1.48
+vg_m = 0.2
 soil_water_model = SoilWaterModel(
     FT;
     viscosity_factor = TemperatureDependentViscosity{FT}(),
     moisture_factor = MoistureDependent{FT}(),
     impedance_factor= IceImpedance{FT}(Ω = 7.0),
-    hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n),
+    hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n, m = vg_m),
     initialϑ_l = ϑ_l0,
     dirichlet_bc = Dirichlet(
         surface_state = surface_state,
@@ -167,15 +155,22 @@ soil_water_model = SoilWaterModel(
         bottom_flux = bottom_flux,
     ),
 )
+
+ρc_s = volumetric_heat_capacity(FT(0.33), FT(0.0), ρc_ds, param_set)
+κ = FT(1.0)
+τLTE = FT(ρc_s * Δ^FT(2.0) / κ)
+dt = FT(2.0)
+explicit = false
+
+freeze_thaw_source = FreezeThawLH{FT}(τLTE = τLTE)#factor = FT(0.9))
 #changing this factor makes front move more slowly but doesnt change top value.
 surface_heat_flux = (aux, t) -> eltype(aux)(28)*(aux.soil.heat.T-eltype(aux)(273.15-6))
-surface_T = nothing#(aux, t) -> eltype(aux)(273.15-6.0)
 T_init = aux -> eltype(aux)(279.85)
 soil_heat_model = SoilHeatModel(
     FT;
     initialT = T_init,
     dirichlet_bc = Dirichlet(
-        surface_state = surface_T,
+        surface_state = nothing,
         bottom_state = nothing,
     ),
     neumann_bc = Neumann(
@@ -216,52 +211,46 @@ solver_config = ClimateMachine.SolverConfiguration(
 dg = solver_config.dg
 Q = solver_config.Q
 
-#vdg = DGModel(
-#    driver_config.bl,
-#    driver_config.grid,
-#    driver_config.numerical_flux_first_order,
-#    driver_config.numerical_flux_second_order,
-#    driver_config.numerical_flux_gradient,
-#    state_auxiliary = dg.state_auxiliary,
-#    direction = VerticalDirection(),
-#)
-#
-#
-#
-#linearsolver = BatchedGeneralizedMinimalResidual(
-#    dg,
-#    Q;
-#    max_subspace_size = 30,
-#    atol = -1.0,
-#    rtol = 1e-4,
-#)
-#
-#"""
-#N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
-#
-#F(Q) == 0
-#||F(Q^i) || / ||F(Q^0) || < tol
-#
-#"""
-#nonlinearsolver =
-#    JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4)
-#
-#ode_solver = ARK548L2SA2KennedyCarpenter(
-#    dg,
-#    vdg,
-#    NonLinearBackwardEulerSolver(
-#        nonlinearsolver;
-#        isadjustable = true,
-#        preconditioner_update_freq = 100,
-#    ),
-#    Q;
-#    dt = dt,
-#    t0 = 0,
-#    split_explicit_implicit = false,
-#    variant = NaiveVariant(),
-#)
-#
-#solver_config.solver = ode_solver
+if explicit == false
+    vdg = DGModel(
+        driver_config.bl,
+        driver_config.grid,
+        driver_config.numerical_flux_first_order,
+        driver_config.numerical_flux_second_order,
+        driver_config.numerical_flux_gradient,
+        state_auxiliary = dg.state_auxiliary,
+        direction = VerticalDirection(),
+    )
+    
+    linearsolver = BatchedGeneralizedMinimalResidual(
+        dg,
+        Q;
+        max_subspace_size = 30,
+        atol = -1.0,
+        rtol = 1e-4,
+    )
+    
+    nonlinearsolver =
+        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4)
+    
+    ode_solver = ARK548L2SA2KennedyCarpenter(
+        dg,
+        vdg,
+        NonLinearBackwardEulerSolver(
+            nonlinearsolver;
+            isadjustable = true,
+            preconditioner_update_freq = 100,
+        ),
+        Q;
+        dt = dt,
+        t0 = 0,
+        split_explicit_implicit = false,
+        variant = NaiveVariant(),
+    )
+    
+    solver_config.solver = ode_solver
+end
+
 
 
 aux = solver_config.dg.state_auxiliary
@@ -273,12 +262,12 @@ grads = solver_config.dg.state_gradient_flux
     varsindex(vars_state(m, Prognostic(), FT), :soil, :heat, :ρe_int)
 T_ind =
     varsindex(vars_state(m, Auxiliary(), FT), :soil, :heat, :T)
-divT_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :heat, :∇κ∇T)
-
+h_ind =
+    varsindex(vars_state(m, Auxiliary(), FT), :soil, :water, :h)
 all_data = Dict([k => Dict() for k in 1:n_outputs]...)
 z = aux[:,1:1,:]
 # Specify interpolation grid:
-zres = FT(0.01)
+zres = FT(0.008)
 boundaries = [
     FT(0) FT(0) zmin
     FT(1) FT(1) zmax
@@ -291,14 +280,14 @@ callback = GenericCallbacks.EveryXSimulationTime(
     every_x_simulation_time,
 ) do (init = false)
     t = ODESolvers.gettime(solver_config.solver)
-    iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
+   iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
     ϑ_l = iQ[:, ϑ_l_ind, :]
     θ_i = iQ[:, θ_i_ind, :]
     ρe_int = iQ[:, ρe_int_ind, :]
-    divT = iQ[:, divT_ind, :]
     T = iaux[:, T_ind, :]
+    h = iaux[:, h_ind, :]
     all_vars =
-        Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int, "T" => T, "divT" => divT)
+        Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int, "T" => T, "h" => h)
     all_data[step[1]] = all_vars
     step[1] += 1
     nothing
@@ -306,65 +295,66 @@ end
 
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 t = ODESolvers.gettime(solver_config.solver)
-iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
-ϑ_l = iQ[:, ϑ_l_ind, :]
-θ_i = iQ[:, θ_i_ind, :]
-ρe_int = iQ[:, ρe_int_ind, :]
-divT = iQ[:, divT_ind, :]
-T = iaux[:, T_ind, :]
-all_vars =
-    Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int, "T" => T, "divT" => divT)
-iz = iaux[:, 1:1, :][:]
+#iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
+#ϑ_l = iQ[:, ϑ_l_ind, :]
+#θ_i = iQ[:, θ_i_ind, :]
+#ρe_int = iQ[:, ρe_int_ind, :]
+#divT = iQ[:, divT_ind, :]
+#T = iaux[:, T_ind, :]
+#all_vars =
+#    Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int,"T" => T, "h" => h)
+#iz = aux[:, 1:1, :][:]
 
-all_data[n_outputs] = all_vars
+#all_data[n_outputs] = all_vars
 
-m_liq =
-    [ρ_cloud_liq(param_set) * mean(all_data[k]["ϑ_l"]) for k in 1:n_outputs]
-m_ice = [
-    ρ_cloud_ice(param_set) * mean(all_data[k]["θ_i"])
-    for k in 1:n_outputs]
+#m_liq =
+#    [ρ_cloud_liq(param_set) * mean(all_data[k]["ϑ_l"]) for k in 1:n_outputs]
+#m_ice = [
+#    ρ_cloud_ice(param_set) * mean(all_data[k]["θ_i"])
+#    for k in 1:n_outputs]
 
 
-data_12h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_12h_vwc_depth.csv", ',')
-first_plot = scatter(data_12h[:,1]./100.0,-data_12h[:,2], label = "data, 12h")
-k = Int(round(12*3600/timeend*n_outputs))
-scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 12h")
-plot!(legend = :bottomright)
-
-data_24h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_24h.csv", ',')
-second = scatter(data_24h[:,1]./100.0,-data_24h[:,2], label = "data, 24h")
-k = Int(round(24*3600/timeend*n_outputs))
-scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 24h")
-plot!(legend = :bottomright)
-data_50h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_50h.csv", ',')
-third = scatter(data_50h[:,1]./100.0,-data_50h[:,2], label = "data, 50h")
-k = Int(round(50*3600/timeend*n_outputs))
-
-scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 50h")
-plot!(legend = :bottomright)
-plot(first_plot,second,third, layout = (1,3))
-savefig("./mizoguchi_alt.png")
-
-function f(k)
-    T = all_data[k]["T"][:]
-    θ_l = all_data[k]["ϑ_l"][:]
-    θ_i = all_data[k]["θ_i"][:]
-    τ = abs.(τLTE*100*0.535./(T.-273.15))[:]
-
-    mask = (θ_l.>0.01) .* (T.<273.15)
-    plot1 = scatter(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], xlim = [0.2,0.535],ylim = [-0.2,0], xlabel = "Total Vol. Water", label = "")
-    plot2 = scatter(all_data[k]["ϑ_l"][:], iz[:], xlim = [0.0,0.35],ylim = [-0.2,0], xlabel = "Vol. Liquid", label = "")
-    if sum(mask) > 0
-        plot3 = scatter(log10.(τ[mask.>0]), iz[mask.>0], xlim = [0,10],ylim = [-0.2,0.0], xlabel = "Log10(timescale)", label = "")
-    else
-        plot3 = plot(xlim = [0,3.5], ylim = [-0.2,0],xlabel = "Log10(timescale)", label = "")
-    end
-    
-    plot4 = scatter(T.-273.15, iz[:], xlim = [-6.5,8], xlabel = "T-T_freeze", label = "")
-    plot(plot1, plot2, plot3, plot4, layout = (1,4))
-end
-
-anim = @animate for i ∈ 1:100
-    f(i*6)
-end
-(gif(anim, "foo_alt.gif",fps = 10))
+#data_12h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_12h_vwc_depth.csv", ',')
+#first_plot = scatter(data_12h[:,1]./100.0,-data_12h[:,2], label = "data, 12h")
+#k = Int(round(12*3600/timeend*n_outputs))
+#scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], z[:], label = "model, 12h")
+#plot!(legend = :bottomright)
+#
+#data_24h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_24h.csv", ',')
+#second = scatter(data_24h[:,1]./100.0,-data_24h[:,2], label = "data, 24h")
+#k = Int(round(24*3600/timeend*n_outputs))
+#scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 24h")
+#plot!(legend = :bottomright)
+#data_50h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_50h.csv", ',')
+#third = scatter(data_50h[:,1]./100.0,-data_50h[:,2], label = "data, 50h")
+#k = Int(round(50*3600/timeend*n_outputs))
+#
+#scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 50h")
+#plot!(legend = :bottomright)
+#plot(first_plot,second,third, layout = (1,3))
+#savefig("./freeze_thaw_plots/mizoguchi_lh_m_02.png")
+#
+#function f(k)
+#    T = all_data[k]["T"][:]
+#    θ_l = all_data[k]["ϑ_l"][:]
+#    θ_i = all_data[k]["θ_i"][:]
+#    τ = abs.(τLTE*100*0.535./(T.-273.15))[:]
+#
+#    mask = (θ_l.>0.01) .* (T.<273.15)
+#    plot1 = scatter(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], xlim = [0.2,0.535],ylim = [-0.2,0], xlabel = "Total Vol. Water", label = "")
+#    plot2 = scatter(all_data[k]["ϑ_l"][:], iz[:], xlim = [0.0,0.35],ylim = [-0.2,0], xlabel = "Vol. Liquid", label = "")
+#    if sum(mask) > 0
+#      #  plot3 = scatter(log10.(τ[mask.>0]), iz[mask.>0], xlim = [0,10],ylim = [-0.2,0.0], xlabel = "Log10(timescale)", label = "")
+#        plot3 = plot(log10.([τLTE,τLTE]), [-0.2,0.0], label = "τ LTE")
+#    else
+#        plot3 = plot(xlim = [0,3.5], ylim = [-0.2,0],xlabel = "Log10(timescale)", label = "")
+#    end
+#    
+#    plot4 = scatter(T.-273.15, iz[:], xlim = [-6.5,8], xlabel = "T-T_freeze", label = "")
+#    plot(plot1, plot2, plot3, plot4, layout = (1,4))
+#end
+#
+#anim = @animate for i ∈ 1:100
+#    f(i*6)
+#end
+#(gif(anim, "./freeze_thaw_plots/mizoguchi_test5.gif",fps = 10))

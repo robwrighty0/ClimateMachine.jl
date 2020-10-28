@@ -142,7 +142,7 @@ cs = FT(3e6)
 τLTE = FT(cs * Δ^FT(2.0) / κ)
 dt = FT(50)
 
-freeze_thaw_source = FreezeThawSource{FT}(Δt = dt,
+freeze_thaw_source = FreezeThaw{FT}(Δt = dt,
                                     τLTE = τLTE)
 
 bottom_flux = (aux, t) -> eltype(aux)(0.0)
@@ -304,6 +304,17 @@ end
 ζ = 0.265       
 
 
+function f2(k;ζ = ζ)
+    T = all_data[k]["T"][:].-273.15
+    θ_l = all_data[k]["ϑ_l"][:]
+    θ_i = all_data[k]["θ_i"][:]
+    plot!(θ_i, iz[:], xlim = [0,0.4], ylim = [-2,0],xlabel = "volumetric water content", label = "θ_i, mod")
+end
+
+
+
+
+
 function f(k;ζ = ζ)
     T = all_data[k]["T"][:].-273.15
     θ_l = all_data[k]["ϑ_l"][:]
@@ -326,7 +337,7 @@ end
 anim = @animate for i ∈ 1:100
     f(round(i*5.4))
 end
-(gif(anim, "analytic.gif",fps = 10))
+(gif(anim, "./freeze_thaw_plots/analytic_mod2.gif",fps = 10))
 
 k = n_outputs
 ds = readdlm("../../../../bonan_sp/bonanmodeling/sp_05_03/bonan_data.csv", ',')
@@ -334,4 +345,4 @@ ds2 = readdlm("../../../../bonan_sp/bonanmodeling/sp_05_03/bonan_data_ahc.csv", 
 f(k)
 plot!(ds[:,2], ds[:,1], label = "Excess Heat")
 plot!(ds2[:,2], ds2[:,1], label = "Apparent heat capacity")
-savefig("comparison.png")
+savefig("./freeze_thaw_plots/mod2_analytic_comparison.png")
