@@ -1,4 +1,5 @@
 using Dierckx
+using FileIO
 
 include("KinematicModel.jl")
 
@@ -972,6 +973,39 @@ function main()
     dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps)
 
     # call solve! function for time-integrator
+    solver = solver_config.solver
+    dg = solver_config.dg
+    Q0 = copy(solver_config.Q)
+    dQ0 = similar(Q0)
+    dg(dQ0, Q0, nothing, 0; increment = false)
+
+    Q = copy(solver_config.Q)
+    solve!(Q, solver; numberofsteps = 4)
+    dQ = similar(Q)
+    dg(dQ, Q, nothing, 0; increment = false)
+
+    filename = "km_ice_rank_$(MPI.Comm_rank(mpicomm))_of_$(MPI.Comm_size(mpicomm)).jld2"
+    if !isfile(filename)
+        save(
+            filename,
+            "Q0",
+            Array(Q0.realdata),
+            "dQ0",
+            Array(dQ0.realdata),
+            "Q",
+            Array(Q.realdata),
+            "dQ",
+            Array(dQ.realdata),
+        )
+    else
+        data = load(filename)
+        @assert all(Array(Q0.realdata) .== data["Q0"])
+        @assert all(Array(dQ0.realdata) .== data["dQ0"])
+        @assert all(Array(Q.realdata) .== data["Q"])
+        @assert all(Array(dQ.realdata) .== data["dQ"])
+    end
+
+    #=
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
@@ -996,7 +1030,7 @@ function main()
 
     max_q_sno = maximum(abs.(solver_config.dg.state_auxiliary[:, q_sno_ind, :]))
     @test !isnan(max_q_sno)
-
+    =#
 end
 
 main()
