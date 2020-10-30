@@ -49,7 +49,7 @@ using ClimateMachine.BalanceLaws:
             land.soil.heat.initialT(aux),
             land.param_set,
         ))
-        state.soil.heat.∇κ∇T = myFT(0.0)
+        state.soil.heat.∇κ∇T = myFT(land.soil.heat.initial∇κ∇T(aux))
     end
 
     soil_param_functions = SoilParamFunctions{FT}(

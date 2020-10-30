@@ -29,14 +29,16 @@ function PrescribedTemperatureModel(T::Function = (aux, t) -> eltype(aux)(0.0))
 end
 
 """
-    SoilHeatModel{FT, FiT, BCD, BCN} <: AbstractHeatModel
+    SoilHeatModel{FT, FiT, FiD, BCD, BCN} <: AbstractHeatModel
 The necessary components for the Heat Equation in a soil water matrix.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct SoilHeatModel{FT, FiT, BCD, BCN} <: AbstractHeatModel
+struct SoilHeatModel{FT, FiT, FiD, BCD, BCN} <: AbstractHeatModel
     "Initial conditions for temperature"
     initialT::FiT
+    "Initial state for our dummy variable ∇κ∇T"
+    initial∇κ∇T::FiD
     "Dirichlet BC structure"
     dirichlet_bc::BCD
     "Neumann BC structure"
@@ -46,20 +48,25 @@ end
 """
     SoilHeatModel(
         ::Type{FT};
-        initialT::FT = FT(NaN),
+        initialT::Function = (aux) -> eltype(aux)(NaN),
+        initial∇κ∇T::Function = (aux) -> eltype(aux)(0.0),
         dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
         neumann_bc::AbstractBoundaryFunctions = Neumann(),
     ) where {FT}
 
 Constructor for the SoilHeatModel.
+
+The variable ∇κ∇T is unused; however, we use the tendency for it to
+store the value of ∇κ∇T for use in freezing and thawing.
 """
 function SoilHeatModel(
     ::Type{FT};
-    initialT = (aux) -> FT(NaN),
+    initialT::Function = (aux) -> eltype(aux)(NaN),
+    initial∇κ∇T::Function = (aux) -> eltype(aux)(0.0),
     dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
     neumann_bc::AbstractBoundaryFunctions = Neumann(),
 ) where {FT}
-    args = (initialT, dirichlet_bc, neumann_bc)
+    args = (initialT, initial∇κ∇T, dirichlet_bc, neumann_bc)
     return SoilHeatModel{FT, typeof.(args)...}(args...)
 end
 

@@ -75,7 +75,7 @@ function init_soil!(land, state, aux, coordinates, time)
         land.soil.heat.initialT(aux),
         land.param_set,
     )
-    state.soil.heat.∇κ∇T = myFT(0.0)
+    state.soil.heat.∇κ∇T = myFT(land.soil.heat.initial∇κ∇T(aux))
 end;
 
 
