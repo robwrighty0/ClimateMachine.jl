@@ -56,8 +56,9 @@ end
 
 Constructor for the SoilHeatModel.
 
-The variable ∇κ∇T is unused; however, we use the tendency for it to
-store the value of ∇κ∇T for use in freezing and thawing.
+The variable ∇κ∇T is not useful; we create it so that we have
+a place to store the value of ∇κ∇T for use in freezing and thawing
+(in the tendency for this variable). 
 """
 function SoilHeatModel(
     ::Type{FT};

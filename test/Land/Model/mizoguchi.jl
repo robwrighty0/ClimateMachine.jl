@@ -8,7 +8,7 @@ using Test
 using Logging
 disable_logging(Logging.Warn)
 using DelimitedFiles
-#using Plots
+using Plots
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -159,10 +159,10 @@ soil_water_model = SoilWaterModel(
 ρc_s = volumetric_heat_capacity(FT(0.33), FT(0.0), ρc_ds, param_set)
 κ = FT(1.0)
 τLTE = FT(ρc_s * Δ^FT(2.0) / κ)
-dt = FT(6.0)
+dt = FT(2.0)
 explicit = true
 
-freeze_thaw_source = FreezeThawOrigSourceMod{FT}(Δt = dt, τLTE = τLTE)
+freeze_thaw_source = Variableτ_FreezeThaw{FT}(Δt = dt, τLTE = τLTE)
 #changing this factor makes front move more slowly but doesnt change top value.
 surface_heat_flux = (aux, t) -> eltype(aux)(28)*(aux.soil.heat.T-eltype(aux)(273.15-6))
 T_init = aux -> eltype(aux)(279.85)
@@ -317,7 +317,7 @@ k = Int(round(50*3600/timeend*n_outputs))
 scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 50h")
 plot!(legend = :bottomright)
 plot(first_plot,second,third, layout = (1,3))
-savefig("./freeze_thaw_plots/mizoguchi.png")
+savefig("./freeze_thaw_plots/mizoguchi_ct.png")
 
 function f(k)
     T = all_data[k]["T"][:]
@@ -335,4 +335,4 @@ end
 anim = @animate for i ∈ 1:60
     f(i)
 end
-(gif(anim, "./freeze_thaw_plots/mizoguchi.gif",fps = 8))
+(gif(anim, "./freeze_thaw_plots/mizoguchi_ct.gif",fps = 8))

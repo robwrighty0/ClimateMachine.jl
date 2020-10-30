@@ -138,8 +138,8 @@ function get_water_content(
     t::Real,
 )
     FT = eltype(state)
-#    ϑ_l = max(state.soil.water.ϑ_l, eps(FT))
-#    θ_i = max(state.soil.water.θ_i, FT(0.0))
+    ϑ_l = max(state.soil.water.ϑ_l,eps(FT))
+    θ_i = max(state.soil.water.θ_i,eps(FT))
     
     return FT(ϑ_l), FT(θ_i)
 end

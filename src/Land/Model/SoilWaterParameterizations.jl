@@ -398,7 +398,7 @@ function hydraulic_conductivity(
     T::FT,
     S_l::FT,
 ) where {FT}
-#    θ_i = max(FT(0.0),θ_i)
+    θ_i = max(FT(0.0),θ_i)
     K = FT(
         viscosity_factor(viscosity, T) *
         impedance_factor(impedance, θ_i, porosity * S_l) *
@@ -450,8 +450,8 @@ imaginary numbers, resulting in domain errors. Exit in this
 case with an error.
 """
 function effective_saturation(porosity::FT, ϑ_l::FT) where {FT}
-#   ϑ_l = max(eps(FT), ϑ_l)
-    ϑ_l < FT(0) && error("Effective saturation is negative.")
+    ϑ_l = max(eps(FT), ϑ_l)
+#    ϑ_l < FT(0) && error("Effective saturation is negative.")
     S_l = ϑ_l / porosity
     return S_l
 end
@@ -474,7 +474,7 @@ function pressure_head(
     ϑ_l::FT,
     θ_i::FT,
 ) where {FT}
-    #θ_i = max(FT(0.0),θ_i)
+    θ_i = max(FT(0.0),θ_i)
     θ_i < FT(0) && error("Volumetric ice fraction is negative.")
     eff_porosity  = porosity-θ_i
     S_l_eff = effective_saturation(eff_porosity, ϑ_l)

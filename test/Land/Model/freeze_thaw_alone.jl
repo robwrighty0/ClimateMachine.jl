@@ -79,7 +79,7 @@ using ClimateMachine.BalanceLaws:
     cs = FT(3e6)
     κ = FT(1.5)
     τLTE = FT(cs * Δ^FT(2.0) / κ)
-    freeze_thaw_source = FreezeThawOrigSource{FT}(Δt = dt,
+    freeze_thaw_source = Constantτ_FreezeThaw{FT}(Δt = dt,
                                     τLTE = τLTE)
 
     soil_param_functions =

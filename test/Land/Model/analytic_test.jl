@@ -137,7 +137,7 @@ cs = FT(3e6)
 τLTE = FT(cs * Δ^FT(2.0) / κ)
 dt = FT(50)
 
-freeze_thaw_source = FreezeThawOrigSourceMod{FT}(Δt = dt,
+freeze_thaw_source = Variableτ_FreezeThaw{FT}(Δt = dt,
                                     τLTE = τLTE)
 
 bottom_flux = (aux, t) -> eltype(aux)(0.0)
