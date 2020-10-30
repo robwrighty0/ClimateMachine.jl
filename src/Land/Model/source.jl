@@ -1,6 +1,6 @@
 #### Land sources
 using Printf
-export FreezeThawGCCE, FreezeThawLH, FreezeThawOrigSource
+export FreezeThawGCCE, FreezeThawLH, FreezeThawOrigSource,FreezeThawOrigSourceMod
 
 function heaviside(x::FT) where {FT}
     if x> FT(0)
@@ -59,7 +59,9 @@ end
 The function which computes the freeze/thaw source term for Richard's equation,
 assuming the timescale is related to diffusion of latent heat.
 """
-Base.@kwdef struct FreezeThawLH{FT} <: Source{FT} 
+Base.@kwdef struct FreezeThawLH{FT} <: Source{FT}
+    "Timestep"
+    Δt::FT = FT(NaN)
     "Timescale for temperature changes"
     τLTE::FT = FT(NaN)
 end
@@ -78,6 +80,19 @@ Base.@kwdef struct FreezeThawOrigSource{FT} <: Source{FT}
 end
 
 
+"""
+    FreezeThawOrigSourceMod <: PostTendencySource
+The function which computes the freeze/thaw source term for Richard's equation,
+assuming the timescale is simple the timescale for temperature changes.
+"""
+Base.@kwdef struct FreezeThawOrigSourceMod{FT} <: PostTendencySource{FT} 
+    "Timestep"
+    Δt::FT = FT(NaN)
+    "Timescale for temperature changes"
+    τLTE::FT = FT(NaN)
+end
+
+# or this
 function land_source!(
     source_type::FreezeThawOrigSource,
     land::LandModel,
@@ -92,14 +107,21 @@ function land_source!(
     _ρliq = FT(ρ_cloud_liq(land.param_set))
     _ρice = FT(ρ_cloud_ice(land.param_set))
     _Tfreeze = FT(T_freeze(land.param_set))
-    
+    _LH_f0 = FT(LH_f0(land.param_set))
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     eff_porosity = land.soil.param_functions.porosity - θ_i
     θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
     
     T = get_temperature(land.soil.heat, aux, t)
     τft = max(source_type.Δt, source_type.τLTE)
-    freeze_thaw = 1.0/τft *(_ρliq*θ_l*heaviside(_Tfreeze - T) -
+    m = land.soil.water.hydraulics.m
+    α = land.soil.water.hydraulics.α
+    n = land.soil.water.hydraulics.n
+    
+    ψ = _LH_f0/FT(9.8)/_Tfreeze*(T-_Tfreeze)
+    θstar = land.soil.param_functions.porosity*(FT(1)+(α*abs(ψ))^n)^(-m)
+    
+    freeze_thaw = 1.0/τft *(_ρliq*(θ_l-θstar)*heaviside(_Tfreeze - T)*heaviside(θ_l-θstar) -
                             _ρice*θ_i*heaviside(T - _Tfreeze))
     source.soil.water.ϑ_l -= freeze_thaw/_ρliq
     source.soil.water.θ_i += freeze_thaw/_ρice
@@ -132,14 +154,66 @@ function land_source!(
     ρc_ds = land.soil.param_functions.ρc_ds
     ρc = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
 
-    τft = source_type.τLTE*abs(FT(_ρliq*_LH_f0/ρc*land.soil.param_functions.porosity)/(T-_Tfreeze))
-    freeze_thaw = 1.0/τft *(_ρliq*θ_l*heaviside(_Tfreeze - T) -
+    m = land.soil.water.hydraulics.m
+    α = land.soil.water.hydraulics.α
+    n = land.soil.water.hydraulics.n
+    
+    ψ = _LH_f0/FT(9.8)/_Tfreeze*(T-_Tfreeze)
+    θstar = land.soil.param_functions.porosity*(FT(1)+(α*abs(ψ))^n)^(-m)
+    
+    τ_pc = source_type.τLTE*abs(FT(_ρliq*_LH_f0/ρc*abs((θ_l-θstar)))/(T-_Tfreeze))
+    τft = max(source_type.Δt, source_type.τLTE, τ_pc)
+
+    freeze_thaw = 1.0/τft *(_ρliq*(θ_l-θstar)*heaviside(_Tfreeze - T)*heaviside(θ_l-θstar) -
                             _ρice*θ_i*heaviside(T - _Tfreeze))
     source.soil.water.ϑ_l -= freeze_thaw/_ρliq
     source.soil.water.θ_i += freeze_thaw/_ρice
 end
 
 
+
+#this
+function land_post_tendency_source!(
+    source_type::FreezeThawOrigSourceMod,
+    land::LandModel,
+    tendency,
+    state,
+    aux,
+    t,
+)
+    FT = eltype(state)
+    _ρliq = FT(ρ_cloud_liq(land.param_set))
+    _ρice = FT(ρ_cloud_ice(land.param_set))
+    _Tfreeze = FT(T_freeze(land.param_set))
+    _LH_f0 = FT(LH_f0(land.param_set))
+
+    T = get_temperature(land.soil.heat,aux,t)
+
+    ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
+    eff_porosity = land.soil.param_functions.porosity - θ_i
+    θ_l = volumetric_liquid_fraction(ϑ_l, eff_porosity)
+    ρc_ds = land.soil.param_functions.ρc_ds
+    ρc = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
+
+    ∇κ∇T = tendency.soil.heat.∇κ∇T
+    tendency.soil.heat.∇κ∇T = FT(0.0)
+    Idot = ∇κ∇T
+    m = land.soil.water.hydraulics.m
+    α = land.soil.water.hydraulics.α
+    n = land.soil.water.hydraulics.n
+    
+    ψ = _LH_f0/FT(9.8)/_Tfreeze*(T-_Tfreeze)
+    θstar = land.soil.param_functions.porosity*(FT(1)+(α*abs(ψ))^n)^(-m)
+
+    τ_pc = abs(_ρliq*_LH_f0*(θ_l-θstar)/Idot)#source_type.τLTE*abs(FT(_ρliq*_LH_f0/ρc*land.soil.param_functions.porosity)/(T-_Tfreeze))
+    # Do we need to deal with cases where there is no flux (not so hard in a test case to set up)?
+    τft = max(source_type.Δt, source_type.τLTE, τ_pc)
+    
+    freeze_thaw = 1.0/τft *(_ρliq*(θ_l-θstar)*heaviside(_Tfreeze - T)*heaviside(θ_l-θstar) -
+                            _ρice*θ_i*heaviside(T - _Tfreeze))
+    tendency.soil.water.ϑ_l -= freeze_thaw/_ρliq
+    tendency.soil.water.θ_i += freeze_thaw/_ρice
+end
 
 
 function land_post_tendency_source!(
@@ -174,7 +248,7 @@ function land_post_tendency_source!(
     # Zero this out so we don't really compute a tendency for it (need to
     # incrementally added time stepping methods since we want to tendency to be 
     # ∇κ∇T for a single tendency without previous values)
-    tendency.soil.heat.∇κ∇T = 0
+    tendency.soil.heat.∇κ∇T = FT(0)
 
     S = effective_saturation(land.soil.param_functions.porosity, θ_l)
     m = land.soil.water.hydraulics.m

@@ -1,8 +1,3 @@
-# Test that freeze thaw alone reproduces expected behavior: exponential behavior
-# for liquid water content, ice content, and total water conserved
-
-#To be fixed - the grid spacing part, there is some onus on the user to define the τft function appropriately in the PrescribedTemperatureCase. We will define it in the SoilHeatModel case.
-# another issue - passing spacing?
 using MPI
 using OrderedCollections
 using StaticArrays
@@ -142,7 +137,7 @@ cs = FT(3e6)
 τLTE = FT(cs * Δ^FT(2.0) / κ)
 dt = FT(50)
 
-freeze_thaw_source = FreezeThaw{FT}(Δt = dt,
+freeze_thaw_source = FreezeThawOrigSourceMod{FT}(Δt = dt,
                                     τLTE = τLTE)
 
 bottom_flux = (aux, t) -> eltype(aux)(0.0)
@@ -224,7 +219,6 @@ grads = solver_config.dg.state_gradient_flux
     varsindex(vars_state(m, Prognostic(), FT), :soil, :heat, :ρe_int)
 T_ind =
     varsindex(vars_state(m, Auxiliary(), FT), :soil, :heat, :T)
-divT_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :heat, :∇κ∇T)
 
 all_data = Dict([k => Dict() for k in 1:n_outputs]...)
 z = aux[:,1:1,:]
@@ -242,14 +236,13 @@ callback = GenericCallbacks.EveryXSimulationTime(
     every_x_simulation_time,
 ) do (init = false)
     t = ODESolvers.gettime(solver_config.solver)
-    #iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
-    ϑ_l = Q[:, ϑ_l_ind, :]
-    θ_i = Q[:, θ_i_ind, :]
-    ρe_int = Q[:, ρe_int_ind, :]
-    divT = Q[:, divT_ind, :]
-    T = aux[:, T_ind, :]
+    iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
+    ϑ_l = iQ[:, ϑ_l_ind, :]
+    θ_i = iQ[:, θ_i_ind, :]
+    ρe_int = iQ[:, ρe_int_ind, :]
+    T = iaux[:, T_ind, :]
     all_vars =
-        Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int, "T" => T, "divT" => divT)
+        Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int, "T" => T)
     all_data[step[1]] = all_vars
     step[1] += 1
     nothing
@@ -257,24 +250,16 @@ end
 
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 t = ODESolvers.gettime(solver_config.solver)
-#iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
-ϑ_l = Q[:, ϑ_l_ind, :]
-θ_i = Q[:, θ_i_ind, :]
-ρe_int = Q[:, ρe_int_ind, :]
-divT = Q[:, divT_ind, :]
-T = aux[:, T_ind, :]
+iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
+ϑ_l = iQ[:, ϑ_l_ind, :]
+θ_i = iQ[:, θ_i_ind, :]
+ρe_int = iQ[:, ρe_int_ind, :]
+T = iaux[:, T_ind, :]
 all_vars =
-    Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int, "T" => T, "divT" => divT)
-iz = aux[:, 1:1, :][:]
+    Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int, "T" => T)
+iz = iaux[:, 1:1, :][:]
 
 all_data[n_outputs] = all_vars
-
-#m_liq =
-#    [ρ_cloud_liq(param_set) * mean(all_data[k]["ϑ_l"]) for k in 1:n_outputs]
-#m_ice = [
-#    ρ_cloud_ice(param_set) * mean(all_data[k]["θ_i"])
-#    for k in 1:n_output]
-
 
 #analytic solution
 kdry = k_dry(param_set, soil_param_functions)
@@ -308,7 +293,7 @@ function f2(k;ζ = ζ)
     T = all_data[k]["T"][:].-273.15
     θ_l = all_data[k]["ϑ_l"][:]
     θ_i = all_data[k]["θ_i"][:]
-    plot!(θ_i, iz[:], xlim = [0,0.4], ylim = [-2,0],xlabel = "volumetric water content", label = "θ_i, mod")
+    plot!(θ_i, iz[:], xlim = [0,0.4], ylim = [-2,0],xlabel = "volumetric water content", label = "θ_i")
 end
 
 
@@ -334,15 +319,10 @@ function f(k;ζ = ζ)
     
 end
 
-anim = @animate for i ∈ 1:100
-    f(round(i*5.4))
-end
-(gif(anim, "./freeze_thaw_plots/analytic_mod2.gif",fps = 10))
-
 k = n_outputs
 ds = readdlm("../../../../bonan_sp/bonanmodeling/sp_05_03/bonan_data.csv", ',')
 ds2 = readdlm("../../../../bonan_sp/bonanmodeling/sp_05_03/bonan_data_ahc.csv", ',')
 f(k)
 plot!(ds[:,2], ds[:,1], label = "Excess Heat")
 plot!(ds2[:,2], ds2[:,1], label = "Apparent heat capacity")
-savefig("./freeze_thaw_plots/mod2_analytic_comparison.png")
+savefig("./freeze_thaw_plots/analytic_comparison.png")

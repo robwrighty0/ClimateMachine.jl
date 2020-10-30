@@ -1,4 +1,5 @@
-# Test that freezing front agrees with lab data from Mizoguchi.
+# Update this to use dict_of_nodal_states
+#Test that freezing front agrees with lab data from Mizoguchi.
 using MPI
 using OrderedCollections
 using StaticArrays
@@ -90,11 +91,11 @@ include(joinpath(
 ));
 
 N_poly = 1
-nelem_vert = 25
+nelem_vert = 40
 zmax = FT(0)
 zmin = FT(-0.2)
 t0 = FT(0)
-timeend = FT(3600)
+timeend = FT(3600*51)
 n_outputs = 60
 every_x_simulation_time = ceil(Int, timeend / n_outputs)
 Δ = get_grid_spacing(N_poly, nelem_vert, zmax, zmin)
@@ -138,13 +139,12 @@ bottom_state = nothing
 ϑ_l0 = (aux) -> eltype(aux)(0.33)
 vg_α = 1.11
 vg_n = 1.48
-vg_m = 0.2
 soil_water_model = SoilWaterModel(
     FT;
     viscosity_factor = TemperatureDependentViscosity{FT}(),
     moisture_factor = MoistureDependent{FT}(),
     impedance_factor= IceImpedance{FT}(Ω = 7.0),
-    hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n, m = vg_m),
+    hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n),
     initialϑ_l = ϑ_l0,
     dirichlet_bc = Dirichlet(
         surface_state = surface_state,
@@ -159,10 +159,10 @@ soil_water_model = SoilWaterModel(
 ρc_s = volumetric_heat_capacity(FT(0.33), FT(0.0), ρc_ds, param_set)
 κ = FT(1.0)
 τLTE = FT(ρc_s * Δ^FT(2.0) / κ)
-dt = FT(2.0)
-explicit = false
+dt = FT(6.0)
+explicit = true
 
-freeze_thaw_source = FreezeThawLH{FT}(τLTE = τLTE)#factor = FT(0.9))
+freeze_thaw_source = FreezeThawOrigSourceMod{FT}(Δt = dt, τLTE = τLTE)
 #changing this factor makes front move more slowly but doesnt change top value.
 surface_heat_flux = (aux, t) -> eltype(aux)(28)*(aux.soil.heat.T-eltype(aux)(273.15-6))
 T_init = aux -> eltype(aux)(279.85)
@@ -267,7 +267,7 @@ h_ind =
 all_data = Dict([k => Dict() for k in 1:n_outputs]...)
 z = aux[:,1:1,:]
 # Specify interpolation grid:
-zres = FT(0.008)
+zres = FT(abs(zmin/nelem_vert))
 boundaries = [
     FT(0) FT(0) zmin
     FT(1) FT(1) zmax
@@ -295,66 +295,44 @@ end
 
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 t = ODESolvers.gettime(solver_config.solver)
-#iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
-#ϑ_l = iQ[:, ϑ_l_ind, :]
-#θ_i = iQ[:, θ_i_ind, :]
-#ρe_int = iQ[:, ρe_int_ind, :]
-#divT = iQ[:, divT_ind, :]
-#T = iaux[:, T_ind, :]
-#all_vars =
-#    Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i, "ρe" => ρe_int,"T" => T, "h" => h)
-#iz = aux[:, 1:1, :][:]
-
-#all_data[n_outputs] = all_vars
-
-#m_liq =
-#    [ρ_cloud_liq(param_set) * mean(all_data[k]["ϑ_l"]) for k in 1:n_outputs]
-#m_ice = [
-#    ρ_cloud_ice(param_set) * mean(all_data[k]["θ_i"])
-#    for k in 1:n_outputs]
+iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
+iz = iaux[:, 1:1, :][:]
 
 
-#data_12h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_12h_vwc_depth.csv", ',')
-#first_plot = scatter(data_12h[:,1]./100.0,-data_12h[:,2], label = "data, 12h")
-#k = Int(round(12*3600/timeend*n_outputs))
-#scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], z[:], label = "model, 12h")
-#plot!(legend = :bottomright)
-#
-#data_24h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_24h.csv", ',')
-#second = scatter(data_24h[:,1]./100.0,-data_24h[:,2], label = "data, 24h")
-#k = Int(round(24*3600/timeend*n_outputs))
-#scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 24h")
-#plot!(legend = :bottomright)
-#data_50h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_50h.csv", ',')
-#third = scatter(data_50h[:,1]./100.0,-data_50h[:,2], label = "data, 50h")
-#k = Int(round(50*3600/timeend*n_outputs))
-#
-#scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 50h")
-#plot!(legend = :bottomright)
-#plot(first_plot,second,third, layout = (1,3))
-#savefig("./freeze_thaw_plots/mizoguchi_lh_m_02.png")
-#
-#function f(k)
-#    T = all_data[k]["T"][:]
-#    θ_l = all_data[k]["ϑ_l"][:]
-#    θ_i = all_data[k]["θ_i"][:]
-#    τ = abs.(τLTE*100*0.535./(T.-273.15))[:]
-#
-#    mask = (θ_l.>0.01) .* (T.<273.15)
-#    plot1 = scatter(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], xlim = [0.2,0.535],ylim = [-0.2,0], xlabel = "Total Vol. Water", label = "")
-#    plot2 = scatter(all_data[k]["ϑ_l"][:], iz[:], xlim = [0.0,0.35],ylim = [-0.2,0], xlabel = "Vol. Liquid", label = "")
-#    if sum(mask) > 0
-#      #  plot3 = scatter(log10.(τ[mask.>0]), iz[mask.>0], xlim = [0,10],ylim = [-0.2,0.0], xlabel = "Log10(timescale)", label = "")
-#        plot3 = plot(log10.([τLTE,τLTE]), [-0.2,0.0], label = "τ LTE")
-#    else
-#        plot3 = plot(xlim = [0,3.5], ylim = [-0.2,0],xlabel = "Log10(timescale)", label = "")
-#    end
-#    
-#    plot4 = scatter(T.-273.15, iz[:], xlim = [-6.5,8], xlabel = "T-T_freeze", label = "")
-#    plot(plot1, plot2, plot3, plot4, layout = (1,4))
-#end
-#
-#anim = @animate for i ∈ 1:100
-#    f(i*6)
-#end
-#(gif(anim, "./freeze_thaw_plots/mizoguchi_test5.gif",fps = 10))
+data_12h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_12h_vwc_depth.csv", ',')
+first_plot = scatter(data_12h[:,1]./100.0,-data_12h[:,2], label = "data, 12h")
+k = Int(round(12*3600/timeend*n_outputs))
+scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 12h")
+plot!(legend = :bottomright)
+
+data_24h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_24h.csv", ',')
+second = scatter(data_24h[:,1]./100.0,-data_24h[:,2], label = "data, 24h")
+k = Int(round(24*3600/timeend*n_outputs))
+scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 24h")
+plot!(legend = :bottomright)
+data_50h = readdlm("/Users/katherinedeck/Desktop/Papers/freeze:thaw/Data/freeze_thaw/mizoguchi_50h.csv", ',')
+third = scatter(data_50h[:,1]./100.0,-data_50h[:,2], label = "data, 50h")
+k = Int(round(50*3600/timeend*n_outputs))
+
+scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 50h")
+plot!(legend = :bottomright)
+plot(first_plot,second,third, layout = (1,3))
+savefig("./freeze_thaw_plots/mizoguchi.png")
+
+function f(k)
+    T = all_data[k]["T"][:]
+    θ_l = all_data[k]["ϑ_l"][:]
+    θ_i = all_data[k]["θ_i"][:]
+    τ = abs.(τLTE*100*0.535./(T.-273.15))[:]
+
+    mask = (θ_l.>0.01) .* (T.<273.15)
+    plot1 = scatter(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], xlim = [0.2,0.535],ylim = [-0.2,0], xlabel = "Total Vol. Water", label = "")
+    plot2 = scatter(all_data[k]["ϑ_l"][:], iz[:], xlim = [0.0,0.35],ylim = [-0.2,0], xlabel = "Vol. Liquid", label = "")
+    plot4 = scatter(T.-273.15, iz[:], xlim = [-6.5,8], xlabel = "T-T_freeze", label = "")
+    plot(plot1, plot2, plot4, layout = (1,3))
+end
+
+anim = @animate for i ∈ 1:60
+    f(i)
+end
+(gif(anim, "./freeze_thaw_plots/mizoguchi.gif",fps = 8))
