@@ -211,9 +211,10 @@ function init_state_prognostic!(
     t,
     args...,
 )
+    initialize_defaults(land.soil.phase_change_source, state)#just doing phase change variable at present.
     land.init_state_prognostic(land, state, aux, coords, t, args...)
 end
-
+include("source.jl")
 include("land_bc.jl")
 include("SoilWaterParameterizations.jl")
 using .SoilWaterParameterizations
@@ -222,8 +223,8 @@ using .SoilHeatParameterizations
 include("soil_model.jl")
 include("soil_water.jl")
 include("soil_heat.jl")
+include("phase_change.jl")
 include("soil_bc.jl")
-include("source.jl")
 
 function post_tendency_hook!(
     dg,

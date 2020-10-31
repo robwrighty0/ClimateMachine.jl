@@ -76,7 +76,6 @@ function init_soil!(land, state, aux, coordinates, time)
         land.soil.heat.initialT(aux),
         land.param_set,
     )
-    state.soil.heat.∇κ∇T = myFT(land.soil.heat.initial∇κ∇T(aux))
 end;
 
 
@@ -162,7 +161,7 @@ soil_water_model = SoilWaterModel(
 dt = FT(2.0)
 explicit = true
 
-freeze_thaw_source = Variableτ_FreezeThaw{FT}(Δt = dt, τLTE = τLTE)
+
 #changing this factor makes front move more slowly but doesnt change top value.
 surface_heat_flux = (aux, t) -> eltype(aux)(28)*(aux.soil.heat.T-eltype(aux)(273.15-6))
 T_init = aux -> eltype(aux)(279.85)
@@ -178,8 +177,10 @@ soil_heat_model = SoilHeatModel(
         bottom_flux = bottom_flux,
     ),
 );
-
-m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
+freeze_thaw_source = Variableτ_FreezeThaw{FT}(Δt = dt, τLTE = τLTE)
+m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model;
+                   phase_change_source = freeze_thaw_source
+                   )
 sources = (freeze_thaw_source,)
 m = LandModel(
     param_set,
@@ -317,7 +318,7 @@ k = Int(round(50*3600/timeend*n_outputs))
 scatter!(all_data[k]["θ_i"][:]+all_data[k]["ϑ_l"][:], iz[:], label = "model, 50h")
 plot!(legend = :bottomright)
 plot(first_plot,second,third, layout = (1,3))
-savefig("./freeze_thaw_plots/mizoguchi_ct.png")
+savefig("./freeze_thaw_plots/mizoguchi_vt.png")
 
 function f(k)
     T = all_data[k]["T"][:]
@@ -335,4 +336,4 @@ end
 anim = @animate for i ∈ 1:60
     f(i)
 end
-(gif(anim, "./freeze_thaw_plots/mizoguchi_ct.gif",fps = 8))
+(gif(anim, "./freeze_thaw_plots/mizoguchi_vt.gif",fps = 8))

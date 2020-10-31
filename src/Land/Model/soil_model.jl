@@ -49,7 +49,7 @@ end
 
 
 """
-    SoilModel{PF, W, H} <: BalanceLaw
+    SoilModel{PF, W, H, PCS} <: BalanceLaw
 
 A BalanceLaw for soil modeling.
 Users may over-ride prescribed default values for each field.
@@ -60,19 +60,26 @@ Users may over-ride prescribed default values for each field.
         param_functions,
         water,
         heat,
+        phase_change_source,
     )
 
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct SoilModel{PF, W, H} <: BalanceLaw
+struct SoilModel{PF, W, H, PCS} <: BalanceLaw
     "Soil Parameter Functions"
     param_functions::PF
     "Water model"
     water::W
     "Heat model"
     heat::H
+    "phase change model"
+    phase_change_source::PCS
+    function SoilModel(param_functions::PF, water::W, heat::H; phase_change_source::PCS = nothing) where {PF, W, H, PCS}
+        new{PF,W,H,PCS}(param_functions, water, heat, phase_change_source)
+    end
+    
 end
 
 
@@ -80,6 +87,7 @@ function vars_state(soil::SoilModel, st::Prognostic, FT)
     @vars begin
         water::vars_state(soil.water, st, FT)
         heat::vars_state(soil.heat, st, FT)
+        phase_change_source::vars_state(soil.phase_change_source, st, FT)
     end
 end
 
@@ -190,6 +198,19 @@ function flux_second_order!(
         land,
         soil,
         soil.heat,
+        flux,
+        state,
+        diffusive,
+        hyperdiffusive,
+        aux,
+        t,
+    )
+
+
+    flux_second_order!(
+        land,
+        soil,
+        soil.phase_change_source,
         flux,
         state,
         diffusive,

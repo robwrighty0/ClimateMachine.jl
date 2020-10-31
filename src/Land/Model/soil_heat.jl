@@ -29,16 +29,14 @@ function PrescribedTemperatureModel(T::Function = (aux, t) -> eltype(aux)(0.0))
 end
 
 """
-    SoilHeatModel{FT, FiT, FiD, BCD, BCN} <: AbstractHeatModel
+    SoilHeatModel{FT, FiT, BCD, BCN} <: AbstractHeatModel
 The necessary components for the Heat Equation in a soil water matrix.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct SoilHeatModel{FT, FiT, FiD, BCD, BCN} <: AbstractHeatModel
+struct SoilHeatModel{FT, FiT, BCD, BCN} <: AbstractHeatModel
     "Initial conditions for temperature"
     initialT::FiT
-    "Initial state for our dummy variable ∇κ∇T"
-    initial∇κ∇T::FiD
     "Dirichlet BC structure"
     dirichlet_bc::BCD
     "Neumann BC structure"
@@ -49,25 +47,19 @@ end
     SoilHeatModel(
         ::Type{FT};
         initialT::Function = (aux) -> eltype(aux)(NaN),
-        initial∇κ∇T::Function = (aux) -> eltype(aux)(0.0),
         dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
         neumann_bc::AbstractBoundaryFunctions = Neumann(),
     ) where {FT}
 
 Constructor for the SoilHeatModel.
-
-The variable ∇κ∇T is not useful; we create it so that we have
-a place to store the value of ∇κ∇T for use in freezing and thawing
-(in the tendency for this variable). 
 """
 function SoilHeatModel(
     ::Type{FT};
     initialT::Function = (aux) -> eltype(aux)(NaN),
-    initial∇κ∇T::Function = (aux) -> eltype(aux)(0.0),
     dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
     neumann_bc::AbstractBoundaryFunctions = Neumann(),
 ) where {FT}
-    args = (initialT, initial∇κ∇T, dirichlet_bc, neumann_bc)
+    args = (initialT, dirichlet_bc, neumann_bc)
     return SoilHeatModel{FT, typeof.(args)...}(args...)
 end
 
@@ -131,7 +123,7 @@ function get_initial_temperature(
 end
 
 vars_state(heat::SoilHeatModel, st::Prognostic, FT) =
-    @vars(ρe_int::FT, ∇κ∇T::FT)
+    @vars(ρe_int::FT)
 vars_state(heat::SoilHeatModel, st::Auxiliary, FT) = @vars(T::FT)
 vars_state(heat::SoilHeatModel, st::Gradient, FT) = @vars(T::FT)
 vars_state(heat::SoilHeatModel, st::GradientFlux, FT) =
@@ -234,5 +226,4 @@ function flux_second_order!(
         -ρe_int_l .* get_diffusive_water_term(soil.water, diffusive)
     diffusive_heat_flux = -diffusive.soil.heat.κ∇T
     flux.soil.heat.ρe_int += diffusive_heat_flux + diffusive_water_flux
-    flux.soil.heat.∇κ∇T += diffusive_heat_flux
 end

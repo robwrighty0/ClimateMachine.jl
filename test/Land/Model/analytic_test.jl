@@ -6,7 +6,7 @@ using Test
 using Logging
 disable_logging(Logging.Warn)
 using DelimitedFiles
-using Plots
+#using Plots
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -75,7 +75,6 @@ function init_soil!(land, state, aux, coordinates, time)
         land.soil.heat.initialT(aux),
         land.param_set,
     )
-    state.soil.heat.∇κ∇T = myFT(land.soil.heat.initial∇κ∇T(aux))
 end;
 
 
@@ -137,9 +136,6 @@ cs = FT(3e6)
 τLTE = FT(cs * Δ^FT(2.0) / κ)
 dt = FT(50)
 
-freeze_thaw_source = Variableτ_FreezeThaw{FT}(Δt = dt,
-                                    τLTE = τLTE)
-
 bottom_flux = (aux, t) -> eltype(aux)(0.0)
 surface_flux = (aux, t) -> eltype(aux)(0.0)
 surface_state = nothing
@@ -179,8 +175,11 @@ soil_heat_model = SoilHeatModel(
     ),
 );
 
-m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
-sources = (freeze_thaw_source,)
+phase_change_source = Variableτ_FreezeThaw{FT}(Δt = dt, τLTE = τLTE)
+m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model;
+                   phase_change_source = phase_change_source
+                   )
+sources = (phase_change_source,)
 m = LandModel(
     param_set,
     m_soil;
