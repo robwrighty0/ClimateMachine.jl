@@ -38,7 +38,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
         MMSModel{dim}(),
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 

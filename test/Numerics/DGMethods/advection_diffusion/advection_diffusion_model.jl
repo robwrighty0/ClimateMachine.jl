@@ -27,14 +27,9 @@ import ClimateMachine.BalanceLaws:
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
-    NumericalFluxFirstOrder,
-    NumericalFluxSecondOrder,
-    NumericalFluxGradient,
-    GradNumericalFlux,
-    DivNumericalPenalty
+    NumericalFlux, DivNumericalPenalty
 
-import ClimateMachine.DGMethods.NumericalFluxes:
-    numerical_flux_first_order!, boundary_flux_second_order!
+import ClimateMachine.DGMethods.NumericalFluxes: numerical_flux!, boundary_flux!
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -393,7 +388,7 @@ function boundary_state!(
 end
 
 function boundary_state!(
-    nf::CentralNumericalFluxSecondOrder,
+    nf::CentralNumericalFlux{SecondOrder},
     bctype,
     m::AdvectionDiffusion,
     state⁺::Vars,
@@ -440,7 +435,7 @@ function boundary_state!(
 end
 
 function boundary_flux_second_order!(
-    nf::CentralNumericalFluxSecondOrder,
+    nf::CentralNumericalFlux{SecondOrder},
     bctype,
     m::AdvectionDiffusion{N, dim, P, true},
     F,
@@ -491,7 +486,7 @@ end
 
 # Bcs for hyperdiffusion not implemented
 boundary_state!(
-    ::Union{GradNumericalFlux, DivNumericalPenalty},
+    ::Union{NumericalFlux{Grad}, NumericalFlux{DivPenalty}},
     bctype,
     ::AdvectionDiffusion,
     _...,

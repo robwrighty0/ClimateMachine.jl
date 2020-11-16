@@ -222,7 +222,7 @@ end
 boundary_conditions(::KinematicModel) = (1, 2, 3, 4, 5, 6)
 
 function boundary_state!(
-    ::CentralNumericalFluxSecondOrder,
+    ::CentralNumericalFlux{SecondOrder},
     bctype,
     m::KinematicModel,
     state⁺,

@@ -116,8 +116,8 @@ let
                     model,
                     grid,
                     RusanovNumericalFlux(),
-                    CentralNumericalFluxSecondOrder(),
-                    CentralNumericalFluxGradient(),
+                    CentralNumericalFlux{SecondOrder}(),
+                    CentralNumericalFlux{Gradient}(),
                 )
 
                 Δt = FT(1 // 200)

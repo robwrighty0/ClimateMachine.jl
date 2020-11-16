@@ -1,13 +1,17 @@
 using ..Ocean: surface_flux
 
 """
-    ocean_temperature_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Insulating, ::HBModel)
+    ocean_temperature_boundary_state!(
+        ::Union{NumericalFlux{FirstOrder},
+        NumericalFlux{Gradient}},
+        ::Insulating,
+        ::HBModel)
 
 apply insulating boundary condition for temperature
 sets transmissive ghost point
 """
 function ocean_temperature_boundary_state!(
-    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    nf::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
     bc_temperature::Insulating,
     ocean,
     Q⁺,
@@ -23,13 +27,13 @@ function ocean_temperature_boundary_state!(
 end
 
 """
-    ocean_temperature_boundary_state!(::NumericalFluxSecondOrder, ::Insulating, ::HBModel)
+    ocean_temperature_boundary_state!(::NumericalFlux{SecondOrder}, ::Insulating, ::HBModel)
 
 apply insulating boundary condition for velocity
 sets ghost point to have no numerical flux on the boundary for κ∇θ
 """
 @inline function ocean_temperature_boundary_state!(
-    nf::NumericalFluxSecondOrder,
+    nf::NumericalFlux{SecondOrder},
     bc_temperature::Insulating,
     ocean,
     Q⁺,
@@ -48,13 +52,17 @@ sets ghost point to have no numerical flux on the boundary for κ∇θ
 end
 
 """
-    ocean_temperature_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::TemperatureFlux, ::HBModel)
+    ocean_temperature_boundary_state!(
+        ::Union{NumericalFlux{FirstOrder},
+        NumericalFlux{Gradient}},
+        ::TemperatureFlux,
+        ::HBModel)
 
 apply temperature flux boundary condition for velocity
 applies insulating conditions for first-order and gradient fluxes
 """
 function ocean_temperature_boundary_state!(
-    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    nf::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
     bc_velocity::TemperatureFlux,
     ocean,
     args...,
@@ -63,13 +71,16 @@ function ocean_temperature_boundary_state!(
 end
 
 """
-    ocean_temperature_boundary_state!(::NumericalFluxSecondOrder, ::TemperatureFlux, ::HBModel)
+    ocean_temperature_boundary_state!(
+        ::NumericalFlux{SecondOrder},
+        ::TemperatureFlux,
+        ::HBModel)
 
 apply insulating boundary condition for velocity
 sets ghost point to have specified flux on the boundary for κ∇θ
 """
 @inline function ocean_temperature_boundary_state!(
-    nf::NumericalFluxSecondOrder,
+    nf::NumericalFlux{SecondOrder},
     bc_temperature::TemperatureFlux,
     ocean,
     Q⁺,

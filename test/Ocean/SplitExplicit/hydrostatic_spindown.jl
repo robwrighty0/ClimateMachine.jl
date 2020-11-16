@@ -110,16 +110,16 @@ function setup_models(
     integral_model = DGModel(
         VerticalIntegralModel(model_3D),
         grid_3D,
-        CentralNumericalFluxFirstOrder(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{FirstOrder}(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 
     dg_2D = DGModel(
         model_2D,
         grid_2D,
-        CentralNumericalFluxFirstOrder(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{FirstOrder}(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 
@@ -137,7 +137,7 @@ function setup_models(
         model_3D,
         grid_3D,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient();
         modeldata = modeldata,
     )
@@ -176,7 +176,7 @@ function setup_models(
         model_2D,
         grid_2D,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 
@@ -186,7 +186,7 @@ function setup_models(
         model_3D,
         grid_3D,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient();
         modeldata = (dg_2D, Q_2D),
     )

@@ -14,7 +14,7 @@ BalanceLaw
 
 ```@docs
 PrognosticVariable
-AbstractOrder
+AbstractFluxType
 AbstractTendencyType
 TendencyDef
 eq_tends

@@ -163,7 +163,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
         model,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 

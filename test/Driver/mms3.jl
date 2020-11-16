@@ -146,8 +146,8 @@ function main()
         MPI.COMM_WORLD,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
+        CentralNumericalFlux{SecondOrder}(),
+        CentralNumericalFlux{Gradient}(),
         ClimateMachine.AtmosLESSpecificInfo(),
     )
 

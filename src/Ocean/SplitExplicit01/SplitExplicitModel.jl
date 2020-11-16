@@ -27,11 +27,7 @@ using ...Mesh.Grids:
 using ...BalanceLaws
 #import ...BalanceLaws: nodal_update_auxiliary_state!
 
-using ...DGMethods.NumericalFluxes:
-    RusanovNumericalFlux,
-    CentralNumericalFluxGradient,
-    CentralNumericalFluxSecondOrder,
-    CentralNumericalFluxFirstOrder
+using ...DGMethods.NumericalFluxes: RusanovNumericalFlux, CentralNumericalFlux
 
 using ..Ocean
 
@@ -42,7 +38,7 @@ import ..Ocean:
     _ocean_boundary_state!
 
 import ...DGMethods.NumericalFluxes:
-    update_penalty!, numerical_flux_second_order!, NumericalFluxFirstOrder
+    update_penalty!, numerical_flux!, NumericalFlux
 
 import ...DGMethods:
     vars_state,

@@ -14,8 +14,8 @@ function atmos_tracer_boundary_state!(
 )
     nothing
 end
-function atmos_tracer_normal_boundary_flux_second_order!(
-    nf,
+function atmos_tracer_normal_boundary_flux!(
+    nf::NumericalFlux{SecondOrder},
     bc_tracer::ImpermeableTracer,
     atmos,
     args...,

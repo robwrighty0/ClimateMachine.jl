@@ -19,13 +19,13 @@ applies boundary condition ∇u = 0 and ∇θ = 0
 """
 
 """
-    ocean_boundary_state!(::AbstractOceanModel, ::CoastlineFreeSlip, ::NumericalFluxFirstOrder)
+    ocean_boundary_state!(::AbstractOceanModel, ::CoastlineFreeSlip, ::NumericalFlux{FirstOrder})
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxFirstOrder,
+    ::NumericalFlux{FirstOrder},
     ::CoastlineFreeSlip,
     ::AbstractOceanModel,
     Q⁺,
@@ -44,7 +44,7 @@ apply no penetration boundary for temperature
 end
 
 @inline function ocean_boundary_state!(
-    ::NumericalFluxFirstOrder,
+    ::NumericalFlux{FirstOrder},
     ::CoastlineFreeSlip,
     ::BarotropicModel,
     Q⁺,
@@ -111,13 +111,13 @@ end
 end
 
 """
-    ocean_boundary_state!(::AbstractOceanModel, ::CoastlineFreeSlip, ::NumericalFluxSecondOrder)
+    ocean_boundary_state!(::AbstractOceanModel, ::CoastlineFreeSlip, ::NumericalFlux{SecondOrder})
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     ::CoastlineFreeSlip,
     ::AbstractOceanModel,
     Q⁺,
@@ -136,7 +136,7 @@ apply no penetration boundary for temperature
 end
 
 @inline function ocean_boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     ::CoastlineFreeSlip,
     ::BarotropicModel,
     Q⁺,
@@ -166,7 +166,7 @@ apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxFirstOrder,
+    ::NumericalFlux{FirstOrder},
     ::CoastlineNoSlip,
     ::AbstractOceanModel,
     Q⁺,
@@ -182,7 +182,7 @@ apply no penetration boundary for temperature
 end
 
 @inline function ocean_boundary_state!(
-    ::NumericalFluxFirstOrder,
+    ::NumericalFlux{FirstOrder},
     ::CoastlineNoSlip,
     ::BarotropicModel,
     Q⁺,
@@ -239,13 +239,13 @@ end
 end
 
 """
-    ocean_boundary_state!(::AbstractOceanModel, ::CoastlineNoSlip, ::NumericalFluxSecondOrder)
+    ocean_boundary_state!(::AbstractOceanModel, ::CoastlineNoSlip, ::NumericalFlux{SecondOrder})
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     ::CoastlineNoSlip,
     ::AbstractOceanModel,
     Q⁺,
@@ -266,7 +266,7 @@ apply no penetration boundary for temperature
 end
 
 @inline function ocean_boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     ::CoastlineNoSlip,
     ::BarotropicModel,
     Q⁺,
@@ -296,7 +296,7 @@ apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxFirstOrder,
+    ::NumericalFlux{FirstOrder},
     ::OceanFloorFreeSlip,
     ::AbstractOceanModel,
     Q⁺,
@@ -335,13 +335,13 @@ apply no penetration boundary for temperature
 end
 
 """
-    ocean_boundary_state!(::AbstractOceanModel, ::OceanFloorFreeSlip, ::NumericalFluxSecondOrder)
+    ocean_boundary_state!(::AbstractOceanModel, ::OceanFloorFreeSlip, ::NumericalFlux{SecondOrder})
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     ::OceanFloorFreeSlip,
     ::AbstractOceanModel,
     Q⁺,
@@ -374,7 +374,7 @@ apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxFirstOrder,
+    ::NumericalFlux{FirstOrder},
     ::OceanFloorNoSlip,
     ::AbstractOceanModel,
     Q⁺,
@@ -415,13 +415,13 @@ apply no penetration boundary for temperature
 end
 
 """
-    ocean_boundary_state!(::AbstractOceanModel, ::OceanFloorNoSlip, ::NumericalFluxSecondOrder)
+    ocean_boundary_state!(::AbstractOceanModel, ::OceanFloorNoSlip, ::NumericalFlux{SecondOrder})
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     ::OceanFloorNoSlip,
     ::AbstractOceanModel,
     Q⁺,
@@ -443,12 +443,12 @@ apply no penetration boundary for temperature
 end
 
 """
-    ocean_boundary_state!(::AbstractOceanModel, ::Union{OceanSurface*}, ::Union{RusanovNumericalFlux, NumericalFluxGradient})
+    ocean_boundary_state!(::AbstractOceanModel, ::Union{OceanSurface*}, ::Union{RusanovNumericalFlux, NumericalFlux{Gradient}})
 
 applying neumann boundary conditions, so don't need to do anything for these numerical fluxes
 """
 @inline function ocean_boundary_state!(
-    ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    ::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
     ::Union{
         OceanSurfaceNoStressNoForcing,
         OceanSurfaceStressNoForcing,
@@ -467,13 +467,13 @@ applying neumann boundary conditions, so don't need to do anything for these num
 end
 
 """
-    ocean_boundary_state!(::AbstractOceanModel, ::OceanSurfaceNoStressNoForcing, ::NumericalFluxSecondOrder)
+    ocean_boundary_state!(::AbstractOceanModel, ::OceanSurfaceNoStressNoForcing, ::NumericalFlux{SecondOrder})
 
 apply no flux boundary condition for velocity
 apply no flux boundary condition for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     ::OceanSurfaceNoStressNoForcing,
     ::AbstractOceanModel,
     Q⁺,
@@ -493,13 +493,13 @@ apply no flux boundary condition for temperature
 end
 
 """
-    ocean_boundary_state!(::AbstractOceanModel, ::OceanSurfaceStressNoForcing, ::NumericalFluxSecondOrder)
+    ocean_boundary_state!(::AbstractOceanModel, ::OceanSurfaceStressNoForcing, ::NumericalFlux{SecondOrder})
 
 apply wind-stress boundary condition for velocity
 apply no flux boundary condition for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     ::OceanSurfaceStressNoForcing,
     m::AbstractOceanModel,
     Q⁺,
@@ -521,13 +521,13 @@ apply no flux boundary condition for temperature
 end
 
 """
-    ocean_boundary_state!(::AbstractOceanModel, ::OceanSurfaceNoStressForcing, ::NumericalFluxSecondOrder)
+    ocean_boundary_state!(::AbstractOceanModel, ::OceanSurfaceNoStressForcing, ::NumericalFlux{SecondOrder})
 
 apply no flux boundary condition for velocity
 apply forcing boundary condition for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     ::OceanSurfaceNoStressForcing,
     m::AbstractOceanModel,
     Q⁺,
@@ -549,13 +549,13 @@ apply forcing boundary condition for temperature
 end
 
 """
-    ocean_boundary_state!(::AbstractOceanModel, ::OceanSurfaceStressForcing, ::NumericalFluxSecondOrder)
+    ocean_boundary_state!(::AbstractOceanModel, ::OceanSurfaceStressForcing, ::NumericalFlux{SecondOrder})
 
 apply wind-stress boundary condition for velocity
 apply forcing boundary condition for temperature
 """
 @inline function ocean_boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     ::OceanSurfaceStressForcing,
     m::AbstractOceanModel,
     Q⁺,

@@ -66,16 +66,11 @@ import ClimateMachine.DGMethods:
 
 import ..DGMethods.NumericalFluxes:
     boundary_state!,
-    boundary_flux_second_order!,
-    normal_boundary_flux_second_order!,
-    NumericalFluxFirstOrder,
-    NumericalFluxGradient,
-    NumericalFluxSecondOrder,
-    CentralNumericalFluxHigherOrder,
-    CentralNumericalFluxDivergence,
-    CentralNumericalFluxFirstOrder,
-    numerical_flux_first_order!,
-    NumericalFluxFirstOrder
+    boundary_flux!,
+    normal_boundary_flux!,
+    NumericalFlux,
+    CentralNumericalFlux,
+    numerical_flux!
 using ..DGMethods.NumericalFluxes:
     RoeNumericalFlux, HLLCNumericalFlux, RusanovNumericalFlux
 
@@ -411,7 +406,8 @@ include("get_prognostic_vars.jl")     # get tuple of prognostic variables
 Computes and assembles non-diffusive fluxes in the model
 equations.
 """
-@inline function flux_first_order!(
+@inline function flux!(
+    order::FirstOrder,
     m::AtmosModel,
     flux::Grad,
     state::Vars,
@@ -421,7 +417,7 @@ equations.
 )
     ρu_pad = SVector(1, 1, 1)
     ts = recover_thermo_state(m, state, aux)
-    tend = Flux{FirstOrder}()
+    tend = Flux{order}()
     args = (m, state, aux, t, ts, direction)
     flux.ρ = Σfluxes(eq_tends(Mass(), m, tend), args...)
     flux.ρu = Σfluxes(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
@@ -799,7 +795,7 @@ end
 roe_average(ρ⁻, ρ⁺, var⁻, var⁺) =
     (sqrt(ρ⁻) * var⁻ + sqrt(ρ⁺) * var⁺) / (sqrt(ρ⁻) + sqrt(ρ⁺))
 
-function numerical_flux_first_order!(
+function numerical_flux!(
     numerical_flux::RoeNumericalFlux,
     balance_law::AtmosModel,
     fluxᵀn::Vars{S},
@@ -813,8 +809,8 @@ function numerical_flux_first_order!(
 ) where {S, A}
     @assert balance_law.moisture isa DryModel
 
-    numerical_flux_first_order!(
-        CentralNumericalFluxFirstOrder(),
+    numerical_flux!(
+        CentralNumericalFlux{FirstOrder}(),
         balance_law,
         fluxᵀn,
         normal_vector,
@@ -920,18 +916,18 @@ function numerical_flux_first_order!(
 end
 
 """
-    NumericalFluxFirstOrder()
+    numerical_flux!(
         ::HLLCNumericalFlux,
         balance_law::AtmosModel,
-        fluxᵀn,
-        normal_vector,
-        state_prognostic⁻,
-        state_auxiliary⁻,
-        state_prognostic⁺,
-        state_auxiliary⁺,
+        fluxᵀn::Vars{S},
+        normal_vector::SVector,
+        state_prognostic⁻::Vars{S},
+        state_auxiliary⁻::Vars{A},
+        state_prognostic⁺::Vars{S},
+        state_auxiliary⁺::Vars{A},
         t,
         direction,
-    )
+    ) where {S, A}
 
 An implementation of the numerical flux based on the HLLC method for
 the AtmosModel. For more information on this particular implementation,
@@ -945,7 +941,7 @@ see Chapter 10.4 in the provided reference below.
         publisher={Springer Science & Business Media}
     }
 """
-function numerical_flux_first_order!(
+function numerical_flux!(
     ::HLLCNumericalFlux,
     balance_law::AtmosModel,
     fluxᵀn::Vars{S},

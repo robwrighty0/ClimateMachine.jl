@@ -1,14 +1,4 @@
-using .NumericalFluxes:
-    numerical_flux_gradient!,
-    numerical_flux_first_order!,
-    numerical_flux_second_order!,
-    numerical_flux_divergence!,
-    numerical_flux_higher_order!,
-    numerical_boundary_flux_gradient!,
-    numerical_boundary_flux_first_order!,
-    numerical_boundary_flux_second_order!,
-    numerical_boundary_flux_divergence!,
-    numerical_boundary_flux_higher_order!
+using .NumericalFluxes: numerical_flux!, numerical_boundary_flux!
 
 using ..Mesh.Geometry
 
@@ -172,7 +162,8 @@ fluxes, respectively.
 
             # Computes the local inviscid fluxes Fⁱⁿᵛ
             fill!(local_flux, -zero(eltype(local_flux)))
-            flux_first_order!(
+            flux!(
+                FirstOrder(),
                 balance_law,
                 Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
@@ -193,7 +184,8 @@ fluxes, respectively.
 
             # Computes the local viscous fluxes Fᵛⁱˢᶜ
             fill!(local_flux, -zero(eltype(local_flux)))
-            flux_second_order!(
+            flux!(
+                SecondOrder(),
                 balance_law,
                 Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
@@ -239,7 +231,8 @@ fluxes, respectively.
             if model_direction isa EveryDirection && balance_law isa RemBL
                 if rembl_has_subs_direction(HorizontalDirection(), balance_law)
                     fill!(local_flux, -zero(eltype(local_flux)))
-                    flux_first_order!(
+                    flux!(
+                        FirstOrder(),
                         balance_law,
                         Grad{vars_state(balance_law, Prognostic(), FT)}(
                             local_flux,
@@ -448,7 +441,8 @@ end
 
             # Computes the local inviscid fluxes Fⁱⁿᵛ
             fill!(local_flux, -zero(eltype(local_flux)))
-            flux_first_order!(
+            flux!(
+                FirstOrder(),
                 balance_law,
                 Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
@@ -469,7 +463,8 @@ end
 
             # Computes the local viscous fluxes Fᵛⁱˢᶜ
             fill!(local_flux, -zero(eltype(local_flux)))
-            flux_second_order!(
+            flux!(
+                SecondOrder(),
                 balance_law,
                 Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
@@ -511,7 +506,8 @@ end
             if model_direction isa EveryDirection && balance_law isa RemBL
                 if rembl_has_subs_direction(VerticalDirection(), balance_law)
                     fill!(local_flux, -zero(eltype(local_flux)))
-                    flux_first_order!(
+                    flux!(
+                        FirstOrder(),
                         balance_law,
                         Grad{vars_state(balance_law, Prognostic(), FT)}(
                             local_flux,
@@ -702,13 +698,13 @@ fluxes, respectively.
         local_state_hyperdiffusion⁻ = MArray{Tuple{nhyperviscstate}, FT}(undef)
         local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
-        # Need two copies since numerical_flux_first_order! can modify state_prognostic⁺
+        # Need two copies since numerical_flux! can modify state_prognostic⁺
         local_state_prognostic⁺nondiff =
             MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_prognostic⁺diff =
             MArray{Tuple{num_state_prognostic}, FT}(undef)
 
-        # Need two copies since numerical_flux_first_order! can modify state_auxiliary⁺
+        # Need two copies since numerical_flux! can modify state_auxiliary⁺
         local_state_auxiliary⁺nondiff =
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_state_auxiliary⁺diff =
@@ -796,7 +792,7 @@ fluxes, respectively.
         bctag = elemtobndy[f, e⁻]
         fill!(local_flux, -zero(eltype(local_flux)))
         if bctag == 0
-            numerical_flux_first_order!(
+            numerical_flux!(
                 numerical_flux_first_order,
                 balance_law,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
@@ -816,7 +812,7 @@ fluxes, respectively.
                 t,
                 face_direction,
             )
-            numerical_flux_second_order!(
+            numerical_flux!(
                 numerical_flux_second_order,
                 balance_law,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
@@ -868,7 +864,7 @@ fluxes, respectively.
             # TODO: there is probably a better way to unroll this loop
             Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
                 bc = bcs[d]
-                numerical_boundary_flux_first_order!(
+                numerical_boundary_flux!(
                     numerical_flux_first_order,
                     bc,
                     balance_law,
@@ -895,7 +891,7 @@ fluxes, respectively.
                         local_state_auxiliary_bottom1,
                     ),
                 )
-                numerical_boundary_flux_second_order!(
+                numerical_boundary_flux!(
                     numerical_flux_second_order,
                     bc,
                     balance_law,
@@ -1610,7 +1606,7 @@ auxiliary gradient flux, and G* is the associated numerical flux.
         )
         if bctag == 0  # Periodic boundary condition (boundary-less)
             # Computes G* on the minus side
-            numerical_flux_gradient!(
+            numerical_flux!(
                 numerical_flux_gradient,
                 balance_law,
                 local_transform_gradient,
@@ -1670,7 +1666,7 @@ auxiliary gradient flux, and G* is the associated numerical flux.
             Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
                 bc = bcs[d]
                 # Computes G* incorporating boundary conditions
-                numerical_boundary_flux_gradient!(
+                numerical_boundary_flux!(
                     numerical_flux_gradient,
                     bc,
                     balance_law,
@@ -2495,7 +2491,7 @@ end
 
         bctag = elemtobndy[f, e⁻]
         if bctag == 0
-            numerical_flux_divergence!(
+            numerical_flux!(
                 divgradnumpenalty,
                 balance_law,
                 Vars{vars_state(balance_law, GradientLaplacian(), FT)}(l_div),
@@ -2508,7 +2504,7 @@ end
             # TODO: there is probably a better way to unroll this loop
             Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
                 bc = bcs[d]
-                numerical_boundary_flux_divergence!(
+                numerical_boundary_flux!(
                     divgradnumpenalty,
                     bc,
                     balance_law,
@@ -2888,7 +2884,7 @@ end
 
         bctag = elemtobndy[f, e⁻]
         if bctag == 0
-            numerical_flux_higher_order!(
+            numerical_flux!(
                 hyperviscnumflux,
                 balance_law,
                 Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
@@ -2916,7 +2912,7 @@ end
             # TODO: there is probably a better way to unroll this loop
             Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
                 bc = bcs[d]
-                numerical_boundary_flux_higher_order!(
+                numerical_boundary_flux!(
                     hyperviscnumflux,
                     bc,
                     balance_law,

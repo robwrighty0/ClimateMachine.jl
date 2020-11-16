@@ -55,9 +55,9 @@ struct DriverConfiguration{FT}
     grid::DiscontinuousSpectralElementGrid
     #
     # DGModel details
-    numerical_flux_first_order::NumericalFluxFirstOrder
-    numerical_flux_second_order::NumericalFluxSecondOrder
-    numerical_flux_gradient::NumericalFluxGradient
+    numerical_flux_first_order::NumericalFlux{FirstOrder}
+    numerical_flux_second_order::NumericalFlux{SecondOrder}
+    numerical_flux_gradient::NumericalFlux{Gradient}
     #
     # configuration-specific info
     config_info::ConfigSpecificInfo
@@ -73,9 +73,9 @@ struct DriverConfiguration{FT}
         bl::BalanceLaw,
         mpicomm::MPI.Comm,
         grid::DiscontinuousSpectralElementGrid,
-        numerical_flux_first_order::NumericalFluxFirstOrder,
-        numerical_flux_second_order::NumericalFluxSecondOrder,
-        numerical_flux_gradient::NumericalFluxGradient,
+        numerical_flux_first_order::NumericalFlux{FirstOrder},
+        numerical_flux_second_order::NumericalFlux{SecondOrder},
+        numerical_flux_gradient::NumericalFlux{Gradient},
         config_info::ConfigSpecificInfo,
     )
         # FIXME: Once variable degree kernels are merged, remove this assert
@@ -139,8 +139,8 @@ function AtmosLESConfiguration(
     periodicity = (true, true, false),
     meshwarp = (x...) -> identity(x),
     numerical_flux_first_order = RusanovNumericalFlux(),
-    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
-    numerical_flux_gradient = CentralNumericalFluxGradient(),
+    numerical_flux_second_order = CentralNumericalFlux{SecondOrder}(),
+    numerical_flux_gradient = CentralNumericalFlux{Gradient}(),
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
@@ -228,8 +228,8 @@ function AtmosGCMConfiguration(
     mpicomm = MPI.COMM_WORLD,
     meshwarp::Function = cubedshellwarp,
     numerical_flux_first_order = RusanovNumericalFlux(),
-    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
-    numerical_flux_gradient = CentralNumericalFluxGradient(),
+    numerical_flux_second_order = CentralNumericalFlux{SecondOrder}(),
+    numerical_flux_gradient = CentralNumericalFlux{Gradient}(),
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
@@ -313,8 +313,8 @@ function OceanBoxGCMConfiguration(
     ),
     mpicomm = MPI.COMM_WORLD,
     numerical_flux_first_order = RusanovNumericalFlux(),
-    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
-    numerical_flux_gradient = CentralNumericalFluxGradient(),
+    numerical_flux_second_order = CentralNumericalFlux{SecondOrder}(),
+    numerical_flux_gradient = CentralNumericalFlux{Gradient}(),
     periodicity = (false, false, false),
     boundary = ((1, 1), (1, 1), (2, 3)),
 )
@@ -370,8 +370,8 @@ function OceanSplitExplicitConfiguration(
     solver_type = SplitExplicitSolverType{FT}(90.0 * 60.0, 240.0),
     mpicomm = MPI.COMM_WORLD,
     numerical_flux_first_order = RusanovNumericalFlux(),
-    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
-    numerical_flux_gradient = CentralNumericalFluxGradient(),
+    numerical_flux_second_order = CentralNumericalFlux{SecondOrder}(),
+    numerical_flux_gradient = CentralNumericalFlux{Gradient}(),
     periodicity = (false, false, false),
     boundary = ((1, 1), (1, 1), (2, 3)),
 )
@@ -529,8 +529,8 @@ function SingleStackConfiguration(
     periodicity = (true, true, false),
     meshwarp = (x...) -> identity(x),
     numerical_flux_first_order = RusanovNumericalFlux(),
-    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
-    numerical_flux_gradient = CentralNumericalFluxGradient(),
+    numerical_flux_second_order = CentralNumericalFlux{SecondOrder}(),
+    numerical_flux_gradient = CentralNumericalFlux{Gradient}(),
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N

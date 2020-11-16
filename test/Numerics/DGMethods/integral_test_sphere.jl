@@ -150,8 +150,8 @@ function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
         IntegralTestSphereModel(Rinner, Router),
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
+        CentralNumericalFlux{SecondOrder}(),
+        CentralNumericalFlux{Gradient}(),
     )
 
     Q = init_ode_state(dg, FT(0))

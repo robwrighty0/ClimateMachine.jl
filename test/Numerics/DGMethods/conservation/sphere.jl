@@ -42,9 +42,7 @@ import ClimateMachine.DGMethods:
 import ClimateMachine.DGMethods: init_ode_state
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 import ClimateMachine.DGMethods.NumericalFluxes:
-    NumericalFluxFirstOrder,
-    numerical_flux_first_order!,
-    numerical_boundary_flux_first_order!
+    NumericalFlux, numerical_flux!, numerical_boundary_flux!
 
 struct ConservationTestModel <: BalanceLaw end
 
@@ -96,17 +94,17 @@ flux_second_order!(::ConservationTestModel, _...) = nothing
 
 source!(::ConservationTestModel, _...) = nothing
 
-struct ConservationTestModelNumFlux <: NumericalFluxFirstOrder end
+struct ConservationTestModelNumFlux <: NumericalFlux{FirstOrder} end
 
 boundary_conditions(::ConservationTestModel) = (nothing,)
 boundary_state!(
-    ::CentralNumericalFluxSecondOrder,
+    ::CentralNumericalFlux{SecondOrder},
     bc,
     ::ConservationTestModel,
     _...,
 ) = nothing
 
-function numerical_flux_first_order!(
+function numerical_flux!(
     ::ConservationTestModelNumFlux,
     bl::BalanceLaw,
     fluxᵀn::Vars{S},
@@ -131,7 +129,7 @@ function numerical_flux_first_order!(
     end
 end
 
-function numerical_boundary_flux_first_order!(
+function numerical_boundary_flux!(
     ::ConservationTestModelNumFlux,
     bctype,
     bl::BalanceLaw,
@@ -172,7 +170,7 @@ function test_run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, FT, dt)
         ConservationTestModel(),
         grid,
         ConservationTestModelNumFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 

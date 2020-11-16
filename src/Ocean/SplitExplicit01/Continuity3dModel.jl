@@ -47,7 +47,7 @@ end
 @inline wavespeed(cm::Continuity3dModel, n⁻, _...) = -zero(eltype(n⁻))
 
 boundary_state!(
-    ::CentralNumericalFluxSecondOrder,
+    ::CentralNumericalFlux{SecondOrder},
     bc,
     cm::Continuity3dModel,
     _...,
@@ -73,7 +73,7 @@ boundary_conditions(cm::Continuity3dModel) = (
 end
 #=
 @inline function boundary_state!(
-    ::NumericalFluxFirstOrder,
+    ::NumericalFlux{FirstOrder},
     ::Continuity3dModel,
     Q⁺,
     A⁺,

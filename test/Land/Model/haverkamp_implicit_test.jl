@@ -106,7 +106,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
         param_set,
         m;
         zmin = zmin,
-        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        numerical_flux_first_order = CentralNumericalFlux{FirstOrder}(),
     )
 
     t0 = FT(0)

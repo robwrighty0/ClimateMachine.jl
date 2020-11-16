@@ -7,13 +7,9 @@ CurrentModule = ClimateMachine.DGMethods.NumericalFluxes
 ## Types
 
 ```@docs
-NumericalFluxGradient
+NumericalFlux
 RusanovNumericalFlux
 RoeNumericalFlux
 HLLCNumericalFlux
-NumericalFluxFirstOrder
-NumericalFluxSecondOrder
-CentralNumericalFluxSecondOrder
-CentralNumericalFluxFirstOrder
-CentralNumericalFluxGradient
+CentralNumericalFlux
 ```

@@ -348,7 +348,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     zmax,
     param_set,
     m,
-    numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+    numerical_flux_first_order = CentralNumericalFlux{FirstOrder}(),
 );
 
 # # Time discretization / solver

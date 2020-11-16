@@ -22,7 +22,7 @@ struct FreeSlip <: MomentumDragBC end
 
 
 function atmos_momentum_boundary_state!(
-    nf::NumericalFluxFirstOrder,
+    nf::NumericalFlux{FirstOrder},
     bc_momentum::Impenetrable{FreeSlip},
     atmos,
     state⁺,
@@ -36,7 +36,7 @@ function atmos_momentum_boundary_state!(
     state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
 end
 function atmos_momentum_boundary_state!(
-    nf::NumericalFluxGradient,
+    nf::NumericalFlux{Gradient},
     bc_momentum::Impenetrable{FreeSlip},
     atmos,
     state⁺,
@@ -49,8 +49,8 @@ function atmos_momentum_boundary_state!(
 )
     state⁺.ρu -= dot(state⁻.ρu, n) .* SVector(n)
 end
-function atmos_momentum_normal_boundary_flux_second_order!(
-    nf,
+function atmos_momentum_normal_boundary_flux!(
+    nf::NumericalFlux{SecondOrder},
     bc_momentum::Impenetrable{FreeSlip},
     atmos,
     args...,
@@ -66,7 +66,7 @@ Zero momentum at the boundary.
 struct NoSlip <: MomentumDragBC end
 
 function atmos_momentum_boundary_state!(
-    nf::NumericalFluxFirstOrder,
+    nf::NumericalFlux{FirstOrder},
     bc_momentum::Impenetrable{NoSlip},
     atmos,
     state⁺,
@@ -80,7 +80,7 @@ function atmos_momentum_boundary_state!(
     state⁺.ρu = -state⁻.ρu
 end
 function atmos_momentum_boundary_state!(
-    nf::NumericalFluxGradient,
+    nf::NumericalFlux{Gradient},
     bc_momentum::Impenetrable{NoSlip},
     atmos,
     state⁺,
@@ -93,8 +93,8 @@ function atmos_momentum_boundary_state!(
 )
     state⁺.ρu = zero(state⁺.ρu)
 end
-function atmos_momentum_normal_boundary_flux_second_order!(
-    nf,
+function atmos_momentum_normal_boundary_flux!(
+    nf::NumericalFlux{SecondOrder},
     bc_momentum::Impenetrable{NoSlip},
     atmos,
     args...,
@@ -113,7 +113,7 @@ struct DragLaw{FN} <: MomentumDragBC
     fn::FN
 end
 function atmos_momentum_boundary_state!(
-    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    nf::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
     bc_momentum::Impenetrable{DL},
     atmos,
     state⁺,
@@ -137,8 +137,8 @@ function atmos_momentum_boundary_state!(
         args...,
     )
 end
-function atmos_momentum_normal_boundary_flux_second_order!(
-    nf,
+function atmos_momentum_normal_boundary_flux!(
+    nf::NumericalFlux{SecondOrder},
     bc_momentum::Impenetrable{DL},
     atmos,
     fluxᵀn,

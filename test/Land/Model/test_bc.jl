@@ -87,7 +87,7 @@ using ClimateMachine.BalanceLaws:
         param_set,
         m;
         zmin = zmin,
-        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        numerical_flux_first_order = CentralNumericalFlux{FirstOrder}(),
     )
 
 

@@ -46,7 +46,7 @@ function main()
 
     # just to make it shorter and aligning
     Rusanov = RusanovNumericalFlux
-    Central = CentralNumericalFluxFirstOrder
+    Central = CentralNumericalFlux{FirstOrder}
     Roe = RoeNumericalFlux
     HLLC = HLLCNumericalFlux
 
@@ -238,7 +238,7 @@ function test_run(
         model,
         grid,
         NumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 

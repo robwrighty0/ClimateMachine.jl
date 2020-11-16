@@ -26,11 +26,10 @@ import ClimateMachine.DGMethods:
     nodal_init_state_auxiliary!,
     init_state_prognostic!
 
-import ClimateMachine.DGMethods: numerical_boundary_flux_second_order!
+import ClimateMachine.DGMethods: numerical_boundary_flux!
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 
-import ClimateMachine.DGMethods.NumericalFluxes:
-    NumericalFluxSecondOrder, numerical_flux_second_order!
+import ClimateMachine.DGMethods.NumericalFluxes: NumericalFlux, numerical_flux!
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -63,13 +62,12 @@ function flux_second_order!(
     flux.ϕ = diffusive.∇ϕ
 end
 
-struct PenaltyNumFluxDiffusive <: NumericalFluxSecondOrder end
+struct PenaltyNumFluxDiffusive <: NumericalFlux{SecondOrder} end
 
 # There is no boundary since we are periodic
-numerical_boundary_flux_second_order!(nf::PenaltyNumFluxDiffusive, _...) =
-    nothing
+numerical_boundary_flux!(nf::PenaltyNumFluxDiffusive, _...) = nothing
 
-function numerical_flux_second_order!(
+function numerical_flux!(
     ::PenaltyNumFluxDiffusive,
     bl::PoissonModel,
     fluxᵀn::Vars{S},
@@ -85,8 +83,8 @@ function numerical_flux_second_order!(
     t,
 ) where {S, HD, D, A}
 
-    numerical_flux_second_order!(
-        CentralNumericalFluxSecondOrder(),
+    numerical_flux!(
+        CentralNumericalFlux{SecondOrder}(),
         bl,
         fluxᵀn,
         n,
@@ -184,7 +182,7 @@ function test_run(
     dg = DGModel(
         PoissonModel{dim}(),
         grid,
-        CentralNumericalFluxFirstOrder(),
+        CentralNumericalFlux{FirstOrder}(),
         PenaltyNumFluxDiffusive(),
         CentralNumericalFluxGradient(),
     )

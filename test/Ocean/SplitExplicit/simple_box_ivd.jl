@@ -114,9 +114,9 @@ function main(::Type{FT}, BC) where {FT}
     barotropic_dg = DGModel(
         barotropicmodel,
         grid_2D,
-        # CentralNumericalFluxFirstOrder(),
+        # CentralNumericalFlux{FirstOrder}(),
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 
@@ -126,7 +126,7 @@ function main(::Type{FT}, BC) where {FT}
         model,
         grid_3D,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient();
         modeldata = (barotropic_dg, Q_2D),
     )

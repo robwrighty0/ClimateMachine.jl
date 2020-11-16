@@ -132,7 +132,7 @@ function run_brick_interpolation_test(DA, FT)
         model,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 
@@ -290,7 +290,7 @@ function run_cubed_sphere_interpolation_test(DA, FT)
         model,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 

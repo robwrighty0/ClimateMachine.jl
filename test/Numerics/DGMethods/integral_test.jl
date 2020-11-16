@@ -157,8 +157,8 @@ function test_run(mpicomm, dim, Ne, N, FT, ArrayType)
         IntegralTestModel{dim}(),
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
+        CentralNumericalFlux{SecondOrder}(),
+        CentralNumericalFlux{Gradient}(),
     )
 
     Q = init_ode_state(dg, FT(0))

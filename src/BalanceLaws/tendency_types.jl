@@ -29,14 +29,18 @@ each prognostic variable.
 abstract type PrognosticVariable end
 
 """
-    AbstractOrder
+    AbstractFluxType
 
 Subtypes are used for dispatching
-on the flux order.
+on the flux type.
 """
-abstract type AbstractOrder end
-struct FirstOrder <: AbstractOrder end
-struct SecondOrder <: AbstractOrder end
+abstract type AbstractFluxType end
+struct FirstOrder <: AbstractFluxType end
+struct SecondOrder <: AbstractFluxType end
+struct Gradient <: AbstractFluxType end
+struct HigherOrder <: AbstractFluxType end
+struct Divergence <: AbstractFluxType end
+struct DivPenalty <: AbstractFluxType end
 
 """
     AbstractTendencyType
@@ -45,7 +49,7 @@ Subtypes are used for specifying a
 tuple of tendencies to be accumulated.
 """
 abstract type AbstractTendencyType end
-struct Flux{O <: AbstractOrder} <: AbstractTendencyType end
+struct Flux{O <: AbstractFluxType} <: AbstractTendencyType end
 struct Source <: AbstractTendencyType end
 
 """
@@ -105,7 +109,7 @@ end
 
 export fluxes
 """
-    fluxes(bl::BalanceLaw, order::O) where {O <: AbstractOrder}
+    fluxes(bl::BalanceLaw, order::O) where {O <: AbstractFluxType}
 
 A tuple of `TendencyDef{Flux{O}}`s
 given the `BalanceLaw` and the `order::O`.
@@ -116,7 +120,7 @@ or `F₂` given the flux order `order::O` in:
 
     `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
 """
-function fluxes(bl::BalanceLaw, order::O) where {O <: AbstractOrder}
+function fluxes(bl::BalanceLaw, order::O) where {O <: AbstractFluxType}
     tend = eq_tends.(prognostic_vars(bl), Ref(bl), Ref(Flux{O}()))
     tend = filter(x -> x ≠ nothing, tend)
     return Tuple(Iterators.flatten(tend))

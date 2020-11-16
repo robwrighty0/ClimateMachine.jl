@@ -83,8 +83,8 @@ function test_run(mpicomm, dim, Ne, N, FT, ArrayType)
         VarsTestModel{dim}(),
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
+        CentralNumericalFlux{SecondOrder}(),
+        CentralNumericalFlux{Gradient}(),
     )
 
     Q = init_ode_state(dg, FT(0))

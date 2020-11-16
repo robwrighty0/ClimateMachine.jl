@@ -145,7 +145,7 @@ function run_box1D(
     exp_param_2::Int = 32,
     boyd_param_1::Int = 0,
     boyd_param_2::Int = 32,
-    numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+    numerical_flux_first_order = CentralNumericalFlux{FirstOrder}(),
 ) where {FT}
     N_poly = N_poly
     nelem = 128

@@ -91,8 +91,8 @@ function test_vertical_integral_model(::Type{FT}, time; refDat = ()) where {FT}
     integral_model = DGModel(
         integral_bl,
         grid_3D,
-        CentralNumericalFluxFirstOrder(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{FirstOrder}(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 
@@ -100,15 +100,15 @@ function test_vertical_integral_model(::Type{FT}, time; refDat = ()) where {FT}
         model_3D,
         grid_3D,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 
     dg_2D = DGModel(
         model_2D,
         grid_2D,
-        CentralNumericalFluxFirstOrder(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{FirstOrder}(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 

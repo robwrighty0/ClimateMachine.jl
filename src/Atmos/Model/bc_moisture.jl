@@ -12,8 +12,8 @@ function atmos_moisture_boundary_state!(
     atmos,
     args...,
 ) end
-function atmos_moisture_normal_boundary_flux_second_order!(
-    nf,
+function atmos_moisture_normal_boundary_flux!(
+    nf::NumericalFlux{SecondOrder},
     bc_moisture::Impermeable,
     atmos,
     args...,
@@ -35,8 +35,8 @@ function atmos_moisture_boundary_state!(
     atmos,
     args...,
 ) end
-function atmos_moisture_normal_boundary_flux_second_order!(
-    nf,
+function atmos_moisture_normal_boundary_flux!(
+    nf::NumericalFlux{SecondOrder},
     bc_moisture::PrescribedMoistureFlux,
     atmos,
     fluxᵀn,
@@ -80,8 +80,8 @@ function atmos_moisture_boundary_state!(
     atmos,
     args...,
 ) end
-function atmos_moisture_normal_boundary_flux_second_order!(
-    nf,
+function atmos_moisture_normal_boundary_flux!(
+    nf::NumericalFlux{SecondOrder},
     bc_moisture::BulkFormulaMoisture,
     atmos,
     fluxᵀn,

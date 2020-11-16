@@ -12,9 +12,8 @@ import ClimateMachine.BalanceLaws: vars_state, number_states
 using ClimateMachine.DGMethods: DGModel, init_ode_state, create_state
 using ClimateMachine.SystemSolvers: banded_matrix, banded_matrix_vector_product!
 using ClimateMachine.DGMethods.NumericalFluxes:
-    RusanovNumericalFlux,
-    CentralNumericalFluxSecondOrder,
-    CentralNumericalFluxGradient
+    RusanovNumericalFlux, CentralNumericalFlux{SecondOrder},
+CentralNumericalFluxGradient
 using ClimateMachine.MPIStateArrays: MPIStateArray, euclidean_distance
 using ClimateMachine.VariableTemplates
 using ClimateMachine.SystemSolvers
@@ -130,7 +129,7 @@ let
                         model,
                         grid,
                         RusanovNumericalFlux(),
-                        CentralNumericalFluxSecondOrder(),
+                        CentralNumericalFlux{SecondOrder}(),
                         CentralNumericalFluxGradient(),
                     )
 
@@ -138,7 +137,7 @@ let
                         model,
                         grid,
                         RusanovNumericalFlux(),
-                        CentralNumericalFluxSecondOrder(),
+                        CentralNumericalFlux{SecondOrder}(),
                         CentralNumericalFluxGradient();
                         direction = VerticalDirection(),
                         state_auxiliary = dg.state_auxiliary,

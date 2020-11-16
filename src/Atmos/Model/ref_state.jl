@@ -117,10 +117,7 @@ end
 
 using ..MPIStateArrays: vars
 using ..DGMethods: init_ode_state
-using ..DGMethods.NumericalFluxes:
-    CentralNumericalFluxFirstOrder,
-    CentralNumericalFluxSecondOrder,
-    CentralNumericalFluxGradient
+using ..DGMethods.NumericalFluxes: CentralNumericalFlux
 
 
 """
@@ -176,9 +173,9 @@ function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
     grad_dg = DGModel(
         grad_model,
         grid,
-        CentralNumericalFluxFirstOrder(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
+        CentralNumericalFlux{FirstOrder}(),
+        CentralNumericalFlux{SecondOrder}(),
+        CentralNumericalFlux{Gradient}(),
     )
 
     # initialize p

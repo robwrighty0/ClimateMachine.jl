@@ -3,8 +3,7 @@
 #
 # In this version the operator is tweked to be the indentity for testing
 
-using ClimateMachine.DGMethods.NumericalFluxes:
-    NumericalFluxFirstOrder, NumericalFluxSecondOrder, NumericalFluxGradient
+using ClimateMachine.DGMethods.NumericalFluxes: NumericalFlux
 
 """
  IVDCModel{M} <: BalanceLaw
@@ -154,9 +153,9 @@ end
 boundary_conditions(m::IVDCModel) = boundary_conditions(m.parent_om)
 function boundary_state!(
     nf::Union{
-        NumericalFluxFirstOrder,
-        NumericalFluxGradient,
-        CentralNumericalFluxGradient,
+        NumericalFlux{FirstOrder},
+        NumericalFlux{Gradient},
+        CentralNumericalFlux{Gradient},
     },
     bc,
     m::IVDCModel,
@@ -173,7 +172,7 @@ function boundary_state!(
     return nothing
 end
 
-###    From -  function numerical_boundary_flux_gradient! , DGMethods/NumericalFluxes.jl
+###    From -  function numerical_boundary_flux! , DGMethods/NumericalFluxes.jl
 ###    boundary_state!(
 ###        numerical_flux,
 ###        balance_law,
@@ -189,7 +188,7 @@ end
 ###    )
 
 function boundary_state!(
-    nf::Union{NumericalFluxSecondOrder, CentralNumericalFluxSecondOrder},
+    nf::Union{NumericalFlux{SecondOrder}, CentralNumericalFlux{SecondOrder}},
     bctype,
     m::IVDCModel,
     Q⁺,

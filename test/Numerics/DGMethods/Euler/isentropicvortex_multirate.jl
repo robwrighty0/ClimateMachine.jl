@@ -161,14 +161,14 @@ function test_run(
         model,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
     fast_dg = DGModel(
         fast_model,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient();
         state_auxiliary = dg.state_auxiliary,
     )

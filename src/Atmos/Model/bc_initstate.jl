@@ -10,7 +10,7 @@ mainly useful for cases where the problem has an explicit solution.
 """
 struct InitStateBC end
 function boundary_state!(
-    ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    ::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
     bc::InitStateBC,
     m::AtmosModel,
     state⁺::Vars,
@@ -26,7 +26,7 @@ function boundary_state!(
 end
 
 function boundary_state!(
-    ::NumericalFluxSecondOrder,
+    ::NumericalFlux{SecondOrder},
     bc::InitStateBC,
     m::AtmosModel,
     state⁺::Vars,

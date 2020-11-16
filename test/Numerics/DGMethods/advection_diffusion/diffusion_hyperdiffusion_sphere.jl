@@ -118,8 +118,8 @@ function run(mpicomm, ArrayType, topl, N, timeend, FT, vtkdir, outputtime)
     dg = DGModel(
         model,
         grid,
-        CentralNumericalFluxFirstOrder(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{FirstOrder}(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
         diffusion_direction = HorizontalDirection(),
     )

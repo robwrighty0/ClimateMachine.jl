@@ -128,7 +128,7 @@ function main()
     @testset for config in (LES, GCM)
         @testset for ode_solver_type in (explicit_solver_type, imex_solver_type)
             @testset for numflux in (
-                CentralNumericalFluxFirstOrder(),
+                CentralNumericalFlux{FirstOrder}(),
                 RoeNumericalFlux(),
                 HLLCNumericalFlux(),
             )

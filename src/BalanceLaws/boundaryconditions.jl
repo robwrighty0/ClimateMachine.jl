@@ -15,7 +15,7 @@ function boundary_conditions end
 
 """
     boundary_state!(
-        ::NumericalFluxGradient,
+        ::NumericalFlux{Gradient},
         ::BC
         ::BL,
         state_prognostic⁺::Vars,
@@ -26,7 +26,7 @@ function boundary_conditions end
         t
     )
     boundary_state!(
-        ::NumericalFluxFirstOrder,
+        ::NumericalFlux{FirstOrder},
         ::BC
         ::BL,
         state_prognostic⁺::Vars,
@@ -37,7 +37,7 @@ function boundary_conditions end
         t
     )
     boundary_state!(
-        ::NumericalFluxSecondOrder,
+        ::NumericalFlux{SecondOrder},
         ::BC
         ::BL,
         state_prognostic⁺::Vars,
@@ -52,9 +52,9 @@ function boundary_conditions end
 
 Specify the opposite (+ side) face for the boundary condition type `BC` with balance law `BL`.
 
- - `NumericalFluxGradient` numerical flux (internal method)
- - `NumericalFluxFirstOrder` first-order unknowns
- - `NumericalFluxSecondOrder` second-order unknowns
+ - `NumericalFlux{Gradient}` numerical flux (internal method)
+ - `NumericalFlux{FirstOrder}` first-order unknowns
+ - `NumericalFlux{SecondOrder}` second-order unknowns
 
 """
 function boundary_state! end

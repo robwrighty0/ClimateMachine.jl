@@ -577,7 +577,7 @@ end
 
 # We want not have jump penalties on η (since not a flux variable)
 #@inline function update_penalty!(
-#   ::Union{RusanovNumericalFlux, CentralNumericalFluxFirstOrder},
+#   ::Union{RusanovNumericalFlux, CentralNumericalFlux{FirstOrder}},
 function update_penalty!(
     ::RusanovNumericalFlux,
     ::OceanModel,

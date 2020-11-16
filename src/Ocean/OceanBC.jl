@@ -90,7 +90,7 @@ struct TemperatureFlux <: TemperatureBC end
 
 # these functions just trim off the extra arguments
 function _ocean_boundary_state!(
-    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    nf::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
     bc,
     ocean,
     Q⁺,
@@ -105,7 +105,7 @@ function _ocean_boundary_state!(
 end
 
 function _ocean_boundary_state!(
-    nf::NumericalFluxSecondOrder,
+    nf::NumericalFlux{SecondOrder},
     bc,
     ocean,
     Q⁺,

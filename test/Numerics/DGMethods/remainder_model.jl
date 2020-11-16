@@ -97,8 +97,8 @@ function test_run(
         fullmodel,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
+        CentralNumericalFlux{SecondOrder}(),
+        CentralNumericalFlux{Gradient}(),
     )
     Random.seed!(1235)
     Q = init_ode_state(dg, FT(0); init_on_cpu = true)
@@ -109,8 +109,8 @@ function test_run(
         acousticmodel,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
+        CentralNumericalFlux{SecondOrder}(),
+        CentralNumericalFlux{Gradient}();
         direction = EveryDirection(),
         state_auxiliary = dg.state_auxiliary,
     )
@@ -118,8 +118,8 @@ function test_run(
         acousticmodel,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
+        CentralNumericalFlux{SecondOrder}(),
+        CentralNumericalFlux{Gradient}();
         direction = VerticalDirection(),
         state_auxiliary = dg.state_auxiliary,
     )
@@ -127,8 +127,8 @@ function test_run(
         acousticmodel,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
+        CentralNumericalFlux{SecondOrder}(),
+        CentralNumericalFlux{Gradient}();
         direction = HorizontalDirection(),
         state_auxiliary = dg.state_auxiliary,
     )

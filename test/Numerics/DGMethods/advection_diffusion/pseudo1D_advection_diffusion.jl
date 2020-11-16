@@ -134,7 +134,7 @@ function test_run(
         model,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
         direction = direction(),
     )

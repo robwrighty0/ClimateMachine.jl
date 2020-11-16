@@ -169,7 +169,7 @@ end
 boundary_conditions(atmoslm::AtmosLinearModel) = (AtmosBC(), AtmosBC())
 
 function boundary_state!(
-    nf::NumericalFluxFirstOrder,
+    nf::NumericalFlux{FirstOrder},
     bc,
     atmoslm::AtmosLinearModel,
     args...,
@@ -177,7 +177,7 @@ function boundary_state!(
     atmos_boundary_state!(nf, bc, atmoslm, args...)
 end
 function boundary_state!(
-    nf::NumericalFluxSecondOrder,
+    nf::NumericalFlux{SecondOrder},
     bc,
     atmoslm::AtmosLinearModel,
     args...,
@@ -284,7 +284,7 @@ function source!(
     nothing
 end
 
-function numerical_flux_first_order!(
+function numerical_flux!(
     numerical_flux::RoeNumericalFlux,
     balance_law::AtmosLinearModel,
     fluxᵀn::Vars{S},
@@ -298,8 +298,8 @@ function numerical_flux_first_order!(
 ) where {S, A}
     @assert balance_law.atmos.moisture isa DryModel
 
-    numerical_flux_first_order!(
-        CentralNumericalFluxFirstOrder(),
+    numerical_flux!(
+        CentralNumericalFlux{FirstOrder}(),
         balance_law,
         fluxᵀn,
         normal_vector,
@@ -360,7 +360,7 @@ function numerical_flux_first_order!(
     fluxᵀn.ρe -= h̃ * ΔpL / 2c̃
 end
 
-function numerical_flux_first_order!(
+function numerical_flux!(
     ::HLLCNumericalFlux,
     balance_law::AtmosLinearModel,
     fluxᵀn::Vars{S},
@@ -375,7 +375,7 @@ function numerical_flux_first_order!(
 
     # There is no intermediate speed for the AtmosLinearModel.
     # As a result, HLLC simplifies to Rusanov.
-    numerical_flux_first_order!(
+    numerical_flux!(
         RusanovNumericalFlux(),
         balance_law,
         fluxᵀn,

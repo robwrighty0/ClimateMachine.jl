@@ -68,7 +68,10 @@ function boundary_state!(
 end
 
 function boundary_state!(
-    nf::Union{CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence},
+    nf::Union{
+        CentralNumericalFlux{HigherOrder},
+        CentralNumericalFlux{Divergence},
+    },
     bc::AtmosBC,
     m::AtmosModel,
     x...,
@@ -76,7 +79,12 @@ function boundary_state!(
     nothing
 end
 
-function atmos_boundary_state!(nf, bc::AtmosBC, atmos, args...)
+function atmos_boundary_state!(
+    nf::NumericalFlux{FirstOrder},
+    bc::AtmosBC,
+    atmos,
+    args...,
+)
     atmos_momentum_boundary_state!(nf, bc.momentum, atmos, args...)
     atmos_energy_boundary_state!(nf, bc.energy, atmos, args...)
     atmos_moisture_boundary_state!(nf, bc.moisture, atmos, args...)
@@ -85,8 +93,8 @@ function atmos_boundary_state!(nf, bc::AtmosBC, atmos, args...)
 end
 
 
-function normal_boundary_flux_second_order!(
-    nf,
+function normal_boundary_flux!(
+    nf::NumericalFlux{SecondOrder},
     bc::AtmosBC,
     atmos::AtmosModel,
     fluxᵀn::Vars{S},
@@ -102,7 +110,7 @@ function normal_boundary_flux_second_order!(
     t,
     args...,
 ) where {S}
-    atmos_normal_boundary_flux_second_order!(
+    atmos_normal_boundary_flux!(
         nf,
         bc,
         atmos,
@@ -121,37 +129,17 @@ function normal_boundary_flux_second_order!(
     )
 end
 
-function atmos_normal_boundary_flux_second_order!(
+function atmos_normal_boundary_flux!(
     nf,
     bc::AtmosBC,
     atmos::AtmosModel,
     args...,
 )
-    atmos_momentum_normal_boundary_flux_second_order!(
-        nf,
-        bc.momentum,
-        atmos,
-        args...,
-    )
-    atmos_energy_normal_boundary_flux_second_order!(
-        nf,
-        bc.energy,
-        atmos,
-        args...,
-    )
-    atmos_moisture_normal_boundary_flux_second_order!(
-        nf,
-        bc.moisture,
-        atmos,
-        args...,
-    )
-    atmos_tracer_normal_boundary_flux_second_order!(
-        nf,
-        bc.tracer,
-        atmos,
-        args...,
-    )
-    turbconv_normal_boundary_flux_second_order!(nf, bc.turbconv, atmos, args...)
+    atmos_momentum_normal_boundary_flux!(nf, bc.momentum, atmos, args...)
+    atmos_energy_normal_boundary_flux!(nf, bc.energy, atmos, args...)
+    atmos_moisture_normal_boundary_flux!(nf, bc.moisture, atmos, args...)
+    atmos_tracer_normal_boundary_flux!(nf, bc.tracer, atmos, args...)
+    turbconv_normal_boundary_flux!(nf, bc.turbconv, atmos, args...)
 end
 
 """

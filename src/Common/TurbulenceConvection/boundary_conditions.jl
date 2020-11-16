@@ -4,7 +4,7 @@ export TurbConvBC,
     NoTurbConvBC,
     turbconv_bcs,
     turbconv_boundary_state!,
-    turbconv_normal_boundary_flux_second_order!
+    turbconv_normal_boundary_flux!
 
 abstract type TurbConvBC end
 
@@ -21,8 +21,8 @@ function turbconv_boundary_state!(nf, bc_turbulence::NoTurbConvBC, bl, args...)
     nothing
 end
 
-function turbconv_normal_boundary_flux_second_order!(
-    nf,
+function turbconv_normal_boundary_flux!(
+    nf::NumericalFlux{SecondOrder},
     bc_turbulence::NoTurbConvBC,
     bl,
     args...,

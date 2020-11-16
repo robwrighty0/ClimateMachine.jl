@@ -134,8 +134,8 @@ function test_run(
     dg = DGModel(
         model,
         grid,
-        CentralNumericalFluxFirstOrder(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{FirstOrder}(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
         direction = direction(),
     )

@@ -7,9 +7,7 @@ using ClimateMachine.Mesh.Grids:
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.DGMethods: DGModel, init_ode_state, remainder_DGModel
 using ClimateMachine.DGMethods.NumericalFluxes:
-    RusanovNumericalFlux,
-    CentralNumericalFluxGradient,
-    CentralNumericalFluxSecondOrder
+    RusanovNumericalFlux, CentralNumericalFluxGradient, CentralNumericalFlux{SecondOrder}
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers
 using ClimateMachine.VTK: writevtk, writepvtu
@@ -130,7 +128,7 @@ function test_run(
         model,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 
@@ -138,7 +136,7 @@ function test_run(
         linearmodel,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient();
         direction = VerticalDirection(),
         state_auxiliary = dg.state_auxiliary,

@@ -53,7 +53,7 @@ end
 Dirichlet_data!(P::HeatEqn, x...) = initial_condition!(P, x...)
 
 function normal_boundary_flux_second_order!(
-    ::CentralNumericalFluxSecondOrder,
+    ::CentralNumericalFlux{SecondOrder},
     bctype,
     ::AdvectionDiffusion{1, dim, HeatEqn{nd, κ, A}},
     fluxᵀn::Vars{S},
@@ -118,7 +118,7 @@ function test_run(
         model,
         grid,
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
         direction = direction(),
     )

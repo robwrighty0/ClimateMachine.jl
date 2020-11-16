@@ -176,7 +176,7 @@ boundary_state!(::CentralNumericalFluxGradient, bc, bl::MMSModel, _...) =
     nothing
 
 function boundary_state!(
-    ::CentralNumericalFluxSecondOrder,
+    ::CentralNumericalFlux{SecondOrder},
     bctype,
     bl::MMSModel,
     stateP::Vars,

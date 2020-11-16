@@ -221,18 +221,18 @@ function main(::Type{FT}) where {FT}
     dg = OceanDGModel(
         model,
         grid_3D,
-        # CentralNumericalFluxFirstOrder(),
+        # CentralNumericalFlux{FirstOrder}(),
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 
     barotropic_dg = DGModel(
         barotropicmodel,
         grid_2D,
-        # CentralNumericalFluxFirstOrder(),
+        # CentralNumericalFlux{FirstOrder}(),
         RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFlux{SecondOrder}(),
         CentralNumericalFluxGradient(),
     )
 

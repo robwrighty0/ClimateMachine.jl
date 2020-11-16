@@ -1,5 +1,4 @@
-using .NumericalFluxes:
-    CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
+using .NumericalFluxes: CentralNumerical
 
 struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     balance_law::BL
@@ -1181,7 +1180,7 @@ function launch_interface_divergence_of_gradients!(
                 Val(info.dim),
                 Val(info.N),
                 HorizontalDirection(),
-                CentralNumericalFluxDivergence(),
+                CentralNumericalFlux{Divergence}(),
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
                 dg.grid.vgeo,
@@ -1204,7 +1203,7 @@ function launch_interface_divergence_of_gradients!(
                 Val(info.dim),
                 Val(info.N),
                 VerticalDirection(),
-                CentralNumericalFluxDivergence(),
+                CentralNumericalFlux{Divergence}(),
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
                 dg.grid.vgeo,
@@ -1336,7 +1335,7 @@ function launch_interface_gradients_of_laplacians!(
                 Val(info.dim),
                 Val(info.N),
                 HorizontalDirection(),
-                CentralNumericalFluxHigherOrder(),
+                CentralNumericalFlux{HigherOrder}(),
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
                 state_prognostic.data,
@@ -1362,7 +1361,7 @@ function launch_interface_gradients_of_laplacians!(
                 Val(info.dim),
                 Val(info.N),
                 VerticalDirection(),
-                CentralNumericalFluxHigherOrder(),
+                CentralNumericalFlux{HigherOrder}(),
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
                 state_prognostic.data,

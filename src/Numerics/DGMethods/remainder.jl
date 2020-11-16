@@ -398,16 +398,16 @@ end
 
 # Here the fluxes are pirated to handle the case of tuples of fluxes
 import ..DGMethods.NumericalFluxes:
-    NumericalFluxFirstOrder,
-    numerical_flux_first_order!,
-    numerical_boundary_flux_first_order!,
-    normal_boundary_flux_second_order!
+    NumericalFlux,
+    numerical_flux!,
+    numerical_boundary_flux!,
+    normal_boundary_flux!
 
 """
-    function numerical_flux_first_order!(
+    function numerical_flux!(
         numerical_fluxes::Tuple{
-            NumericalFluxFirstOrder,
-            NTuple{NumSubFluxes, NumericalFluxFirstOrder},
+            NumericalFlux{FirstOrder},
+            NTuple{NumSubFluxes, NumericalFlux{FirstOrder}},
         },
         rem_balance_law::RemBL,
         fluxᵀn::Vars{S},
@@ -428,10 +428,10 @@ Only models which have directions that are included in the `directions` tuple
 are evaluated. When these models are evaluated the models underlying `direction`
 is passed (not the original `directions` argument).
 """
-function numerical_flux_first_order!(
+function numerical_flux!(
     numerical_fluxes::Tuple{
-        NumericalFluxFirstOrder,
-        NTuple{NumSubFluxes, NumericalFluxFirstOrder},
+        NumericalFlux{FirstOrder},
+        NTuple{NumSubFluxes, NumericalFlux{FirstOrder}},
     },
     rem_balance_law::RemBL,
     fluxᵀn::Vars{S},
@@ -445,7 +445,7 @@ function numerical_flux_first_order!(
 ) where {NumSubFluxes, S, A, Dirs <: NTuple{2, Direction}}
     # Call the numerical flux for the main model
     if rem_balance_law.maindir isa Union{Dirs.types...}
-        @inbounds numerical_flux_first_order!(
+        @inbounds numerical_flux!(
             numerical_fluxes[1],
             rem_balance_law.main,
             fluxᵀn,
@@ -483,7 +483,7 @@ function numerical_flux_first_order!(
 
             # compute this submodels flux
             fill!(a_sub_fluxᵀn, -zero(eltype(a_sub_fluxᵀn)))
-            numerical_flux_first_order!(
+            numerical_flux!(
                 nf,
                 sub,
                 Vars{vars_state(sub, Prognostic(), FT)}(a_sub_fluxᵀn),
@@ -507,10 +507,10 @@ function numerical_flux_first_order!(
 end
 
 """
-    function numerical_boundary_flux_first_order!(
+    function numerical_boundary_flux!(
         numerical_fluxes::Tuple{
-            NumericalFluxFirstOrder,
-            NTuple{NumSubFluxes, NumericalFluxFirstOrder},
+            NumericalFlux{FirstOrder},
+            NTuple{NumSubFluxes, NumericalFlux{FirstOrder}},
         },
         bc,
         rem_balance_law::RemBL,
@@ -533,10 +533,10 @@ Only models which have directions that are included in the `directions` tuple
 are evaluated. When these models are evaluated the models underlying `direction`
 is passed (not the original `directions` argument).
 """
-function numerical_boundary_flux_first_order!(
+function numerical_boundary_flux!(
     numerical_fluxes::Tuple{
-        NumericalFluxFirstOrder,
-        NTuple{NumSubFluxes, NumericalFluxFirstOrder},
+        NumericalFlux{FirstOrder},
+        NTuple{NumSubFluxes, NumericalFlux{FirstOrder}},
     },
     bc,
     rem_balance_law::RemBL,
@@ -562,7 +562,7 @@ function numerical_boundary_flux_first_order!(
 
     # Call the numerical flux for the main model
     if rem_balance_law.maindir isa Union{Dirs.types...}
-        @inbounds numerical_boundary_flux_first_order!(
+        @inbounds numerical_boundary_flux!(
             numerical_fluxes[1],
             bc,
             rem_balance_law.main,
@@ -610,7 +610,7 @@ function numerical_boundary_flux_first_order!(
 
             # compute this submodels flux
             fill!(a_sub_fluxᵀn, -zero(eltype(a_sub_fluxᵀn)))
-            numerical_boundary_flux_first_order!(
+            numerical_boundary_flux!(
                 nf,
                 bc,
                 sub,
@@ -639,21 +639,16 @@ function numerical_boundary_flux_first_order!(
 end
 
 """
-    normal_boundary_flux_second_order!(nf, rem_balance_law::RemBL, args...)
+    normal_boundary_flux!(nf, rem_balance_law::RemBL, args...)
 
-Currently the main models `normal_boundary_flux_second_order!` is called. If the
+Currently the main models `normal_boundary_flux!` is called. If the
 subcomponents models have second order terms this would need to be updated.
 """
-normal_boundary_flux_second_order!(
+normal_boundary_flux!(
     nf,
     bc,
     rem_balance_law::RemBL,
     fluxᵀn::Vars{S},
     args...,
-) where {S} = normal_boundary_flux_second_order!(
-    nf,
-    bc,
-    rem_balance_law.main,
-    fluxᵀn,
-    args...,
-)
+) where {S} =
+    normal_boundary_flux!(nf, bc, rem_balance_law.main, fluxᵀn, args...)

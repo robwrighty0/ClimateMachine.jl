@@ -1,13 +1,16 @@
 using ..Ocean: kinematic_stress
 
 """
-    ocean_velocity_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{NoSlip}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::NumericalFlux{FirstOrder},
+        ::Impenetrable{NoSlip},
+        ::HBModel)
 
 apply no slip boundary condition for velocity
 sets reflective ghost point
 """
 function ocean_velocity_boundary_state!(
-    nf::NumericalFluxFirstOrder,
+    nf::NumericalFlux{FirstOrder},
     bc_velocity::Impenetrable{NoSlip},
     ocean,
     Q⁺,
@@ -24,13 +27,16 @@ function ocean_velocity_boundary_state!(
 end
 
 """
-    ocean_velocity_boundary_state!(::NumericalFluxGradient, ::Impenetrable{NoSlip}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::NumericalFlux{Gradient},
+        ::Impenetrable{NoSlip},
+        ::HBModel)
 
 apply no slip boundary condition for velocity
 set numerical flux to zero for u
 """
 function ocean_velocity_boundary_state!(
-    nf::NumericalFluxGradient,
+    nf::NumericalFlux{Gradient},
     bc_velocity::Impenetrable{NoSlip},
     ocean,
     Q⁺,
@@ -48,13 +54,16 @@ function ocean_velocity_boundary_state!(
 end
 
 """
-    ocean_velocity_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{NoSlip}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::NumericalFlux{SecondOrder},
+        ::Impenetrable{NoSlip},
+        ::HBModel)
 
 apply no slip boundary condition for velocity
 sets ghost point to have no numerical flux on the boundary for u
 """
 @inline function ocean_velocity_boundary_state!(
-    nf::NumericalFluxSecondOrder,
+    nf::NumericalFlux{SecondOrder},
     bc_velocity::Impenetrable{NoSlip},
     ocean,
     Q⁺,
@@ -74,13 +83,16 @@ sets ghost point to have no numerical flux on the boundary for u
 end
 
 """
-    ocean_velocity_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{FreeSlip}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::NumericalFlux{FirstOrder},
+        ::Impenetrable{FreeSlip},
+        ::HBModel)
 
 apply free slip boundary condition for velocity
 sets reflective ghost point
 """
 function ocean_velocity_boundary_state!(
-    nf::NumericalFluxFirstOrder,
+    nf::NumericalFlux{FirstOrder},
     bc_velocity::Impenetrable{FreeSlip},
     ocean,
     Q⁺,
@@ -99,13 +111,16 @@ function ocean_velocity_boundary_state!(
 end
 
 """
-    ocean_velocity_boundary_state!(::NumericalFluxGradient, ::Impenetrable{FreeSlip}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::NumericalFlux{Gradient},
+        ::Impenetrable{FreeSlip},
+        ::HBModel)
 
 apply free slip boundary condition for velocity
 sets non-reflective ghost point
 """
 function ocean_velocity_boundary_state!(
-    nf::NumericalFluxGradient,
+    nf::NumericalFlux{Gradient},
     bc_velocity::Impenetrable{FreeSlip},
     ocean,
     Q⁺,
@@ -124,13 +139,16 @@ function ocean_velocity_boundary_state!(
 end
 
 """
-    ocean_velocity_normal_boundary_flux_second_order!(::NumericalFluxSecondOrder, ::Impenetrable{FreeSlip}, ::HBModel)
+    ocean_velocity_normal_boundary_flux_second_order!(
+        ::NumericalFlux{SecondOrder},
+        ::Impenetrable{FreeSlip},
+        ::HBModel)
 
 apply free slip boundary condition for velocity
 apply zero numerical flux in the normal direction
 """
 function ocean_velocity_boundary_state!(
-    nf::NumericalFluxSecondOrder,
+    nf::NumericalFlux{SecondOrder},
     bc_velocity::Impenetrable{FreeSlip},
     ocean,
     Q⁺,
@@ -150,13 +168,16 @@ function ocean_velocity_boundary_state!(
 end
 
 """
-    ocean_velocity_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{FreeSlip}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
+        ::Penetrable{FreeSlip},
+        ::HBModel)
 
 apply free slip boundary condition for velocity
 sets non-reflective ghost point
 """
 function ocean_velocity_boundary_state!(
-    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    nf::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
     bc_velocity::Penetrable{FreeSlip},
     ocean,
     args...,
@@ -165,13 +186,16 @@ function ocean_velocity_boundary_state!(
 end
 
 """
-    ocean_velocity_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{FreeSlip}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::NumericalFlux{SecondOrder},
+        ::Penetrable{FreeSlip},
+        ::HBModel)
 
 apply free slip boundary condition for velocity
 sets non-reflective ghost point
 """
 function ocean_velocity_boundary_state!(
-    nf::NumericalFluxSecondOrder,
+    nf::NumericalFlux{SecondOrder},
     bc_velocity::Penetrable{FreeSlip},
     ocean,
     Q⁺,
@@ -191,13 +215,16 @@ function ocean_velocity_boundary_state!(
 end
 
 """
-    ocean_velocity_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Impenetrable{KinematicStress}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
+        ::Impenetrable{KinematicStress},
+        ::HBModel)
 
 apply kinematic stress boundary condition for velocity
 applies free slip conditions for first-order and gradient fluxes
 """
 function ocean_velocity_boundary_state!(
-    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    nf::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
     bc_velocity::Impenetrable{KinematicStress},
     ocean,
     args...,
@@ -211,13 +238,16 @@ function ocean_velocity_boundary_state!(
 end
 
 """
-    ocean_velocity_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{KinematicStress}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::NumericalFlux{SecondOrder},
+        ::Impenetrable{KinematicStress},
+        ::HBModel)
 
 apply kinematic stress boundary condition for velocity
 sets ghost point to have specified flux on the boundary for ν∇u
 """
 @inline function ocean_velocity_boundary_state!(
-    nf::NumericalFluxSecondOrder,
+    nf::NumericalFlux{SecondOrder},
     bc_velocity::Impenetrable{KinematicStress},
     ocean,
     Q⁺,
@@ -236,13 +266,16 @@ sets ghost point to have specified flux on the boundary for ν∇u
 end
 
 """
-    ocean_velocity_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{KinematicStress}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
+        ::Penetrable{KinematicStress},
+        ::HBModel)
 
 apply kinematic stress boundary condition for velocity
 applies free slip conditions for first-order and gradient fluxes
 """
 function ocean_velocity_boundary_state!(
-    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    nf::Union{NumericalFlux{FirstOrder}, NumericalFlux{Gradient}},
     bc_velocity::Penetrable{KinematicStress},
     ocean,
     args...,
@@ -256,13 +289,16 @@ function ocean_velocity_boundary_state!(
 end
 
 """
-    ocean_velocity_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{KinematicStress}, ::HBModel)
+    ocean_velocity_boundary_state!(
+        ::NumericalFlux{SecondOrder},
+        ::Penetrable{KinematicStress},
+        ::HBModel)
 
 apply kinematic stress boundary condition for velocity
 sets ghost point to have specified flux on the boundary for ν∇u
 """
 @inline function ocean_velocity_boundary_state!(
-    nf::NumericalFluxSecondOrder,
+    nf::NumericalFlux{SecondOrder},
     bc_velocity::Penetrable{KinematicStress},
     ocean,
     Q⁺,

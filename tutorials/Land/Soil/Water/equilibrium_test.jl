@@ -210,7 +210,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     param_set,
     m;
     zmin = zmin,
-    numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+    numerical_flux_first_order = CentralNumericalFlux{FirstOrder}(),
 );
 
 # Choose the initial and final times, as well as a timestep.
