@@ -756,6 +756,12 @@ end
         @test all(air_density.(ts_ρT) .≈ air_density.(ts))
         @test all(internal_energy.(ts_ρT) .≈ internal_energy.(ts))
 
+        ts = CustomPhaseDry_ρp.(param_set, ρ, p)
+        @test all(air_density.(ts) .≈ ρ)
+        @test all(air_pressure.(ts) .≈ p)
+        e_tot_desired = TD.total_energy_given_ρp.(param_set, ρ, p, e_kin, e_pot)
+        @test all(total_energy.(e_kin, e_pot, ts) .≈ e_tot_desired)
+
         profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack T, p, RS, e_int, ρ, θ_liq_ice, phase_type = profiles
         @unpack q_tot, q_liq, q_ice, q_pt, RH, e_kin, e_pot = profiles
@@ -779,6 +785,24 @@ end
         @test all(internal_energy.(ts) .≈ e_int)
         @test all(getproperty.(PhasePartition.(ts), :tot) .≈ q_tot)
         @test all(air_density.(ts) .≈ ρ)
+
+        ts = CustomPhaseEquil_ρpq.(param_set, ρ, p, q_tot)
+        @test all(air_density.(ts) .== ρ)
+        @test all(air_pressure.(ts) .== p)
+        # Can't call PhasePartition, since cirular dependency.
+        # Need to do sat adjust to compute temperature
+        # @test all(getproperty.(PhasePartition.(ts), :tot) .≈ q_tot)
+
+        # e_tot_desired =
+        #     TD.total_energy_given_ρp.(
+        #         param_set,
+        #         ρ,
+        #         p,
+        #         e_kin,
+        #         e_pot,
+        #         PhasePartition.(q_tot),
+        #     )
+        # @test all(total_energy.(e_kin, e_pot, ts) .≈ e_tot_desired)
 
         # PhaseNonEquil
         ts = PhaseNonEquil.(param_set, e_int, ρ, q_pt)
@@ -889,6 +913,21 @@ end
             getproperty.(PhasePartition.(ts), :ice) .≈ getproperty.(q_pt, :ice),
         )
 
+        ts = CustomPhaseNonEquil_ρpq.(param_set, ρ, p, q_pt)
+        @test all(air_density.(ts) .≈ ρ)
+        @test all(air_pressure.(ts) .≈ p)
+        @test all(
+            getproperty.(PhasePartition.(ts), :tot) .≈ getproperty.(q_pt, :tot),
+        )
+        @test all(
+            getproperty.(PhasePartition.(ts), :liq) .≈ getproperty.(q_pt, :liq),
+        )
+        @test all(
+            getproperty.(PhasePartition.(ts), :ice) .≈ getproperty.(q_pt, :ice),
+        )
+        e_tot_desired =
+            TD.total_energy_given_ρp.(param_set, ρ, p, e_kin, e_pot, q_pt)
+        @test all(total_energy.(e_kin, e_pot, ts) .≈ e_tot_desired)
 
         profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack T, p, RS, e_int, ρ, θ_liq_ice, phase_type = profiles

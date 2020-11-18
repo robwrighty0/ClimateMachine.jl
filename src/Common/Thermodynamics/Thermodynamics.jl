@@ -53,7 +53,9 @@ print_warning() = true
 @inline q_pt_0(::Type{FT}) where {FT} = PhasePartition(FT(0), FT(0), FT(0))
 
 include("states.jl")
+include("custom_states.jl")
 include("relations.jl")
+include("custom_relations.jl")
 include("isentropic.jl")
 
 Base.broadcastable(dap::DryAdiabaticProcess) = Ref(dap)

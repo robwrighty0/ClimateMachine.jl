@@ -25,6 +25,9 @@ All `ThermodynamicState`'s have access to functions to
 compute all other thermodynamic properties.
 """
 abstract type ThermodynamicState{FT} end
+abstract type AbstractPhaseDry{FT} <: ThermodynamicState{FT} end
+abstract type AbstractPhaseEquil{FT} <: ThermodynamicState{FT} end
+abstract type AbstractPhaseNonEquil{FT} <: ThermodynamicState{FT} end
 
 """
     PhasePartition
@@ -67,7 +70,7 @@ PhasePartition(q_tot::FT) where {FT <: Real} =
 #####
 
 """
-    PhaseDry{FT} <: ThermodynamicState
+    PhaseDry{FT} <: AbstractPhaseDry
 
 A dry thermodynamic state (`q_tot = 0`).
 
@@ -79,7 +82,7 @@ A dry thermodynamic state (`q_tot = 0`).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseDry{FT, PS} <: ThermodynamicState{FT}
+struct PhaseDry{FT, PS} <: AbstractPhaseDry{FT}
     "parameter set, used to dispatch planet parameter function calls"
     param_set::PS
     "internal energy"
@@ -155,7 +158,7 @@ end
 #####
 
 """
-    PhaseEquil{FT} <: ThermodynamicState
+    PhaseEquil{FT} <: AbstractPhaseEquil
 
 A thermodynamic state assuming thermodynamic equilibrium (therefore, saturation adjustment
 may be needed).
@@ -168,7 +171,7 @@ may be needed).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseEquil{FT, PS} <: ThermodynamicState{FT}
+struct PhaseEquil{FT, PS} <: AbstractPhaseEquil{FT}
     "parameter set, used to dispatch planet parameter function calls"
     param_set::PS
     "internal energy"
@@ -341,7 +344,7 @@ end
 #####
 
 """
-   	 PhaseNonEquil{FT} <: ThermodynamicState
+   	 PhaseNonEquil{FT} <: AbstractPhaseNonEquil
 
 A thermodynamic state assuming thermodynamic non-equilibrium (therefore, temperature can
 be computed directly).
@@ -355,7 +358,7 @@ be computed directly).
 $(DocStringExtensions.FIELDS)
 
 """
-struct PhaseNonEquil{FT, PS} <: ThermodynamicState{FT}
+struct PhaseNonEquil{FT, PS} <: AbstractPhaseNonEquil{FT}
     "parameter set, used to dispatch planet parameter function calls"
     param_set::PS
     "internal energy"
