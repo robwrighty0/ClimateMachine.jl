@@ -5,6 +5,14 @@ using Printf
 using ClimateMachine.Atmos: nodal_update_auxiliary_state!
 
 using ClimateMachine.BalanceLaws: number_states
+import ClimateMachine.BalanceLaws: eq_tends, prognostic_vars
+using ClimateMachine.BalanceLaws:
+    PrognosticVariable,
+    TendencyDef,
+    Source,
+    Flux,
+    FirstOrder,
+    SecondOrder
 
 using ClimateMachine.MPIStateArrays: MPIStateArray
 using ClimateMachine.DGMethods: LocalGeometry, DGModel
@@ -150,6 +158,37 @@ function vars_state(m::EDMF, st::GradientFlux, FT)
         updraft::vars_state(m.updraft, st, FT)
     )
 end
+
+abstract type EnvironmentPrognosticVariable <: PrognosticVariable end
+struct en_tke <: EnvironmentPrognosticVariable end
+struct en_ρaθ_liq_cv <: EnvironmentPrognosticVariable end
+struct en_ρaq_tot_cv <: EnvironmentPrognosticVariable end
+struct en_ρaθ_liq_q_tot_cv <: EnvironmentPrognosticVariable end
+
+abstract type UpdraftPrognosticVariable{i} <: PrognosticVariable end
+struct up_ρa{i} <: UpdraftPrognosticVariable{i} end
+struct up_ρaw{i} <: UpdraftPrognosticVariable{i} end
+struct up_ρaθ_liq{i} <: UpdraftPrognosticVariable{i} end
+struct up_ρaq_tot{i} <: UpdraftPrognosticVariable{i} end
+
+prognostic_vars(m::Environment) = (en_tke(), en_ρaθ_liq_cv(), en_ρaq_tot_cv(), en_ρaθ_liq_q_tot_cv())
+
+function prognostic_vars(m::NTuple{N, Updraft}) where {N}
+    t_ρa = ntuple(i->up_ρa{i}(),N)
+    t_ρaw = ntuple(i->up_ρaw{i}(),N)
+    t_ρaθ_liq = ntuple(i->up_ρaθ_liq{i}(),N)
+    t_ρaq_tot = ntuple(i->up_ρaq_tot{i}(),N)
+
+    t = (
+        t_ρa...,
+        t_ρaw...,
+        t_ρaθ_liq...,
+        t_ρaq_tot...,
+        )
+    return t
+end
+
+prognostic_vars(m::EDMF) = (prognostic_vars(m.environment), prognostic_vars(m.updraft)...)
 
 """
     init_aux_turbconv!(

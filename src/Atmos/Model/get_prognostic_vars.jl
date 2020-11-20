@@ -3,7 +3,9 @@
 import ..BalanceLaws: prognostic_vars
 
 prognostic_vars(::DryModel) = ()
+prognostic_vars(::NoTurbConv) = ()
 prognostic_vars(::EquilMoist) = (TotalMoisture(),)
+
 prognostic_vars(::NonEquilMoist) =
     (TotalMoisture(), LiquidMoisture(), IceMoisture())
 
