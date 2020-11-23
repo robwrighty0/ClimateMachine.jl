@@ -27,7 +27,7 @@
 end
 
 function atmos_source!(
-    ::Gravity,
+    s,
     atmos::AtmosModel,
     source::Vars,
     state::Vars,
@@ -39,93 +39,3 @@ function atmos_source!(
     # Migrated to Σsources
 end
 
-function atmos_source!(
-    ::Coriolis,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    # Migrated to Σsources
-end
-
-function atmos_source!(
-    subsidence::Subsidence,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    # Migrated to Σsources
-end
-
-function atmos_source!(
-    s::GeostrophicForcing,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    # Migrated to Σsources
-end
-
-function atmos_source!(
-    s::RayleighSponge,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    # Migrated to Σsources
-end
-
-function atmos_source!(
-    ::CreateClouds,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    # Migrated to Σsources
-end
-
-function atmos_source!(
-    s::RemovePrecipitation,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    # Migrated to Σsources
-end
-
-function atmos_source!(
-    ::Rain_1M,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    # Migrated to Σsources
-end

@@ -9,8 +9,12 @@ import ..BalanceLaws: eq_tends
 #####
 
 # --------- Some of these methods are generic or
-#           temporary during transition to new specification:
+# Diagonalize: return source if parameterized
+# by the prognostic variable.
 filter_source(pv, m, s) = nothing
+# filter_source(pv::PV, m::AtmosModel, s::TendencyDef{Source, PV}) where {PV <: PrognosticVariable} = s
+
+#           temporary during transition to new specification:
 # Sources that have been added to new specification:
 filter_source(pv::PV, m, s::Subsidence{PV}) where {PV <: PrognosticVariable} = s
 filter_source(pv::PV, m, s::Gravity{PV}) where {PV <: Momentum} = s

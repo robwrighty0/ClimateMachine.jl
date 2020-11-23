@@ -31,7 +31,6 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-import ClimateMachine.Atmos: atmos_source!
 
 # [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are
 # needed to have access to Earth's physical parameters.
@@ -42,43 +41,31 @@ using CLIMAParameters.Planet: MSLP, R_d, day, grav, cp_d, cv_d, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 
-struct HeldSuarezForcingTutorial <: AbstractSource end
+"""
+    HeldSuarezForcingTutorial{PV <: Union{Momentum,Energy}} <: TendencyDef{Source, PV}
 
-# Construct the Held-Suarez forcing function. We can view this as part the
-# right-hand-side of our governing equations. It forces the total energy field
-# in a way that the resulting steady-state velocity and temperature fields of
-# the simulation resemble those of an idealized dry planet.
-function atmos_source!(
-    ::HeldSuarezForcingTutorial,
-    balance_law::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
+Defines a forcing that parametrises radiative and frictional effects using
+Newtonian relaxation and Rayleigh friction, following Held and Suarez (1994)
+"""
+struct HeldSuarezForcingTutorial{PV <: Union{Momentum,Energy}} <: TendencyDef{Source, PV} end
+
+HeldSuarezForcingTutorial() = (HeldSuarezForcingTutorial{Momentum}(),HeldSuarezForcingTutorial{Energy}(),)
+
+import ClimateMachine.BalanceLaws: source
+
+function held_suarez_forcing_coefficients(bl, state, aux, t, ts, direction, diffusive)
     FT = eltype(state)
 
-    ## Parameters
-    T_ref::FT = 255 # reference temperature for Held-Suarez forcing (K)
+    # Parameters
+    T_ref = FT(255)
 
-    ## Extract the state
-    ρ = state.ρ
-    ρu = state.ρu
-    ρe = state.ρe
+    _R_d = FT(R_d(bl.param_set))
+    _day = FT(day(bl.param_set))
+    _grav = FT(grav(bl.param_set))
+    _cp_d = FT(cp_d(bl.param_set))
+    _p0 = FT(MSLP(bl.param_set))
 
-    ts = recover_thermo_state(balance_law, state, aux)
-    e_int = internal_energy(ts)
-    T = air_temperature(ts)
-    _R_d = FT(R_d(balance_law.param_set))
-    _day = FT(day(balance_law.param_set))
-    _grav = FT(grav(balance_law.param_set))
-    _cp_d = FT(cp_d(balance_law.param_set))
-    _cv_d = FT(cv_d(balance_law.param_set))
-    _p0 = FT(MSLP(balance_law.param_set))
-
-    ## Held-Suarez parameters
+    # Held-Suarez parameters
     k_a = FT(1 / (40 * _day))
     k_f = FT(1 / _day)
     k_s = FT(1 / (4 * _day))
@@ -88,8 +75,8 @@ function atmos_source!(
     T_min = FT(200)
     σ_b = FT(7 / 10)
 
-    ## Held-Suarez forcing
-    φ = latitude(balance_law, aux)
+    # Held-Suarez forcing
+    φ = latitude(bl, aux)
     p = air_pressure(ts)
 
     #TODO: replace _p0 with dynamic surface pressure in Δσ calculations to account
@@ -102,11 +89,21 @@ function atmos_source!(
     T_equil = max(T_min, T_equil)
     k_T = k_a + (k_s - k_a) * height_factor * cos(φ)^4
     k_v = k_f * height_factor
+    return (k_v=k_v, k_T=k_T,T_equil=T_equil)
+end
 
-    ## Apply Held-Suarez forcing
-    source.ρu -= k_v * projection_tangential(balance_law, aux, ρu)
-    source.ρe -= k_T * ρ * _cv_d * (T - T_equil)
-end;
+function source(s::HeldSuarezForcingTutorial{Energy}, m, state, aux, t, ts, direction, diffusive)
+    nt = held_suarez_forcing_coefficients(m, state, aux, t, ts, direction, diffusive)
+    _cv_d = FT(cv_d(bl.param_set))
+    @unpack k_T, T_equil = nt
+    T = air_temperature(ts)
+    return - k_T * state.ρ * _cv_d * (T - T_equil)
+end
+
+function source(s::HeldSuarezForcingTutorial{Mass}, m, state, aux, t, ts, direction, diffusive)
+    nt = held_suarez_forcing_coefficients(m, state, aux, t, ts, direction, diffusive)
+    return - nt.k_v * projection_tangential(m, aux, state.ρu)
+end
 
 
 # ## Set initial condition
@@ -188,7 +185,7 @@ model = AtmosModel{FT}(
     turbulence = turbulence_model,
     hyperdiffusion = hyperdiffusion_model,
     moisture = DryModel(),
-    source = (Gravity(), Coriolis(), HeldSuarezForcingTutorial(), sponge),
+    source = (Gravity(), Coriolis(), HeldSuarezForcingTutorial()..., sponge),
 );
 
 # This concludes the setup of the physical model!
