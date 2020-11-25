@@ -4,6 +4,7 @@ using CLIMAParameters.Planet: e_int_v0, grav, day, R_d, R_v, molmass_ratio
 using Printf
 using ClimateMachine.Atmos: nodal_update_auxiliary_state!
 
+using ClimateMachine.Atmos: Advect
 using ClimateMachine.BalanceLaws: number_states
 import ClimateMachine.BalanceLaws: eq_tends, prognostic_vars
 using ClimateMachine.BalanceLaws:
@@ -11,6 +12,7 @@ using ClimateMachine.BalanceLaws:
     TendencyDef,
     Source,
     Flux,
+    AbstractTendencyType,
     FirstOrder,
     SecondOrder
 
@@ -23,6 +25,8 @@ import ClimateMachine.BalanceLaws:
     vars_state,
     update_auxiliary_state!,
     init_state_prognostic!,
+    flux,
+    source,
     flux_first_order!,
     flux_second_order!,
     compute_gradient_argument!,
@@ -188,7 +192,46 @@ function prognostic_vars(m::NTuple{N, Updraft}) where {N}
     return t
 end
 
-prognostic_vars(m::EDMF) = (prognostic_vars(m.environment), prognostic_vars(m.updraft)...)
+prognostic_vars(m::EDMF) = (prognostic_vars(m.environment)..., prognostic_vars(m.updraft)...)
+
+eq_tends(pv::PV, m::NoTurbConv, ::AbstractTendencyType) where {PV} =
+    ()
+
+eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: Union{Momentum, Energy, TotalMoisture}} =
+    (SGSFlux{PV},)
+
+eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: en_tke}              = ()
+eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: en_ρaθ_liq_cv}       = ()
+eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: en_ρaq_tot_cv}       = ()
+eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: en_ρaθ_liq_q_tot_cv} = ()
+
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {PV <: en_tke}              = ()
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {PV <: en_ρaθ_liq_cv}       = ()
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {PV <: en_ρaq_tot_cv}       = ()
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {PV <: en_ρaθ_liq_q_tot_cv} = ()
+
+eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_tke}              = ()
+eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρaθ_liq_cv}       = ()
+eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρaq_tot_cv}       = ()
+eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρaθ_liq_q_tot_cv} = ()
+
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρa{i}} = (Advect{PV},)
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaw{i}} = (Advect{PV},)
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaθ_liq{i}} = (Advect{PV},)
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaq_tot{i}} = (Advect{PV},)
+
+eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {i, PV <: up_ρa{i}}      = ()
+eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {i, PV <: up_ρaw{i}}     = ()
+eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {i, PV <: up_ρaθ_liq{i}} = ()
+eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {i, PV <: up_ρaq_tot{i}} = ()
+
+eq_tends(pv::PV, m::EDMF, ::Source) where {i, PV <: up_ρa{i}}      = ()
+eq_tends(pv::PV, m::EDMF, ::Source) where {i, PV <: up_ρaw{i}}     = ()
+eq_tends(pv::PV, m::EDMF, ::Source) where {i, PV <: up_ρaθ_liq{i}} = ()
+eq_tends(pv::PV, m::EDMF, ::Source) where {i, PV <: up_ρaq_tot{i}} = ()
+
+
+struct SGSFlux{PV <: Union{Momentum,Energy,TotalMoisture}} <: TendencyDef{Flux{SecondOrder}, PV} end
 
 """
     init_aux_turbconv!(
@@ -558,21 +601,12 @@ function atmos_source!(
     # covariance microphysics sources should be applied here
 end;
 
-# # in the EDMF first order (advective) fluxes exist only in the grid mean (if <w> is nonzero) and the uprdafts
-function flux_first_order!(
-    turbconv::EDMF{FT},
-    m::AtmosModel{FT},
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
-) where {FT}
+# in the EDMF first order (advective) fluxes exist only in the grid mean (if <w> is nonzero) and the uprdafts
+function compute_ρa_up(m, state, aux)
     # Aliases:
+    turbconv = m.turbconv
     gm = state
     up = state.turbconv.updraft
-    up_flx = flux.turbconv.updraft
     N_up = n_updrafts(turbconv)
 
     ρ_inv = 1 / gm.ρ
@@ -584,14 +618,57 @@ function flux_first_order!(
     ρa_up = vuntuple(N_up) do i
         gm.ρ * enforce_unit_bounds(up[i].ρa * ρ_inv, a_min, a_max)
     end
+    return ρa_up
+end
 
+function flux(::Advect{up_ρa{i}}, m, state, aux, t, ts, direction) where {i}
+    up = state.turbconv.updraft
+    N_up = n_updrafts(m.turbconv)
+    ẑ = vertical_unit_vector(m, aux)
+    return vuntuple(i-> up[i].ρaw * ẑ, N_up)
+end
+function flux(::Advect{up_ρaw{i}}, m, state, aux, t, ts, direction) where {i}
+    up = state.turbconv.updraft
+    N_up = n_updrafts(m.turbconv)
+    ẑ = vertical_unit_vector(m, aux)
+    ρa_up = compute_ρa_up(m, state, aux)
+    return vuntuple(i-> up[i].ρaw * up[i].ρaw / ρa_up[i] * ẑ, N_up)
+end
+function flux(::Advect{up_ρaθ_liq{i}}, m, state, aux, t, ts, direction) where {i}
+    up = state.turbconv.updraft
+    up_flx = flux.turbconv.updraft
+    N_up = n_updrafts(m.turbconv)
+    ẑ = vertical_unit_vector(m, aux)
+    ρa_up = compute_ρa_up(m, state, aux)
+    return vuntuple(i-> up[i].ρaw / ρa_up[i] * up[i].ρaθ_liq * ẑ, N_up)
+end
+function flux(::Advect{up_ρaq_tot{i}}, m, state, aux, t, ts, direction) where {i}
+    up = state.turbconv.updraft
+    up_flx = flux.turbconv.updraft
+    N_up = n_updrafts(m.turbconv)
+    ẑ = vertical_unit_vector(m, aux)
+    ρa_up = compute_ρa_up(m, state, aux)
+    return vuntuple(i-> up[i].ρaw / ρa_up[i] * up[i].ρaq_tot * ẑ, N_up)
+end
+
+# # in the EDMF first order (advective) fluxes exist only
+# in the grid mean (if <w> is nonzero) and the uprdafts
+function flux_first_order!(
+    turbconv::EDMF{FT},
+    m::AtmosModel{FT},
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    ts
+) where {FT}
+    tend = Flux{FirstOrder}()
+    up_flx = flux.turbconv.updraft
+    args = (m, state, aux, t, ts, direction)
     @unroll_map(N_up) do i
-        ρa_i = ρa_up[i]
-        up_flx[i].ρa = up[i].ρaw * ẑ
-        w_up_i = up[i].ρaw / ρa_i
-        up_flx[i].ρaw = up[i].ρaw * w_up_i * ẑ
-        up_flx[i].ρaθ_liq = w_up_i * up[i].ρaθ_liq * ẑ
-        up_flx[i].ρaq_tot = w_up_i * up[i].ρaq_tot * ẑ
+        up_flx[i].ρaw = Σfluxes(eq_tends(up_ρaw{i}(), m, tend), args...)
+        up_flx[i].ρaθ_liq = Σfluxes(eq_tends(up_ρaθ_liq{i}(), m, tend), args...)
+        up_flx[i].ρaq_tot = Σfluxes(eq_tends(up_ρaq_tot{i}(), m, tend), args...)
     end
 end;
 

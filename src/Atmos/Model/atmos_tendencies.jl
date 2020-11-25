@@ -54,6 +54,12 @@ eq_tends(pv::PrognosticVariable, m::AtmosModel, ::Source) =
 ##### First order fluxes
 #####
 
+eq_tends(pv::PV, m::AtmosModel, tt::AbstractTendencyType) where {O,PV} =
+    (eq_tends(pv, m, tt)...,
+     eq_tends(pv, m.moisture, tt)...,
+     eq_tends(pv, m.turbconv, tt)...,
+     )
+
 # Mass
 eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Mass} =
     (Advect{PV}(),)
@@ -63,7 +69,7 @@ eq_tends(pv::PV, m::AtmosModel, ::Flux{FirstOrder}) where {PV <: Momentum} =
     (Advect{PV}(), PressureGradient{PV}())
 
 # Energy
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Energy} =
+eq_tends(pv::PV, m::AtmosModel, tt::Flux{FirstOrder}) where {PV <: Energy} =
     (Advect{PV}(), Pressure{PV}())
 
 # Moisture
@@ -79,22 +85,24 @@ eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Precipitation} =
 #####
 
 # Mass
-moist_diffusion(pv::PV, ::DryModel) where {PV <: Mass} = ()
-moist_diffusion(pv::PV, ::MoistureModel) where {PV <: Mass} =
+moist_diffusion(pv::PV, ::DryModel, ::Flux{SecondOrder}) where {PV <: Mass} = ()
+moist_diffusion(pv::PV, ::MoistureModel, ::Flux{SecondOrder}) where {PV <: Mass} =
     (MoistureDiffusion{PV}(),)
+
 eq_tends(pv::PV, m::AtmosModel, ::Flux{SecondOrder}) where {PV <: Mass} =
-    (moist_diffusion(pv, m.moisture)...,)
+    (eq_tends(pv, m.moisture, tt)...,)
 
 # Momentum
 eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Momentum} =
-    (ViscousStress{PV}(),)
+    (ViscousStress{PV}(), eq_tends(pv, m.turbconv, tt)...)
 
 # Energy
 eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Energy} =
-    (ViscousProduction{PV}(), EnthalpyProduction{PV}())
+    (ViscousProduction{PV}(), EnthalpyProduction{PV}(), eq_tends(pv, m.turbconv, tt)...)
 
 # Moisture
-eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Moisture} = ()
+eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Moisture} =
+    (eq_tends(pv, m.turbconv, tt)...,)
 
 # Precipitation
 eq_tends(

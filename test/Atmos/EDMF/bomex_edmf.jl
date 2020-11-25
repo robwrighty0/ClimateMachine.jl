@@ -122,132 +122,133 @@ function main(::Type{FT}) where {FT}
     model =
         bomex_model(FT, config_type, zmax, surface_flux; turbconv = turbconv)
 
-    # Assemble configuration
-    driver_config = ClimateMachine.SingleStackConfiguration(
-        "BOMEX_EDMF",
-        N,
-        nelem_vert,
-        zmax,
-        param_set,
-        model;
-        hmax = FT(500),
-        solver_type = ode_solver_type,
-    )
+    # # Assemble configuration
+    # driver_config = ClimateMachine.SingleStackConfiguration(
+    #     "BOMEX_EDMF",
+    #     N,
+    #     nelem_vert,
+    #     zmax,
+    #     param_set,
+    #     model;
+    #     hmax = FT(500),
+    #     solver_type = ode_solver_type,
+    # )
 
-    solver_config = ClimateMachine.SolverConfiguration(
-        t0,
-        timeend,
-        driver_config,
-        init_on_cpu = true,
-        Courant_number = CFLmax,
-        fixed_number_of_steps = 1000,
-        # fixed_number_of_steps=1082 # last timestep before crash
-    )
+    # solver_config = ClimateMachine.SolverConfiguration(
+    #     t0,
+    #     timeend,
+    #     driver_config,
+    #     init_on_cpu = true,
+    #     Courant_number = CFLmax,
+    #     fixed_number_of_steps = 1000,
+    #     # fixed_number_of_steps=1082 # last timestep before crash
+    # )
 
-    # --- Zero-out horizontal variations:
-    vsp = vars_state(model, Prognostic(), FT)
-    horizontally_average!(
-        driver_config.grid,
-        solver_config.Q,
-        varsindex(vsp, :turbconv),
-    )
-    horizontally_average!(
-        driver_config.grid,
-        solver_config.Q,
-        varsindex(vsp, :ρe),
-    )
-    horizontally_average!(
-        driver_config.grid,
-        solver_config.Q,
-        varsindex(vsp, :moisture, :ρq_tot),
-    )
+    # # --- Zero-out horizontal variations:
+    # vsp = vars_state(model, Prognostic(), FT)
+    # horizontally_average!(
+    #     driver_config.grid,
+    #     solver_config.Q,
+    #     varsindex(vsp, :turbconv),
+    # )
+    # horizontally_average!(
+    #     driver_config.grid,
+    #     solver_config.Q,
+    #     varsindex(vsp, :ρe),
+    # )
+    # horizontally_average!(
+    #     driver_config.grid,
+    #     solver_config.Q,
+    #     varsindex(vsp, :moisture, :ρq_tot),
+    # )
 
-    vsa = vars_state(model, Auxiliary(), FT)
-    horizontally_average!(
-        driver_config.grid,
-        solver_config.dg.state_auxiliary,
-        varsindex(vsa, :turbconv),
-    )
-    # ---
+    # vsa = vars_state(model, Auxiliary(), FT)
+    # horizontally_average!(
+    #     driver_config.grid,
+    #     solver_config.dg.state_auxiliary,
+    #     varsindex(vsa, :turbconv),
+    # )
+    # # ---
 
-    dgn_config = config_diagnostics(driver_config)
+    # dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            ("moisture.ρq_tot", turbconv_filters(turbconv)...),
-            solver_config.dg.grid,
-            TMARFilter(),
-        )
-        nothing
-    end
+    # cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+    #     Filters.apply!(
+    #         solver_config.Q,
+    #         ("moisture.ρq_tot", turbconv_filters(turbconv)...),
+    #         solver_config.dg.grid,
+    #         TMARFilter(),
+    #     )
+    #     nothing
+    # end
 
-    # State variable
-    Q = solver_config.Q
-    # Volume geometry information
-    vgeo = driver_config.grid.vgeo
-    M = vgeo[:, Grids._M, :]
-    # Unpack prognostic vars
-    ρ₀ = Q.ρ
-    ρe₀ = Q.ρe
-    # DG variable sums
-    Σρ₀ = sum(ρ₀ .* M)
-    Σρe₀ = sum(ρe₀ .* M)
+    # # State variable
+    # Q = solver_config.Q
+    # # Volume geometry information
+    # vgeo = driver_config.grid.vgeo
+    # M = vgeo[:, Grids._M, :]
+    # # Unpack prognostic vars
+    # ρ₀ = Q.ρ
+    # ρe₀ = Q.ρe
+    # # DG variable sums
+    # Σρ₀ = sum(ρ₀ .* M)
+    # Σρe₀ = sum(ρe₀ .* M)
 
-    grid = driver_config.grid
+    # grid = driver_config.grid
 
-    # state_types = (Prognostic(), Auxiliary(), GradientFlux())
-    state_types = (Prognostic(), Auxiliary())
-    all_data = [dict_of_nodal_states(solver_config, state_types)]
-    time_data = FT[0]
+    # # state_types = (Prognostic(), Auxiliary(), GradientFlux())
+    # state_types = (Prognostic(), Auxiliary())
+    # all_data = [dict_of_nodal_states(solver_config, state_types)]
+    # time_data = FT[0]
 
-    # Define the number of outputs from `t0` to `timeend`
-    n_outputs = 10
-    # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
-    every_x_simulation_time = ceil(Int, timeend / n_outputs)
+    # # Define the number of outputs from `t0` to `timeend`
+    # n_outputs = 10
+    # # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
+    # every_x_simulation_time = ceil(Int, timeend / n_outputs)
 
-    cb_data_vs_time =
-        GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-            push!(all_data, dict_of_nodal_states(solver_config, state_types))
-            push!(time_data, gettime(solver_config.solver))
-            nothing
-        end
+    # cb_data_vs_time =
+    #     GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
+    #         push!(all_data, dict_of_nodal_states(solver_config, state_types))
+    #         push!(time_data, gettime(solver_config.solver))
+    #         nothing
+    #     end
 
-    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
-        Q = solver_config.Q
-        δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
-        δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
-        @show (abs(δρ))
-        @show (abs(δρe))
-        @test (abs(δρ) <= 0.001)
-        @test (abs(δρe) <= 0.0025)
-        nothing
-    end
+    # cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
+    #     Q = solver_config.Q
+    #     δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
+    #     δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
+    #     @show (abs(δρ))
+    #     @show (abs(δρe))
+    #     @test (abs(δρ) <= 0.001)
+    #     @test (abs(δρe) <= 0.0025)
+    #     nothing
+    # end
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
-        @show getsteps(solver_config.solver)
-        nothing
-    end
+    # cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
+    #     @show getsteps(solver_config.solver)
+    #     nothing
+    # end
 
-    result = ClimateMachine.invoke!(
-        solver_config;
-        diagnostics_config = dgn_config,
-        user_callbacks = (
-            cbtmarfilter,
-            cb_check_cons,
-            cb_data_vs_time,
-            cb_print_step,
-        ),
-        check_euclidean_distance = true,
-    )
+    # result = ClimateMachine.invoke!(
+    #     solver_config;
+    #     diagnostics_config = dgn_config,
+    #     user_callbacks = (
+    #         cbtmarfilter,
+    #         cb_check_cons,
+    #         cb_data_vs_time,
+    #         cb_print_step,
+    #     ),
+    #     check_euclidean_distance = true,
+    # )
 
-    dons = dict_of_nodal_states(solver_config, state_types)
-    push!(all_data, dons)
-    push!(time_data, gettime(solver_config.solver))
+    # dons = dict_of_nodal_states(solver_config, state_types)
+    # push!(all_data, dons)
+    # push!(time_data, gettime(solver_config.solver))
 
-    return solver_config, all_data, time_data, state_types
+    # return solver_config, all_data, time_data, state_types
+    return model
 end
 
-solver_config, all_data, time_data, state_types = main(Float64)
+model = main(Float64)
 
-include(joinpath(@__DIR__, "bomex_edmf_regression_test.jl"))
+# include(joinpath(@__DIR__, "bomex_edmf_regression_test.jl"))
