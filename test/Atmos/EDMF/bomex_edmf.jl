@@ -115,7 +115,7 @@ function main(::Type{FT}) where {FT}
         solver_method = LSRK144NiegemannDiehlBusch,
     )
 
-    N_updrafts = 1
+    N_updrafts = 2
     N_quad = 3
     turbconv = EDMF(FT, N_updrafts, N_quad)
 

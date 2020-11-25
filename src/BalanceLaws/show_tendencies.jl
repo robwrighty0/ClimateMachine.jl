@@ -14,6 +14,27 @@ end
 format_tends(tend_types, include_params) =
     "(" * join(format_tend.(tend_types, include_params), ", ") * ")"
 
+# Filter tendencies that match the prognostic variable:
+full_eq_tends(pv::PV, td::TendencyDef{TT, PV}) where {PV,TT} = td
+full_eq_tends(pv::PVA, td::TendencyDef{TT, PVB}) where {PVA,PVB,TT} = ()
+full_eq_tends(pv::PV, ::Tuple{}) where {PV} = ()
+
+"""
+    full_eq_tends(bl::BalanceLaw, tend_type::AbstractTendencyType)
+
+The full column-vector (Tuple) of
+`TendencyDef`s, of length
+`length(all_prognostic_vars(bl))`
+given the balance law.
+"""
+function full_eq_tends(bl::BalanceLaw, tend_type::AbstractTendencyType)
+  @show tend_type
+  eqt = eq_tends(bl, tend_type)
+  return map(all_prognostic_vars(bl)) do pv
+    filter(x->x≠(), full_eq_tends.(Ref(pv), eqt))
+  end
+end
+
 """
     show_tendencies(bl; include_params = false)
 
@@ -31,16 +52,16 @@ for the balance law.
 """
 function show_tendencies(bl; include_params = false)
     ip = include_params
-    prog_vars = prognostic_vars(bl)
+    prog_vars = all_prognostic_vars(bl)
     if !isempty(prog_vars)
         header = [
             "Equation" "Flux{FirstOrder}" "Flux{SecondOrder}" "Source"
             "(Y_i)" "(F_1)" "(F_2)" "(S)"
         ]
-        eqs = collect(string.(nameof.(typeof.(prog_vars))))
-        fmt_tends(tt) = map(prog_vars) do pv
-            format_tends(eq_tends(pv, bl, tt), ip)
-        end |> collect
+        eqs = collect((typeof.(prog_vars)))
+
+        fmt_tends(tt) = format_tends.(full_eq_tends(bl, tt), ip) |> collect
+
         F1 = fmt_tends(Flux{FirstOrder}())
         F2 = fmt_tends(Flux{SecondOrder}())
         S = fmt_tends(Source())

@@ -21,6 +21,7 @@ eq_tends(::Y, ::TestBL, ::Source) = (S{Y}(),)
 @testset "BalanceLaws" begin
     bl = TestBL()
     @test prognostic_vars(bl) == (X(), Y())
+    @test all_prognostic_vars(bl) == (X(), Y())
     @test fluxes(bl, FirstOrder()) == (F1{X}(), F1{Y}())
     @test fluxes(bl, SecondOrder()) == (F2{X}(), F2{Y}())
     @test sources(bl) == (S{X}(), S{Y}())

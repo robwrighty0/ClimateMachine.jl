@@ -57,6 +57,15 @@ each tendency definition.
 abstract type TendencyDef{TT <: AbstractTendencyType, PV <: PrognosticVariable} end
 
 """
+    eq_tends(::BalanceLaw, ::AbstractTendencyType)
+
+Calls `eq_tends(::Tuple, ::BalanceLaw, ::AbstractTendencyType)`.
+All of the tendencies for the given balance law
+
+    eq_tends(::Tuple, ::BalanceLaw, ::AbstractTendencyType)
+
+Calls `eq_tends(::PrognosticVariable, ::BalanceLaw, ::AbstractTendencyType)`
+
     eq_tends(::PrognosticVariable, ::BalanceLaw, ::AbstractTendencyType)
 
 A tuple of `TendencyDef`s given
@@ -79,11 +88,28 @@ A tuple of `PrognosticVariable`s given
 the `BalanceLaw`.
 
 i.e., a tuple of `PrognosticVariable`s
-corresponding to the column-vector `Yᵢ` in:
+corresponding to a _part_ of the column-
+vector `Yᵢ` in:
 
     `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
 """
 prognostic_vars(::BalanceLaw) = ()
+
+"""
+    all_prognostic_vars(::BalanceLaw)
+
+A tuple of `PrognosticVariable`s given
+the `BalanceLaw`.
+
+i.e., a tuple of `PrognosticVariable`s
+corresponding to the _entire_ column-
+vector `Yᵢ` in:
+
+    `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
+
+by default, we just call `prognostic_vars`
+"""
+all_prognostic_vars(bl::BalanceLaw) = prognostic_vars(bl)
 
 export sources
 """
@@ -98,7 +124,7 @@ corresponding to the column-vector `S` in:
     `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
 """
 function sources(bl::BalanceLaw)
-    tend = eq_tends.(prognostic_vars(bl), Ref(bl), Ref(Source()))
+    tend = eq_tends.(all_prognostic_vars(bl), Ref(bl), Ref(Source()))
     tend = filter(x -> x ≠ nothing, tend)
     return Tuple(Iterators.flatten(tend))
 end
@@ -117,7 +143,7 @@ or `F₂` given the flux order `order::O` in:
     `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
 """
 function fluxes(bl::BalanceLaw, order::O) where {O <: AbstractOrder}
-    tend = eq_tends.(prognostic_vars(bl), Ref(bl), Ref(Flux{O}()))
+    tend = eq_tends.(all_prognostic_vars(bl), Ref(bl), Ref(Flux{O}()))
     tend = filter(x -> x ≠ nothing, tend)
     return Tuple(Iterators.flatten(tend))
 end

@@ -194,42 +194,21 @@ end
 
 prognostic_vars(m::EDMF) = (prognostic_vars(m.environment)..., prognostic_vars(m.updraft)...)
 
-eq_tends(pv::PV, m::NoTurbConv, ::AbstractTendencyType) where {PV} =
-    ()
+eq_tends(m::NoTurbConv, ::AbstractTendencyType) = ()
+
+eq_tends(m::EDMF, tt::AbstractTendencyType) =
+    (eq_tends(prognostic_vars(m.updraft), m.updraft, tt)...,
+     eq_tends(prognostic_vars(m.environment), m.environment, tt)...)
 
 eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: Union{Momentum, Energy, TotalMoisture}} =
-    (SGSFlux{PV},)
+    (SGSFlux{PV}(),)
 
-eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: en_tke}              = ()
-eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: en_ρaθ_liq_cv}       = ()
-eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: en_ρaq_tot_cv}       = ()
-eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: en_ρaθ_liq_q_tot_cv} = ()
-
-eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {PV <: en_tke}              = ()
-eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {PV <: en_ρaθ_liq_cv}       = ()
-eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {PV <: en_ρaq_tot_cv}       = ()
-eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {PV <: en_ρaθ_liq_q_tot_cv} = ()
-
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_tke}              = ()
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρaθ_liq_cv}       = ()
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρaq_tot_cv}       = ()
-eq_tends(pv::PV, m::EDMF, ::Source) where {PV <: en_ρaθ_liq_q_tot_cv} = ()
-
-eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρa{i}} = (Advect{PV},)
+function eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρa{i}}
+    (Advect{PV},)
+end
 eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaw{i}} = (Advect{PV},)
 eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaθ_liq{i}} = (Advect{PV},)
 eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaq_tot{i}} = (Advect{PV},)
-
-eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {i, PV <: up_ρa{i}}      = ()
-eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {i, PV <: up_ρaw{i}}     = ()
-eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {i, PV <: up_ρaθ_liq{i}} = ()
-eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {i, PV <: up_ρaq_tot{i}} = ()
-
-eq_tends(pv::PV, m::EDMF, ::Source) where {i, PV <: up_ρa{i}}      = ()
-eq_tends(pv::PV, m::EDMF, ::Source) where {i, PV <: up_ρaw{i}}     = ()
-eq_tends(pv::PV, m::EDMF, ::Source) where {i, PV <: up_ρaθ_liq{i}} = ()
-eq_tends(pv::PV, m::EDMF, ::Source) where {i, PV <: up_ρaq_tot{i}} = ()
-
 
 struct SGSFlux{PV <: Union{Momentum,Energy,TotalMoisture}} <: TendencyDef{Flux{SecondOrder}, PV} end
 
