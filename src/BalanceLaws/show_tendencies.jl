@@ -28,8 +28,8 @@ The full column-vector (Tuple) of
 given the balance law.
 """
 function full_eq_tends(bl::BalanceLaw, tend_type::AbstractTendencyType)
-  @show tend_type
   eqt = eq_tends(bl, tend_type)
+  @show eqt
   return map(all_prognostic_vars(bl)) do pv
     filter(x->x≠(), full_eq_tends.(Ref(pv), eqt))
   end

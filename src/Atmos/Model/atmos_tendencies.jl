@@ -5,38 +5,10 @@
 import ..BalanceLaws: eq_tends
 using ..BalanceLaws: AbstractTendencyType
 
-# Main entry point, this calls the eq_tends(::Tuple) definitions
-eq_tends(m::AtmosModel, tt::AbstractTendencyType) = filter(x->x≠(),(
-  eq_tends(prognostic_vars(m), m, tt)...,
-  eq_tends(prognostic_vars(m.moisture), m.moisture, tt)...,
-  eq_tends(prognostic_vars(m.turbconv), m.turbconv, tt)...,
-  ))
-
-# Main entry point, this calls the eq_tends(::PrognosticVariable) definitions
-eq_tends(pv::Tuple, m::AtmosModel, tt::AbstractTendencyType) =
-  (eq_tends(Mass(), m, tt)...,
-   eq_tends(Momentum(), m, tt)...,
-   eq_tends(Energy(), m, tt)...)
-
-# eq_tends(pv::Tuple, m::AtmosModel, tt::AbstractTendencyType) =
-#   (eq_tends(Mass(), m, tt)...,
-#    eq_tends(Momentum(), m, tt)...,
-#    eq_tends(Energy(), m, tt)...)
-
-# MoistureModels
-eq_tends(pv::Tuple, m::DryModel, tt::AbstractTendencyType) = ()
-eq_tends(pv::Tuple, m::EquilMoist, tt::AbstractTendencyType) =
-  (eq_tends(TotalMoisture(), m, tt)...,)
-eq_tends(pv::Tuple, m::NonEquilMoist, tt::AbstractTendencyType) =
-  (eq_tends(TotalMoisture(), m, tt)...,
-    eq_tends(LiquidMoisture(), m, tt)...,
-    eq_tends(IceMoisture(), m, tt)...)
-
 # Fallback to no tendencies. This allows us
 # to not define every entry.
 eq_tends(::PV, bl, ::AbstractTendencyType) where {PV<:PrognosticVariable} =
     ()
-eq_tends(::Tuple, bl, ::AbstractTendencyType) = ()
 
 #####
 ##### Sources
@@ -101,11 +73,11 @@ eq_tends(pv::PV, m::AtmosModel, tt::Flux{FirstOrder}) where {PV <: Energy} =
     (Advect{PV}(), Pressure{PV}())
 
 # Moisture
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Moisture} =
+eq_tends(pv::PV, ::MoistureModel, ::Flux{FirstOrder}) where {PV <: Moisture} =
     (Advect{PV}(),)
 
 # Precipitation
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Precipitation} =
+eq_tends(pv::PV, ::PrecipitationModel, ::Flux{FirstOrder}) where {PV <: Precipitation} =
     ()
 
 #####

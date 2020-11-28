@@ -81,8 +81,30 @@ prognostic variable in:
 """
 function eq_tends end
 
+function eq_tends(bl::BalanceLaw, tt::AbstractTendencyType)
+    tup = ()
+    map(prognostic_vars(bl)) do pv
+        eqt = eq_tends(pv, bl, tt)
+        if !isempty(eqt)
+            tup = (tup..., eqt...)
+        end
+    end
+    for p in propertynames(bl)
+        subbl = getproperty(bl, p)
+        subbl_pvs = prognostic_vars(subbl)
+        isempty(subbl_pvs) && continue
+        subeqt = map(subbl_pvs) do pv
+            eqt = eq_tends(pv, subbl, tt)
+            if !isempty(eqt)
+                tup = (tup..., eqt...)
+            end
+        end
+    end
+    return tup
+end
+
 """
-    prognostic_vars(::BalanceLaw)
+    prognostic_vars(::Any)
 
 A tuple of `PrognosticVariable`s given
 the `BalanceLaw`.
@@ -93,7 +115,12 @@ vector `Yᵢ` in:
 
     `∂_t Yᵢ + (∇•F₁(Y))ᵢ + (∇•F₂(Y,G)))ᵢ = (S(Y,G))ᵢ`
 """
-prognostic_vars(::BalanceLaw) = ()
+prognostic_vars(::Any) = ()
+
+# Skip functions/reals AbstractArrays
+all_prognostic_vars(bl::T, tup) where {T<:Function} = tup
+all_prognostic_vars(bl::T, tup) where {T<:Real} = tup
+all_prognostic_vars(bl::T, tup) where {T<:AbstractArray} = tup
 
 """
     all_prognostic_vars(::BalanceLaw)
@@ -109,7 +136,19 @@ vector `Yᵢ` in:
 
 by default, we just call `prognostic_vars`
 """
-all_prognostic_vars(bl::BalanceLaw) = prognostic_vars(bl)
+function all_prognostic_vars(bl, tup = ())
+    pvs = prognostic_vars(bl)
+    if !isempty(pvs)
+        tup = (tup..., pvs...)
+    end
+    pns = propertynames(bl)
+    if !isempty(pns)
+        for p in propertynames(bl)
+            tup = all_prognostic_vars(getproperty(bl, p), tup)
+        end
+    end
+    return tup
+end
 
 export sources
 """

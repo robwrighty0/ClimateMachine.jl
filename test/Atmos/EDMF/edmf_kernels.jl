@@ -192,8 +192,6 @@ function prognostic_vars(m::NTuple{N, Updraft}) where {N}
     return t
 end
 
-prognostic_vars(m::EDMF) = (prognostic_vars(m.environment)..., prognostic_vars(m.updraft)...)
-
 eq_tends(m::NoTurbConv, ::AbstractTendencyType) = ()
 
 eq_tends(m::EDMF, tt::AbstractTendencyType) =
@@ -203,12 +201,10 @@ eq_tends(m::EDMF, tt::AbstractTendencyType) =
 eq_tends(pv::PV, m::EDMF, ::Flux{SecondOrder}) where {PV <: Union{Momentum, Energy, TotalMoisture}} =
     (SGSFlux{PV}(),)
 
-function eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρa{i}}
-    (Advect{PV},)
-end
-eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaw{i}} = (Advect{PV},)
-eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaθ_liq{i}} = (Advect{PV},)
-eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaq_tot{i}} = (Advect{PV},)
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρa{i}} = (Advect{PV}(),)
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaw{i}} = (Advect{PV}(),)
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaθ_liq{i}} = (Advect{PV}(),)
+eq_tends(pv::PV, m::EDMF, ::Flux{FirstOrder}) where {i, PV <: up_ρaq_tot{i}} = (Advect{PV}(),)
 
 struct SGSFlux{PV <: Union{Momentum,Energy,TotalMoisture}} <: TendencyDef{Flux{SecondOrder}, PV} end
 
