@@ -6,6 +6,7 @@ CurrentModule = ClimateMachine.DGMethods
 
 ```@docs
 DGModel
+DGFVMModel
 remainder_DGModel
 continuous_field_gradient!
 courant
