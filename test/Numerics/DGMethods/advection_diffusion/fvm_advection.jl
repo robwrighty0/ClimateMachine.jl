@@ -16,6 +16,7 @@ import ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
 import ClimateMachine.Mesh.Topologies: StackedBrickTopology
 import ClimateMachine.ODESolvers: LSRK54CarpenterKennedy, solve!, gettime
 import ClimateMachine.VTK: writevtk, writepvtu
+import ClimateMachine.DGMethods.FVMReconstructions: FVMCellCentered
 
 
 if !@isdefined integration_testing
@@ -109,7 +110,7 @@ function test_run(
         polynomialorder = N,
     )
     model = AdvectionDiffusion{dim}(Pseudo1D{n, α}(), diffusion = false)
-    dg_fvm = DGFVMModel(model, grid, RusanovNumericalFlux())
+    dg_fvm = DGFVMModel(model, grid, FVMCellCentered(), RusanovNumericalFlux())
 
     Q = init_ode_state(dg_fvm, FT(0))
 

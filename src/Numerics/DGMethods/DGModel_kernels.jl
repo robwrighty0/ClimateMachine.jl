@@ -13,6 +13,9 @@ using .NumericalFluxes:
 import .NumericalFluxes:
     numerical_flux_first_order!, numerical_boundary_flux_first_order!
 
+import .FVMReconstructions: width, reconstruction!
+
+
 using ..Mesh.Geometry
 
 function numerical_flux_first_order!(
@@ -1008,6 +1011,7 @@ end
         ::Val{vertstride},
         ::Val{periodicstack},
         ::VerticalDirection,
+        fvm_reconstruction,
         numerical_flux_first_order,
         tendency,
         state_prognostic,
@@ -1045,14 +1049,14 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     balance_law::BalanceLaw,
     ::Val{info},
     ::Val{nvertelem},
-    ::Val{vertstride},
     ::Val{periodicstack},
     ::VerticalDirection,
+    fvm_reconstruction,
     numerical_flux_first_order,
     tendency,
     state_prognostic,
     state_auxiliary,
-    _,
+    vgeo,
     sgeo,
     t,
     _,
@@ -1060,7 +1064,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     elemtobndy,
     elems,
     α,
-) where {info, nvertelem, vertstride, periodicstack}
+) where {info, nvertelem, periodicstack}
     @uniform begin
         dim = info.dim
         FT = eltype(state_prognostic)
@@ -1078,7 +1082,6 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
         local_state_prognostic⁺ = MArray{Tuple{num_state_prognostic}, FT}(undef)
-
         local_state_auxiliary⁺ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
         local_state_prognostic_bottom1 =
@@ -1099,10 +1102,22 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         # being evaluated for. In this case we only have `VerticalDirection()`
         # faces
         face_direction = (EveryDirection(), VerticalDirection())
+
+        fvm_width = width(fvm_reconstruction)
+
+        local_recon_states = ntuple(2fvm_width + 1) do j
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+        end
+        local_recon_state_prognostic_top =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_recon_state_prognostic_bottom =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+
+        @assert 2fvm_width + 1 <= nvertelem
     end
 
-    # Get the horizontal and vertical group indices
-    grp_H, grp_V = @index(Group, NTuple)
+    # Get the horizontal group indices
+    grp_H = @index(Group, Linear)
 
     # Determine the index for the element at the bottom of the stack
     eHI = (grp_H - 1) * nvertelem + 1
@@ -1112,7 +1127,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     eH = elems[eHI] - 1
 
     # Determine the range for the vertical elements we handle
-    eVs = (1 + (grp_V - 1) * vertstride):min(nvertelem, grp_V * vertstride)
+    eVs = 1:nvertelem
 
     n = @index(Local, Linear)
 
@@ -1127,10 +1142,25 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         end
     end
 
+    #
+    # - Already have e's top and bottoms state
+    # - Load data for `e+1`: (e + 1 - width:e + 1 + width)
+    # - Reconstruction `e+1`'s top & bottom state
+    # - Compute element `e`'s top flux
+    # - Update tendency for element `e`
+    # - Shift data:
+    #   - top flux -> bottom flux
+    #   - top metrics -> bottom metrics
+    #  [- shift reconstruction data down]
+    #
+
+    @assert !periodicstack
+
     # We need to compute the first element we handles bottom flux (future
     # elements will just copied from the prior element)
     @inbounds begin
-        eV = eVs[1]
+        # Boundary condition
+        eV = 1
 
         # Minus is the top
         e⁻ = eH + eV
@@ -1149,56 +1179,106 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         )
 
         # determine the plus side element (bottom)
-        e⁺, bctag = if eV != 1
-            e⁻ - 1, 0
-        elseif periodicstack
-            eH + nvertelem, 0
-        else
-            e⁻, elemtobndy[f⁻, e⁻]
-        end
+        e⁺, bctag = e⁻, elemtobndy[f⁻, e⁻]
 
         # Load minus and plus side data
         load_data!(local_state_prognostic⁻, local_state_auxiliary⁻, e⁻)
         load_data!(local_state_prognostic⁺, local_state_auxiliary⁺, e⁺)
 
         # compute the flux
+        # TODO: Fix local_state_auxiliary to be face auxiliary state?
         fill!(local_flux_bottom, -zero(eltype(local_flux_bottom)))
-        if bctag == 0
-            numerical_flux_first_order!(
-                numerical_flux_first_order,
-                balance_law,
-                local_flux_bottom,
-                normal_vector,
-                local_state_prognostic⁻,
-                local_state_auxiliary⁻,
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-                t,
-                face_direction,
-            )
-        else
-            numerical_boundary_flux_first_order!(
-                numerical_flux_first_order,
-                bctag,
-                balance_law,
-                local_flux_bottom,
-                normal_vector,
-                local_state_prognostic⁻,
-                local_state_auxiliary⁻,
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-                t,
-                face_direction,
-                local_state_prognostic_bottom1,
-                local_state_auxiliary_bottom1,
-            )
+        numerical_boundary_flux_first_order!(
+            numerical_flux_first_order,
+            bctag,
+            balance_law,
+            local_flux_bottom,
+            normal_vector,
+            local_state_prognostic⁻,
+            local_state_auxiliary⁻,
+            local_state_prognostic⁺,
+            local_state_auxiliary⁺,
+            t,
+            face_direction,
+            local_state_prognostic_bottom1,
+            local_state_auxiliary_bottom1,
+        )
+
+        # This elements data is the first reconstruction state
+        local_recon_states[1] .= local_state_prognostic⁻
+        local_cell_weight[1] = vgeo[n, _M, e]
+    end
+
+    # Load in all data for the reconstructions near the boundary
+    for eV in 2:(2width + 1)
+        e = eH + eV
+
+        # XXX: Needs to become primitive data
+        load_data!(local_recon_states[eV], local_state_auxiliary⁺, e)
+
+        # We use volume mass matrix as the WENO weighting
+        local_cell_weight[eV] = vgeo[n, _M, e]
+    end
+
+    # special reconstructions
+    for eV in 1:width
+        e⁻ = eH + eV
+        f⁻ = faces[2]
+
+        # compute reconstruction for top and bottom of eV + 1
+        reconstruction!(
+            fvm_reconstruction,
+            local_recon_state_prognostic_top,
+            local_recon_state_prognostic_bottom,
+            local_recon_states[1:(2ev + 1)],
+            local_cell_weights[1:(2ev + 1)],
+        )
+
+        # outward normal for this face
+        normal_vector = SVector(
+            sgeo[_n1, n, f⁻, e⁻],
+            sgeo[_n2, n, f⁻, e⁻],
+            sgeo[_n3, n, f⁻, e⁻],
+        )
+
+        # local_state_prognostic⁻ is the interior element value
+        # local_recon_state_prognostic_bottom is the exterior element value
+        # TODO: Fix local_state_auxiliary to be face auxiliary state?
+        fill!(local_flux_top, -zero(eltype(local_flux_top)))
+        numerical_flux_first_order!(
+            numerical_flux_first_order,
+            balance_law,
+            local_flux_top,
+            normal_vector,
+            local_state_prognostic⁻,
+            local_state_auxiliary⁻,
+            local_recon_state_prognostic_bottom,
+            local_state_auxiliary⁺,
+            t,
+            face_direction,
+        )
+
+        sM[2] = sgeo[_sM, n, f⁻, e⁻]
+        vMI = sgeo[_vMI, n, f⁻, e⁻]
+
+        @unroll for s in 1:num_state_prognostic
+            # FIXME: Should we prefetch these?
+            tendency[n, s, e⁻] -=
+                α *
+                vMI *
+                (sM[2] * local_flux_top[s] + sM[1] * local_flux_bottom[s])
         end
+
+        # Shift the top reconstructed state to the next elements minus side
+        local_state_prognostic⁻ .= local_recon_state_prognostic_top
+        local_flux_bottom .= -local_flux_top
+        sM[1] = sM[2]
     end
 
     # Loop up the vertical stack to update the minus side element (we have the
     # bottom flux from the previous element, so only need to calculate the top
     # flux)
-    @inbounds for eV in eVs
+    @inbounds for eV in (width + 1):(nvertelem - width)
         e⁻ = eH + eV
 
         # volume mass inverse
@@ -1283,6 +1363,10 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         # the current plus side is the next minus side
         local_state_prognostic⁻ .= local_state_prognostic⁺
         local_state_auxiliary⁻ .= local_state_auxiliary⁺
+    end
+
+    # special reconstructions
+    for ev in (nvertelem - width + 1):nvertelem
     end
 end
 

@@ -59,6 +59,7 @@ export DGModel,
     courant
 
 include("custom_filter.jl")
+include("FVMReconstructions.jl")
 include("NumericalFluxes.jl")
 include("DGModel.jl")
 include("DGModel_kernels.jl")

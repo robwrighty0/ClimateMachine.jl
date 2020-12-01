@@ -14,9 +14,10 @@ Must have the following properties:
 """
 abstract type SpaceDiscretization end
 
-struct DGFVMModel{BL, G, NFND, AS, D, MD} <: SpaceDiscretization
+struct DGFVMModel{BL, G, NFND, AS, D, MD, FVMR} <: SpaceDiscretization
     balance_law::BL
     grid::G
+    fvm_reconstruction::FVMR
     numerical_flux_first_order::NFND
     state_auxiliary::AS
     direction::D
@@ -26,6 +27,7 @@ end
 function DGFVMModel(
     balance_law,
     grid,
+    fvm_reconstruction,
     numerical_flux_first_order;
     fill_nan = false,
     state_auxiliary = create_state(
@@ -45,6 +47,7 @@ function DGFVMModel(
     DGFVMModel(
         balance_law,
         grid,
+        fvm_reconstruction,
         numerical_flux_first_order,
         state_auxiliary,
         direction,
@@ -1948,18 +1951,17 @@ function launch_interface_tendency!(
             periodicstack = spacedisc.grid.topology.periodicstack
 
             # 2-D workgroup
-            vertstride = 10 # XXX: a randomly chosen value should be tuned
-            workgroup = (info.Nfp_h, 1)
-            ndrange = (workgroup[1] * nhorzelem, cld(nvertelem, vertstride))
+            workgroup = info.Nfp_h
+            ndrange = workgroup[1] * nhorzelem
 
             # XXX: This will need to be updated to diffusion
             comp_stream = vert_fvm_interface_tendency!(info.device, workgroup)(
                 spacedisc.balance_law,
                 Val(info),
                 Val(nvertelem),
-                Val(vertstride),
                 Val(periodicstack),
                 VerticalDirection(),
+                spacedisc.fvm_reconstruction,
                 spacedisc.numerical_flux_first_order,
                 tendency.data,
                 state_prognostic.data,
