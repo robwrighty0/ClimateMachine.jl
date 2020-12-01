@@ -8,7 +8,8 @@ using .NumericalFluxes:
     numerical_boundary_flux_first_order!,
     numerical_boundary_flux_second_order!,
     numerical_boundary_flux_divergence!,
-    numerical_boundary_flux_higher_order!
+    numerical_boundary_flux_higher_order!,
+    CentralNumericalFluxGradient
 
 using ..Mesh.Geometry
 
@@ -954,15 +955,13 @@ end
 @doc """
     function vert_fvm_interface_tendency!(
         balance_law::BalanceLaw,
-        ::Val{dim},
-        ::Val{polyorder},
-        direction,
+        ::Val{info},
+        ::Val{nvertelem},
+        ::Val{periodicstack},
+        ::VerticalDirection,
         numerical_flux_first_order,
-        numerical_flux_second_order,
         tendency,
         state_prognostic,
-        state_gradient_flux,
-        Qhypervisc_grad,
         state_auxiliary,
         vgeo,
         sgeo,
@@ -997,25 +996,30 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     balance_law::BalanceLaw,
     ::Val{info},
     ::Val{nvertelem},
+    ::Val{periodicstack},
     ::VerticalDirection,
     numerical_flux_first_order,
+    numerical_flux_second_order,
     tendency,
     state_prognostic,
+    state_gradient_flux,
     state_auxiliary,
     _,
     sgeo,
     t,
-    vmap⁻,
-    vmap⁺,
     elemtobndy,
     elems,
     α,
-) where {info, nvertelem}
+) where {info, nvertelem, periodicstack}
     @uniform begin
         dim = info.dim
         FT = eltype(state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
+        num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
+        num_state_hyperdiffusion = number_states(balance_law, Hyperdiffusive())
+        @assert num_state_hyperdiffusion == 0
+
         nface = info.nface
         Np = info.Np
         Nqk = info.Nqk # can only be 1 for the FVM method!
@@ -1025,73 +1029,140 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         faces = (nface - 1):nface
 
         local_state_prognostic⁻ = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_gradient_flux⁻ =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_hyperdiffusion⁻ =
+            MArray{Tuple{num_state_hyperdiffusion}, FT}(undef)
 
-        local_state_prognostic⁺nondiff =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
-
-        local_state_auxiliary⁺nondiff =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_prognostic⁺ = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_gradient_flux⁺ =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_auxiliary⁺ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_hyperdiffusion⁺ =
+            MArray{Tuple{num_state_hyperdiffusion}, FT}(undef)
 
         local_state_prognostic_bottom1 =
             MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_gradient_flux_bottom1 =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_state_auxiliary_bottom1 =
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
-        local_flux = MArray{Tuple{num_state_prognostic}, FT}(undef)
-    end
+        # XXX: will revisit this later for FVM
+        fill!(local_state_prognostic_bottom1, NaN)
+        fill!(local_state_gradient_flux_bottom1, NaN)
+        fill!(local_state_auxiliary_bottom1, NaN)
 
-    eI = @index(Group, Linear)
-    n = @index(Local, Linear)
+        local_first_order_flux_top =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_first_order_flux_bottom =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_second_order_flux_top =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_second_order_flux_bottom =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
 
-    e = @private Int (1,)
-    @inbounds e[1] = elems[eI]
+        sM = MArray{Tuple{2}, FT}(undef)
 
-    @inbounds for f in faces
         # The remainder model needs to know which direction of face the model is
         # being evaluated for. In this case we only have `VerticalDirection()`
         # faces
         face_direction = (EveryDirection(), VerticalDirection())
-        e⁻ = e[1]
+    end
+
+    # Get the horizontal group IDs
+    grp_H = @index(Group, Linear)
+
+    # Determine the index for the element at the bottom of the stack
+    eHI = (grp_H - 1) * nvertelem + 1
+
+    # Compute bottom stack element index minus one (so we can add vert element
+    # number directly)
+    eH = elems[eHI] - 1
+
+    # Which degree of freedom do we handle in the element
+    n = @index(Local, Linear)
+
+    # Loads the data for a given element
+    function load_data!(
+        local_state_prognostic,
+        local_state_auxiliary,
+        local_state_gradient_flux,
+        e,
+    )
+        @unroll for s in 1:num_state_prognostic
+            local_state_prognostic[s] = state_prognostic[n, s, e]
+        end
+
+        @unroll for s in 1:num_state_auxiliary
+            local_state_auxiliary[s] = state_auxiliary[n, s, e]
+        end
+
+        @unroll for s in 1:num_state_gradient_flux
+            local_state_gradient_flux[s] = state_gradient_flux[n, s, e]
+        end
+    end
+
+    # We need to compute the first element we handles bottom flux (future
+    # elements will just copied from the prior element)
+    @inbounds begin
+        eV = 1
+
+        # Minus is the top
+        e⁻ = eH + eV
+
+        # bottom face
+        f⁻ = faces[1]
+
+        # surface mass
+        sM[1] = sgeo[_sM, n, f⁻, e⁻]
+
+        # outward normal for this face
         normal_vector = SVector(
-            sgeo[_n1, n, f, e⁻],
-            sgeo[_n2, n, f, e⁻],
-            sgeo[_n3, n, f, e⁻],
+            sgeo[_n1, n, f⁻, e⁻],
+            sgeo[_n2, n, f⁻, e⁻],
+            sgeo[_n3, n, f⁻, e⁻],
         )
-        # Get surface mass, volume mass inverse
-        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
-        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
-        e⁺ = ((id⁺ - 1) ÷ Np) + 1
 
-        vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
-
-        # Load minus side data
-        @unroll for s in 1:num_state_prognostic
-            local_state_prognostic⁻[s] = state_prognostic[vid⁻, s, e⁻]
+        # determine the plus side element (bottom)
+        e⁺, bctag = if periodicstack
+            eH + nvertelem, 0
+        else
+            e⁻, elemtobndy[f⁻, e⁻]
         end
 
-        @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary⁻[s] = state_auxiliary[vid⁻, s, e⁻]
-        end
+        # Load minus and plus side data
+        load_data!(
+            local_state_prognostic⁻,
+            local_state_auxiliary⁻,
+            local_state_gradient_flux⁻,
+            e⁻,
+        )
+        load_data!(
+            local_state_prognostic⁺,
+            local_state_auxiliary⁺,
+            local_state_gradient_flux⁺,
+            e⁺,
+        )
 
-        # Load plus side data
-        @unroll for s in 1:num_state_prognostic
-            local_state_prognostic⁺nondiff[s] = state_prognostic[vid⁺, s, e⁺]
-        end
-
-        @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary⁺nondiff[s] = state_auxiliary[vid⁺, s, e⁺]
-        end
-
-        # Oh dang, it's boundary conditions
-        bctag = elemtobndy[f, e⁻]
-        fill!(local_flux, -zero(eltype(local_flux)))
+        # compute the flux
+        fill!(
+            local_first_order_flux_bottom,
+            -zero(eltype(local_first_order_flux_bottom)),
+        )
+        fill!(
+            local_second_order_flux_bottom,
+            -zero(eltype(local_second_order_flux_bottom)),
+        )
         if bctag == 0
             numerical_flux_first_order!(
                 numerical_flux_first_order,
                 balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                SVector(normal_vector),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_first_order_flux_bottom,
+                ),
+                normal_vector,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
                     local_state_prognostic⁻,
                 ),
@@ -1099,27 +1170,48 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     local_state_auxiliary⁻,
                 ),
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic⁺nondiff,
+                    local_state_prognostic⁺,
                 ),
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary⁺nondiff,
+                    local_state_auxiliary⁺,
                 ),
                 t,
                 face_direction,
             )
+            numerical_flux_second_order!(
+                numerical_flux_second_order,
+                balance_law,
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_second_order_flux_bottom,
+                ),
+                normal_vector,
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_state_prognostic⁻,
+                ),
+                Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                    local_state_gradient_flux⁻,
+                ),
+                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                    local_state_hyperdiffusion⁻,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_state_prognostic⁺,
+                ),
+                Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                    local_state_gradient_flux⁺,
+                ),
+                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                    local_state_hyperdiffusion⁺,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary⁺,
+                ),
+                t,
+            )
         else
-            if (dim == 2 && f == 3) || (dim == 3 && f == 5)
-                # Grab data from the element above
-                @unroll for s in 1:num_state_prognostic
-                    local_state_prognostic_bottom1[s] =
-                        state_prognostic[n, s, e⁻+1]
-                end
-                @unroll for s in 1:num_state_auxiliary
-                    local_state_auxiliary_bottom1[s] =
-                        state_auxiliary[n, s, e⁻+1]
-                end
-            end
-
             bcs = boundary_conditions(balance_law)
             # TODO: there is probably a better way to unroll this loop
             Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
@@ -1128,8 +1220,10 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     numerical_flux_first_order,
                     bc,
                     balance_law,
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                    SVector(normal_vector),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_first_order_flux_bottom,
+                    ),
+                    normal_vector,
                     Vars{vars_state(balance_law, Prognostic(), FT)}(
                         local_state_prognostic⁻,
                     ),
@@ -1137,10 +1231,10 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         local_state_auxiliary⁻,
                     ),
                     Vars{vars_state(balance_law, Prognostic(), FT)}(
-                        local_state_prognostic⁺nondiff,
+                        local_state_prognostic⁺,
                     ),
                     Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                        local_state_auxiliary⁺nondiff,
+                        local_state_auxiliary⁺,
                     ),
                     t,
                     face_direction,
@@ -1151,14 +1245,268 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         local_state_auxiliary_bottom1,
                     ),
                 )
-            end d -> throw(BoundsError(bcs, bctag))
+                numerical_boundary_flux_second_order!(
+                    numerical_flux_second_order,
+                    bc,
+                    balance_law,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_second_order_flux_bottom,
+                    ),
+                    normal_vector,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic⁻,
+                    ),
+                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                        local_state_gradient_flux⁻,
+                    ),
+                    Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                        local_state_hyperdiffusion⁻,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary⁻,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic⁺,
+                    ),
+                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                        local_state_gradient_flux⁺,
+                    ),
+                    Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                        local_state_hyperdiffusion⁺,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary⁺,
+                    ),
+                    t,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic_bottom1,
+                    ),
+                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                        local_state_gradient_flux_bottom1,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary_bottom1,
+                    ),
+                )
+            end
+        end
+    end
+
+    # Loop up the vertical stack to update the minus side element (we have the
+    # bottom flux from the previous element, so only need to calculate the top
+    # flux)
+    @inbounds for eV in 1:nvertelem
+        e⁻ = eH + eV
+
+        # volume mass inverse
+        vMI = sgeo[_vMI, n, faces[1], e⁻]
+
+        # Compute the top face numerical flux
+        # The minus side is the bottom element
+        # The plus side is the top element
+        f⁻ = faces[2]
+
+        # surface mass
+        sM[2] = sgeo[_sM, n, f⁻, e⁻]
+
+        # normal with respect to the minus side
+        normal_vector = SVector(
+            sgeo[_n1, n, f⁻, e⁻],
+            sgeo[_n2, n, f⁻, e⁻],
+            sgeo[_n3, n, f⁻, e⁻],
+        )
+
+        # determine the plus side element (top)
+        e⁺, bctag = if eV != nvertelem
+            e⁻ + 1, 0
+        elseif periodicstack
+            eH + 1, 0
+        else
+            e⁻, elemtobndy[f⁻, e⁻]
         end
 
-        # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))
+        # Load plus side data (minus data is already set)
+        load_data!(
+            local_state_prognostic⁺,
+            local_state_auxiliary⁺,
+            local_state_gradient_flux⁺,
+            e⁺,
+        )
+
+        # compute the flux
+        fill!(
+            local_first_order_flux_top,
+            -zero(eltype(local_first_order_flux_top)),
+        )
+        fill!(
+            local_second_order_flux_top,
+            -zero(eltype(local_second_order_flux_top)),
+        )
+        if bctag == 0
+            numerical_flux_first_order!(
+                numerical_flux_first_order,
+                balance_law,
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_first_order_flux_top,
+                ),
+                normal_vector,
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_state_prognostic⁻,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_state_prognostic⁺,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary⁺,
+                ),
+                t,
+                face_direction,
+            )
+            numerical_flux_second_order!(
+                numerical_flux_second_order,
+                balance_law,
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_second_order_flux_top,
+                ),
+                normal_vector,
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_state_prognostic⁻,
+                ),
+                Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                    local_state_gradient_flux⁻,
+                ),
+                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                    local_state_hyperdiffusion⁻,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_state_prognostic⁺,
+                ),
+                Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                    local_state_gradient_flux⁺,
+                ),
+                Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                    local_state_hyperdiffusion⁺,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary⁺,
+                ),
+                t,
+            )
+        else
+            bcs = boundary_conditions(balance_law)
+            # TODO: there is probably a better way to unroll this loop
+            Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
+                bc = bcs[d]
+                numerical_boundary_flux_first_order!(
+                    numerical_flux_first_order,
+                    bc,
+                    balance_law,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_first_order_flux_bottom,
+                    ),
+                    normal_vector,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic⁻,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary⁻,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic⁺,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary⁺,
+                    ),
+                    t,
+                    face_direction,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic_bottom1,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary_bottom1,
+                    ),
+                )
+                numerical_boundary_flux_second_order!(
+                    numerical_flux_second_order,
+                    bc,
+                    balance_law,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_second_order_flux_bottom,
+                    ),
+                    normal_vector,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic⁻,
+                    ),
+                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                        local_state_gradient_flux⁻,
+                    ),
+                    Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                        local_state_hyperdiffusion⁻,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary⁻,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic⁺,
+                    ),
+                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                        local_state_gradient_flux⁺,
+                    ),
+                    Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                        local_state_hyperdiffusion⁺,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary⁺,
+                    ),
+                    t,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic_bottom1,
+                    ),
+                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                        local_state_gradient_flux_bottom1,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary_bottom1,
+                    ),
+                )
+            end
+        end
+
+        # Update RHS M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))
         @unroll for s in 1:num_state_prognostic
             # FIXME: Should we pretch these?
-            tendency[vid⁻, s, e⁻] -= α * vMI * sM * local_flux[s]
+            tendency[n, s, e⁻] -=
+                α *
+                vMI *
+                (
+                    sM[2] * (
+                        local_first_order_flux_top[s] +
+                        local_second_order_flux_top[s]
+                    ) +
+                    sM[1] * (
+                        local_first_order_flux_bottom[s] +
+                        local_second_order_flux_bottom[s]
+                    )
+                )
         end
+
+        # Set the flux bottom flux for the next element
+        local_first_order_flux_bottom .= -local_first_order_flux_top
+        local_second_order_flux_bottom .= -local_second_order_flux_top
+
+        # set the surface mass matrix
+        sM[1] = sM[2]
+
+        # the current plus side is the next minus side
+        local_state_prognostic⁻ .= local_state_prognostic⁺
+        local_state_auxiliary⁻ .= local_state_auxiliary⁺
+        local_state_gradient_flux⁻ .= local_state_gradient_flux⁺
     end
 end
 
@@ -1626,7 +1974,7 @@ end
 end
 
 @doc """
-    function interface_gradients!(
+    function dgsem_interface_gradients!(
         balance_law::BalanceLaw,
         ::Val{dim},
         ::Val{polyorder},
@@ -1659,8 +2007,8 @@ This kernel computes the interface gradient term: M⁻¹ LᵀMf(G* - G),
 where M is the mass matrix, Mf is the face mass matrix, L is an interpolator
 from volume to face, G is the
 auxiliary gradient flux, and G* is the associated numerical flux.
-""" interface_gradients!
-@kernel function interface_gradients!(
+""" dgsem_interface_gradients!
+@kernel function dgsem_interface_gradients!(
     balance_law::BalanceLaw,
     ::Val{info},
     direction,
@@ -1983,6 +2331,219 @@ auxiliary gradient flux, and G* is the associated numerical flux.
         end
         # Need to wait after even faces to avoid race conditions
         @synchronize(f % 2 == 0)
+    end
+end
+
+@kernel function vert_fvm_interface_gradients!(
+    balance_law::BalanceLaw,
+    ::Val{info},
+    ::Val{nvertelem},
+    ::Val{periodicstack},
+    ::VerticalDirection,
+    state_prognostic,
+    state_gradient_flux,
+    state_auxiliary,
+    vgeo,
+    sgeo,
+    t,
+    elemtobndy,
+    elems,
+) where {info, nvertelem, periodicstack}
+    @uniform begin
+
+        dim = info.dim
+        FT = eltype(state_prognostic)
+        num_state_prognostic = number_states(balance_law, Prognostic())
+        ngradstate = number_states(balance_law, Gradient())
+        num_state_gradient_flux = number_states(balance_law, GradientFlux())
+        num_state_auxiliary = number_states(balance_law, Auxiliary())
+        nface = info.nface
+        Np = info.Np
+        faces = (nface - 1, nface)
+
+        # Storage for the prognostic state for e-1, e, e+1
+        local_state_prognostic =
+            ntuple(_ -> MArray{Tuple{num_state_prognostic}, FT}(undef), Val(3))
+
+        # Storage for the auxiliary state for e-1, e, e+1
+        local_state_auxiliary =
+            ntuple(_ -> MArray{Tuple{num_state_auxiliary}, FT}(undef), Val(3))
+
+        # Storage for the transform state for e-1, e, e+1
+        # e.g., the state we take the gradient of
+        l_grad_arg = ntuple(_ -> MArray{Tuple{ngradstate}, FT}(undef), Val(3))
+
+        # Storage for the contribution to the gradient from these faces
+        l_nG = MArray{Tuple{3, ngradstate}, FT}(undef)
+
+        l_nG_bc = MArray{Tuple{3, ngradstate}, FT}(undef)
+
+        # Storage for the state gradient flux locally
+        local_state_gradient_flux =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+
+        local_state_prognostic_bottom1 =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_auxiliary_bottom1 =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+
+        # XXX: will revisit this later for FVM
+        fill!(local_state_prognostic_bottom1, NaN)
+        fill!(local_state_auxiliary_bottom1, NaN)
+    end
+
+    # Element index
+    eI = @index(Group, Linear)
+    # Index of a quadrature point on a face
+    n = @index(Local, Linear)
+
+    @inbounds begin
+        e = elems[eI]
+        eV = mod1(e, nvertelem)
+
+        # Figure out the element above and below e
+        e_dn, bc_dn = if eV > 1
+            e - 1, 0
+        elseif periodicstack
+            e + nvertelem - 1, 0
+        else
+            e, elemtobndy[faces[1], e]
+        end
+
+        e_up, bc_up = if eV < nvertelem
+            e + 1, 0
+        elseif periodicstack
+            e - nvertelem + 1, 0
+        else
+            e, elemtobndy[faces[2], e]
+        end
+
+        bctag = (bc_dn, bc_up)
+
+        e = (e_dn, e, e_up)
+
+        # Load the normal vectors and surface mass matrix on the faces
+        normal_vector = ntuple(
+            k -> SVector(
+                sgeo[_n1, n, faces[k], e[2]],
+                sgeo[_n2, n, faces[k], e[2]],
+                sgeo[_n3, n, faces[k], e[2]],
+            ),
+            Val(2),
+        )
+        sM = ntuple(k -> sgeo[_sM, n, faces[k], e[2]], Val(2))
+
+        # volume mass same on both faces
+        vMI = sgeo[_vMI, n, faces[1], e[2]]
+
+        # Get the mass matrix for each of the elements
+        M = ntuple(k -> vgeo[n, _M, e[k]], Val(3))
+
+        # load prognostic data
+        @unroll for k in 1:3
+            @unroll for s in 1:num_state_prognostic
+                local_state_prognostic[k][s] = state_prognostic[n, s, e[k]]
+            end
+        end
+
+        # load auxiliary data
+        @unroll for k in 1:3
+            @unroll for s in 1:num_state_auxiliary
+                local_state_auxiliary[k][s] = state_auxiliary[n, s, e[k]]
+            end
+        end
+
+        # transform to the gradient argument (i.e., the values we take the
+        # gradient of)
+        @unroll for k in 1:3
+            fill!(l_grad_arg[k], -zero(eltype(l_grad_arg[k])))
+            compute_gradient_argument!(
+                balance_law,
+                Vars{vars_state(balance_law, Gradient(), FT)}(l_grad_arg[k]),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[k]),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[k]),
+                t,
+            )
+        end
+
+        # Compute the surface integral contribution from these two faces:
+        #   M⁻¹ Lᵀ Mf n̂ G*
+        # Since this is FVM we do not subtract the interior state
+        fill!(l_nG, -zero(eltype(l_nG)))
+        @unroll for f in 1:2
+            if bctag[f] == 0
+                @unroll for s in 1:ngradstate
+                    # Interpolate to the face (using the mass matrix for the
+                    # interpolation weights) -- "the gradient numerical flux"
+                    G =
+                        (
+                            M[f] * l_grad_arg[f + 1][s] +
+                            M[f + 1] * l_grad_arg[f][s]
+                        ) / (M[f] + M[f + 1])
+
+                    # Compute the surface integral for this component and face
+                    # multiplied by the normal to get the rotation to the
+                    # physical space
+                    @unroll for i in 1:3
+                        l_nG[i, s] += vMI * sM[f] * normal_vector[f][i] * G
+                    end
+                end
+            else
+                # Call DG boundary condition treatment to get the boundary flux
+                bcs = boundary_conditions(balance_law)
+                # TODO: there is probably a better way to unroll this loop
+                Base.Cartesian.@nif 7 d -> bctag[f] == d <= length(bcs) d ->
+                    begin
+                        bc = bcs[d]
+                        # Computes G* incorporating boundary conditions
+                        numerical_boundary_flux_gradient!(
+                            CentralNumericalFluxGradient(),
+                            bc,
+                            balance_law,
+                            l_nG_bc,
+                            SVector(normal_vector[f]),
+                            Vars{vars_state(balance_law, Gradient(), FT)}(l_grad_arg[2]),
+                            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[2]),
+                            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[2]),
+                            Vars{vars_state(balance_law, Gradient(), FT)}(l_grad_arg[2f - 1]),
+                            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[2f - 1]),
+                            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[2f - 1]),
+                            t,
+                            Vars{vars_state(balance_law, Prognostic(), FT)}(
+                                local_state_prognostic_bottom1,
+                            ),
+                            Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                                local_state_auxiliary_bottom1,
+                            ),
+                        )
+                    end
+
+                @unroll for s in 1:ngradstate
+                    @unroll for i in 1:3
+                        l_nG[i, s] += vMI * sM[f] * l_nG_bc[i, s]
+                    end
+                end
+            end
+        end
+
+        # Applies linear transformation of gradients to the diffusive variables
+        # for storage
+        compute_gradient_flux!(
+            balance_law,
+            Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                local_state_gradient_flux,
+            ),
+            Grad{vars_state(balance_law, Gradient(), FT)}(l_nG),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[2]),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[2]),
+            t,
+        )
+
+        # This is the surface integral evaluated discretely
+        # M^(-1) Mf G*
+        @unroll for s in 1:num_state_gradient_flux
+            state_gradient_flux[n, s, e[2]] += local_state_gradient_flux[s]
+        end
     end
 end
 
