@@ -1836,7 +1836,7 @@ function launch_interface_tendency!(
         # Hoirzontal polynomial order (assumes same for both horizontal directions)
         horizontal_polyorder = info.N[1]
 
-        comp_stream = interface_tendency!(info.device, workgroup)(
+        comp_stream = dgsem_interface_tendency!(info.device, workgroup)(
             spacedisc.balance_law,
             Val(info),
             HorizontalDirection(),
@@ -1864,40 +1864,80 @@ function launch_interface_tendency!(
     if spacedisc.direction isa EveryDirection ||
        spacedisc.direction isa VerticalDirection
 
-        workgroup = info.Nfp_h
-        if surface === :interior
-            elems = spacedisc.grid.interiorelems
-            ndrange = workgroup * info.ninteriorelem
+        if spacedisc isa DGModel
+            workgroup = info.Nfp_h
+            if surface === :interior
+                elems = spacedisc.grid.interiorelems
+                ndrange = workgroup * info.ninteriorelem
+            else
+                elems = spacedisc.grid.exteriorelems
+                ndrange = workgroup * info.nexteriorelem
+            end
+
+            # Vertical polynomial degree
+            vertical_polyorder = info.N[info.dim]
+
+            comp_stream = dgsem_interface_tendency!(info.device, workgroup)(
+                spacedisc.balance_law,
+                Val(info),
+                VerticalDirection(),
+                spacedisc.numerical_flux_first_order,
+                numerical_flux_second_order,
+                tendency.data,
+                state_prognostic.data,
+                grad_flux_data,
+                Qhypervisc_grad_data,
+                spacedisc.state_auxiliary.data,
+                spacedisc.grid.vgeo,
+                spacedisc.grid.sgeo,
+                t,
+                spacedisc.grid.vmap⁻,
+                spacedisc.grid.vmap⁺,
+                spacedisc.grid.elemtobndy,
+                elems,
+                α;
+                ndrange = ndrange,
+                dependencies = comp_stream,
+            )
+        elseif spacedisc isa DGFVMModel
+            workgroup = info.Nfp_h
+            if surface === :interior
+                elems = spacedisc.grid.interiorelems
+                ndrange = workgroup * info.ninteriorelem
+            else
+                elems = spacedisc.grid.exteriorelems
+                ndrange = workgroup * info.nexteriorelem
+            end
+
+            # Make sure FVM in the vertical
+            @assert info.N[info.dim] == 0
+
+            # XXX: This will need to be updated to diffusion
+            @assert isstacked(spacedisc.grid.topology)
+            nvertelem = spacedisc.grid.topology.stacksize
+            comp_stream = vert_fvm_interface_tendency!(info.device, workgroup)(
+                spacedisc.balance_law,
+                Val(info),
+                Val(nvertelem),
+                VerticalDirection(),
+                spacedisc.numerical_flux_first_order,
+                tendency.data,
+                state_prognostic.data,
+                spacedisc.state_auxiliary.data,
+                spacedisc.grid.vgeo,
+                spacedisc.grid.sgeo,
+                t,
+                spacedisc.grid.vmap⁻,
+                spacedisc.grid.vmap⁺,
+                spacedisc.grid.elemtobndy,
+                elems,
+                α;
+                ndrange = ndrange,
+                dependencies = comp_stream,
+            )
         else
-            elems = spacedisc.grid.exteriorelems
-            ndrange = workgroup * info.nexteriorelem
+            error("unknown spatial discretization: $(typeof(spacedisc))")
         end
-
-        # Vertical polynomial degree
-        vertical_polyorder = info.N[info.dim]
-
-        comp_stream = interface_tendency!(info.device, workgroup)(
-            spacedisc.balance_law,
-            Val(info),
-            VerticalDirection(),
-            spacedisc.numerical_flux_first_order,
-            numerical_flux_second_order,
-            tendency.data,
-            state_prognostic.data,
-            grad_flux_data,
-            Qhypervisc_grad_data,
-            spacedisc.state_auxiliary.data,
-            spacedisc.grid.vgeo,
-            spacedisc.grid.sgeo,
-            t,
-            spacedisc.grid.vmap⁻,
-            spacedisc.grid.vmap⁺,
-            spacedisc.grid.elemtobndy,
-            elems,
-            α;
-            ndrange = ndrange,
-            dependencies = comp_stream,
-        )
     end
 
     return comp_stream

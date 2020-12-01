@@ -599,7 +599,7 @@ end
 end
 
 @doc """
-    function interface_tendency!(
+    function dgsem_interface_tendency!(
         balance_law::BalanceLaw,
         ::Val{dim},
         ::Val{polyorder},
@@ -635,8 +635,8 @@ where M is the mass matrix, Mf is the face mass matrix, L is an interpolator
 from volume to face, and Fⁱⁿᵛ⋆, Fᵛⁱˢᶜ⋆
 are the numerical fluxes for the inviscid and viscous
 fluxes, respectively.
-""" interface_tendency!
-@kernel function interface_tendency!(
+""" dgsem_interface_tendency!
+@kernel function dgsem_interface_tendency!(
     balance_law::BalanceLaw,
     ::Val{info},
     direction,
@@ -948,6 +948,217 @@ fluxes, respectively.
         end
         # Need to wait after even faces to avoid race conditions
         @synchronize(f % 2 == 0)
+    end
+end
+
+@doc """
+    function vert_fvm_interface_tendency!(
+        balance_law::BalanceLaw,
+        ::Val{dim},
+        ::Val{polyorder},
+        direction,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        tendency,
+        state_prognostic,
+        state_gradient_flux,
+        Qhypervisc_grad,
+        state_auxiliary,
+        vgeo,
+        sgeo,
+        t,
+        vmap⁻,
+        vmap⁺,
+        elemtobndy,
+        elems,
+        α,
+    )
+
+Compute kernel for evaluating the interface tendencies using vertical FVM
+reconstructions with a DG method of the form:
+
+∫ₑ ψ⋅ ∂q/∂t dx - ∫ₑ ∇ψ⋅(Fⁱⁿᵛ + Fᵛⁱˢᶜ) dx + ∮ₑ n̂ ψ⋅(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆) dS,
+
+or equivalently in matrix form:
+
+dQ/dt = M⁻¹(MS + DᵀM(Fⁱⁿᵛ + Fᵛⁱˢᶜ) + ∑ᶠ LᵀMf(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆)).
+
+This kernel computes the surface terms: M⁻¹ ∑ᶠ LᵀMf(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆)), where M
+is the mass matrix, Mf is the face mass matrix, L is an interpolator from
+volume to face, and Fⁱⁿᵛ⋆, Fᵛⁱˢᶜ⋆ are the numerical fluxes for the inviscid
+and viscous fluxes, respectively.
+
+A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
+
+!!! note
+    Currently `Fᵛⁱˢᶜ⋆` is not supported
+""" vert_fvm_interface_tendency!
+@kernel function vert_fvm_interface_tendency!(
+    balance_law::BalanceLaw,
+    ::Val{info},
+    ::Val{nvertelem},
+    ::VerticalDirection,
+    numerical_flux_first_order,
+    tendency,
+    state_prognostic,
+    state_auxiliary,
+    _,
+    sgeo,
+    t,
+    vmap⁻,
+    vmap⁺,
+    elemtobndy,
+    elems,
+    α,
+) where {info, nvertelem}
+    @uniform begin
+        dim = info.dim
+        FT = eltype(state_prognostic)
+        num_state_prognostic = number_states(balance_law, Prognostic())
+        num_state_auxiliary = number_states(balance_law, Auxiliary())
+        nface = info.nface
+        Np = info.Np
+        Nqk = info.Nqk # can only be 1 for the FVM method!
+        @assert Nqk == 1
+
+        # We only have the vertical faces
+        faces = (nface - 1):nface
+
+        local_state_prognostic⁻ = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+
+        local_state_prognostic⁺nondiff =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+
+        local_state_auxiliary⁺nondiff =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+
+        local_state_prognostic_bottom1 =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_auxiliary_bottom1 =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+
+        local_flux = MArray{Tuple{num_state_prognostic}, FT}(undef)
+    end
+
+    eI = @index(Group, Linear)
+    n = @index(Local, Linear)
+
+    e = @private Int (1,)
+    @inbounds e[1] = elems[eI]
+
+    @inbounds for f in faces
+        # The remainder model needs to know which direction of face the model is
+        # being evaluated for. In this case we only have `VerticalDirection()`
+        # faces
+        face_direction = (EveryDirection(), VerticalDirection())
+        e⁻ = e[1]
+        normal_vector = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        # Get surface mass, volume mass inverse
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
+        e⁺ = ((id⁺ - 1) ÷ Np) + 1
+
+        vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+
+        # Load minus side data
+        @unroll for s in 1:num_state_prognostic
+            local_state_prognostic⁻[s] = state_prognostic[vid⁻, s, e⁻]
+        end
+
+        @unroll for s in 1:num_state_auxiliary
+            local_state_auxiliary⁻[s] = state_auxiliary[vid⁻, s, e⁻]
+        end
+
+        # Load plus side data
+        @unroll for s in 1:num_state_prognostic
+            local_state_prognostic⁺nondiff[s] = state_prognostic[vid⁺, s, e⁺]
+        end
+
+        @unroll for s in 1:num_state_auxiliary
+            local_state_auxiliary⁺nondiff[s] = state_auxiliary[vid⁺, s, e⁺]
+        end
+
+        # Oh dang, it's boundary conditions
+        bctag = elemtobndy[f, e⁻]
+        fill!(local_flux, -zero(eltype(local_flux)))
+        if bctag == 0
+            numerical_flux_first_order!(
+                numerical_flux_first_order,
+                balance_law,
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
+                SVector(normal_vector),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_state_prognostic⁻,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
+                    local_state_prognostic⁺nondiff,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary⁺nondiff,
+                ),
+                t,
+                face_direction,
+            )
+        else
+            if (dim == 2 && f == 3) || (dim == 3 && f == 5)
+                # Grab data from the element above
+                @unroll for s in 1:num_state_prognostic
+                    local_state_prognostic_bottom1[s] =
+                        state_prognostic[n, s, e⁻+1]
+                end
+                @unroll for s in 1:num_state_auxiliary
+                    local_state_auxiliary_bottom1[s] =
+                        state_auxiliary[n, s, e⁻+1]
+                end
+            end
+
+            bcs = boundary_conditions(balance_law)
+            # TODO: there is probably a better way to unroll this loop
+            Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
+                bc = bcs[d]
+                numerical_boundary_flux_first_order!(
+                    numerical_flux_first_order,
+                    bc,
+                    balance_law,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
+                    SVector(normal_vector),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic⁻,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary⁻,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic⁺nondiff,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary⁺nondiff,
+                    ),
+                    t,
+                    face_direction,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic_bottom1,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary_bottom1,
+                    ),
+                )
+            end d -> throw(BoundsError(bcs, bctag))
+        end
+
+        # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))
+        @unroll for s in 1:num_state_prognostic
+            # FIXME: Should we pretch these?
+            tendency[vid⁻, s, e⁻] -= α * vMI * sM * local_flux[s]
+        end
     end
 end
 
