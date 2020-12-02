@@ -49,9 +49,12 @@ elem_band(
 single_column(
     ::DGColumnBandedMatrix{D, P, NS, EH, EV, EB, SC},
 ) where {D, P, NS, EH, EV, EB, SC} = SC
+lower_bandwidth(N, nstate, eband) = (N + 1) * nstate * eband - 1
 lower_bandwidth(A::DGColumnBandedMatrix) =
-    (polynomialorder(A) + 1) * num_state(A) * elem_band(A) - 1
-upper_bandwidth(A::DGColumnBandedMatrix) = lower_bandwidth(A)
+  lower_bandwidth(polynomialorder(A), num_state(A), elem_band(A))
+upper_bandwidth(N, nstate, eband) = lower_bandwidth(N, nstate, eband)
+upper_bandwidth(A::DGColumnBandedMatrix) =
+  upper_bandwidth(polynomialorder(A), num_state(A), elem_band(A))
 Base.reshape(A::DGColumnBandedMatrix, args...) =
     DGColumnBandedMatrix(A, reshape(A.data, args...))
 Adapt.adapt_structure(to, A::DGColumnBandedMatrix) =
@@ -313,7 +316,8 @@ function empty_banded_matrix(
     # p is lower bandwidth
     # q is upper bandwidth
     eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
-    p = q = nstate * Nq * eband - 1
+    p = lower_bandwidth(N, nstate, eband)
+    q = upper_bandwidth(N, nstate, eband)
 
     nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
@@ -398,10 +402,7 @@ function update_banded_matrix!(
     N = N[1]
     Nq = N + 1
 
-    # p is lower bandwidth
-    # q is upper bandwidth
-    eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
-    p = q = nstate * Nq * eband - 1
+    eband = elem_band(A)
 
     nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
@@ -421,12 +422,8 @@ function update_banded_matrix!(
                 # Set a single 1 per column and rest 0
                 event = Event(device)
                 event = kernel_set_banded_data!(device, (Nq, Nqj, Nq))(
-                    bl,
-                    Val(dim),
-                    Val(nstate),
-                    Val(N),
-                    Val(nvertelem),
                     Q.data,
+                    A,
                     k,
                     s,
                     ev,
@@ -743,25 +740,21 @@ eband - 1`.
 end
 
 @kernel function kernel_set_banded_data!(
-    bl::BalanceLaw,
-    ::Val{dim},
-    ::Val{nstate},
-    ::Val{N},
-    ::Val{nvertelem},
     Q,
+    A::DGColumnBandedMatrix,
     kin,
     sin,
     evin0,
     helems,
     velems,
-) where {dim, N, nstate, nvertelem}
+)
     @uniform begin
         FT = eltype(Q)
-
-        Nq = N + 1
-        Nqj = dim == 2 ? 1 : Nq
-
-        eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
+        nstate = num_state(A)
+        Nq = polynomialorder(A) + 1
+        Nqj = dimensionality(A) == 2 ? 1 : Nq
+        nvertelem = num_vert_elem(A)
+        eband = elem_band(A)
     end
 
     ev, eh = @index(Group, NTuple)
