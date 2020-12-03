@@ -16,14 +16,16 @@ using ClimateMachine.Atmos: PressureGradientModel
 using ClimateMachine.BalanceLaws
 using ClimateMachine.Mesh.Filters: apply!
 import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters, calculate_dt
+using ClimateMachine.DGMethods: courant
 using ClimateMachine.DGMethods: RemBL
+using ClimateMachine.Courant
 using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 
 function calculate_dt(dg, model::AtmosModel, Q, Courant_number, t, direction)
     # Δt = one(eltype(Q))
     # CFL = courant(nondiffusive_courant, dg, model, Q, Δt, t, direction)
     # return Courant_number / CFL
-    return eltype(Q)(2.64583e-01)
+    return eltype(Q)(2.64e-01)
 end
 
 
@@ -144,7 +146,7 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         if :turbconv in propertynames(state)
             # println(":turbconv in propertynames(state)")
             @show state
-            
+
             # FT = eltype(state)
             # this ρu[3]=0 is only for single_stack
             # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
@@ -249,17 +251,9 @@ function main(::Type{FT}) where {FT}
             implicit_solver = SingleColumnLU,
             solver_method = ARK2GiraldoKellyConstantinescu,
             split_explicit_implicit = true,
-            # split_explicit_implicit = false,
             discrete_splitting = false,
-            # discrete_splitting = true,
         )
     end
-
-
-    # old version
-    # ode_solver_type = ClimateMachine.ExplicitSolverType(
-    #     solver_method = LSRK144NiegemannDiehlBusch,
-    # )
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
@@ -292,7 +286,6 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        # ode_dt = 2.64583e-01,
     )
     println("-------- Check ICs (1)")
     @show all(isfinite.(solver_config.Q.data))
@@ -327,20 +320,6 @@ function main(::Type{FT}) where {FT}
             solver_config.dg.grid,
             TMARFilter(),
         )
-        # Filters.apply!(
-        #     ZeroVerticalVelocityFilter(),
-        #     solver_config.dg.grid,
-        #     model,
-        #     solver_config.Q,
-        #     solver_config.dg.state_auxiliary,
-        # )
-        # Filters.apply!( # comment this for NoTurbConv
-        #     EDMFFilter(),
-        #     solver_config.dg.grid,
-        #     solver_config.dg.balance_law,
-        #     solver_config.Q,
-        #     solver_config.dg.state_auxiliary,
-        # )
         nothing
     end
 
@@ -360,7 +339,7 @@ function main(::Type{FT}) where {FT}
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
     state_types = (Prognostic(), Auxiliary())
-    all_data = [dict_of_nodal_states(solver_config, state_types; interp = true)]
+    dons_arr = [dict_of_nodal_states(solver_config, state_types; interp = true)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -371,7 +350,7 @@ function main(::Type{FT}) where {FT}
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
             push!(
-                all_data,
+                dons_arr,
                 dict_of_nodal_states(solver_config, state_types; interp = true),
             )
             push!(time_data, gettime(solver_config.solver))
@@ -411,10 +390,26 @@ function main(::Type{FT}) where {FT}
     )
 
     dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(all_data, dons)
+    push!(dons_arr, dons)
     push!(time_data, gettime(solver_config.solver))
 
-    return solver_config, all_data, time_data, state_types
+    return solver_config, dons_arr, time_data, state_types
 end
 
-solver_config, all_data, time_data, state_types = main(Float64)
+solver_config, dons_arr, time_data, state_types = main(Float64)
+
+export_state_plots(
+    solver_config,
+    dons_arr,
+    time_data,
+    joinpath("output", "stable_bl_edmf");
+    z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
+)
+
+export_state_contours(
+    solver_config,
+    dons_arr,
+    time_data,
+    joinpath("output", "stable_bl_edmf");
+    z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
+)
