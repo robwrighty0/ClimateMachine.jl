@@ -225,7 +225,8 @@ function wavespeed end
         statearray_aux,
         t::Real,
         elems::UnitRange,
-        [diffusive=false]
+        [diffusive=false],
+        [grid=false]
     )
 
 Hook to update the auxiliary state variables before calling any other functions.
@@ -242,6 +243,7 @@ function update_auxiliary_state!(
     t,
     elems,
     diffusive = false,
+    grid = false,
 )
     update_auxiliary_state!(
         nodal_update_auxiliary_state!,
@@ -251,6 +253,7 @@ function update_auxiliary_state!(
         t,
         elems;
         diffusive = diffusive,
+        grid = grid,
     )
 end
 

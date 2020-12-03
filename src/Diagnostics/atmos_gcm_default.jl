@@ -49,6 +49,7 @@ diagnostic variables:
 - ht: specific enthalpy based on total energy
 - hi: specific enthalpy based on internal energy
 - vort: vertical component of relative velocity
+- vort2: vertical component of relative velocity from DGModel calculations
 
 When an `EquilMoist` moisture model is used, the following diagnostic
 variables are also output:
@@ -88,7 +89,7 @@ end
 
 include("diagnostic_fields.jl")
 
-# 3D variables
+# Declare all (3D) variables for this group
 function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
     @vars begin
         u::FT
@@ -103,6 +104,7 @@ function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
         ht::FT
         hi::FT
         vort::FT                # Ω₃
+        vort2::FT               # Ω_dg₃
 
         moisture::vars_atmos_gcm_default_simple_3d(atmos.moisture, FT)
     end
@@ -124,10 +126,12 @@ num_atmos_gcm_default_simple_3d_vars(m, FT) =
 atmos_gcm_default_simple_3d_vars(m, array) =
     Vars{vars_atmos_gcm_default_simple_3d(m, eltype(array))}(array)
 
+# Collect all (3D) variables for this group
 function atmos_gcm_default_simple_3d_vars!(
     atmos::AtmosModel,
     state_prognostic,
     thermo,
+    dgdiags,
     dyni,
     vars,
 )
@@ -135,6 +139,7 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.v = state_prognostic.ρu[2] / state_prognostic.ρ
     vars.w = state_prognostic.ρu[3] / state_prognostic.ρ
     vars.rho = state_prognostic.ρ
+
     vars.temp = thermo.temp
     vars.pres = thermo.pres
     vars.thd = thermo.θ_dry
@@ -142,6 +147,8 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.ei = thermo.e_int
     vars.ht = thermo.h_tot
     vars.hi = thermo.h_int
+
+    vars.vort2 = dgdiags.Ω_dg₃
 
     vars.vort = dyni.Ω₃
 
@@ -178,7 +185,7 @@ function atmos_gcm_default_simple_3d_vars!(
     return nothing
 end
 
-# Dynamic variables
+# Declare placeholder variables for dynamic calculation by the Diagnostics module (TODO: move into separate file when Impero is ready)
 function vars_dyn(FT)
     @vars begin
         Ω₁::FT
@@ -288,11 +295,18 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # TODO: can this be done in one pass?
     #
-    # Non-local vars, e.g. relative vorticity
+    # Compute variables which require manipulation of the whole MPIStateArrays (e.g. Q, dg.state_auxiliary),
+    # using the Diagnostics Module kernels (replicating the DGModel kernels)
     vgrad = VectorGradients(dg, Q)
     vort = Vorticity(dg, vgrad)
 
-    # Compute thermo variables
+    # Collect MPIStateArray variables from DGModel mini balance laws 
+    ix_Ω_dg = varsindex(vars(dg.state_auxiliary), :Ω_dg)
+    vort2 = dg.state_auxiliary.data[:, ix_Ω_dg, :]
+
+    # Copute variables which require manipulation of whole state arrays, using the Diagnostics Module
+
+    # Compute thermo variables element-wise
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
     @traverse_dg_grid grid_info topl_info begin
         state = extract_state(dg, state_data, ijk, e, Prognostic())
@@ -302,7 +316,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
         compute_thermo!(atmos, state, aux, thermo)
     end
 
-    # Interpolate the state, thermo and dyn vars to sphere (u and vorticity
+    # Interpolate the state, thermo, dgdiags and dyn vars to sphere (u and vorticity
     # need projection to zonal, merid). All this may happen on the GPU.
     istate =
         ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Prognostic()))
@@ -314,15 +328,22 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     idyn = ArrayType{FT}(undef, interpol.Npl, size(vort.data, 2))
     interpolate_local!(interpol, vort.data, idyn)
 
+    idgdiags = ArrayType{FT}(undef, interpol.Npl, size(vort2, 2))
+    interpolate_local!(interpol, vort2, idgdiags)
+
     # TODO: get indices here without hard-coding them
     _ρu, _ρv, _ρw = 2, 3, 4
     project_cubed_sphere!(interpol, istate, (_ρu, _ρv, _ρw))
     _Ω₁, _Ω₂, _Ω₃ = 1, 2, 3
     project_cubed_sphere!(interpol, idyn, (_Ω₁, _Ω₂, _Ω₃))
+    _Ω₁, _Ω₂, _Ω₃ = 1, 2, 3
+    project_cubed_sphere!(interpol, idgdiags, (_Ω₁, _Ω₂, _Ω₃))
+
 
     # FIXME: accumulating to rank 0 is not scalable
     all_state_data = accumulate_interpolated_data(mpicomm, interpol, istate)
     all_thermo_data = accumulate_interpolated_data(mpicomm, interpol, ithermo)
+    all_dgdiags_data = accumulate_interpolated_data(mpicomm, interpol, idgdiags)
     all_dyn_data = accumulate_interpolated_data(mpicomm, interpol, idyn)
 
     if mpirank == 0
@@ -351,6 +372,8 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
                 :,
             ))
             thermoi = thermo_vars(atmos, view(all_thermo_data, lo, la, le, :))
+            dgdiagsi =
+                dgdiags_vars(atmos, view(all_dgdiags_data, lo, la, le, :))
             dyni = dyn_vars(view(all_dyn_data, lo, la, le, :))
             simple_3d_vars = atmos_gcm_default_simple_3d_vars(
                 atmos,
@@ -361,6 +384,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
                 atmos,
                 statei,
                 thermoi,
+                dgdiagsi,
                 dyni,
                 simple_3d_vars,
             )
