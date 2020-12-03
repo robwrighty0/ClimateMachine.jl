@@ -85,9 +85,9 @@ function GenericCallbacks.call!(cb::SummaryLogCallback, solver, Q, param, t)
         estimated_remaining,
         normQ,
     )
-    if isnan(normQ)
+    if !isfinite(normQ)
         show_not_finite_fields(Q)
-        error("norm(Q) is NaN")
+        error("norm(Q) is not finite")
     end
     return nothing
 end

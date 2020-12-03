@@ -7,6 +7,7 @@ ClimateMachine.init(;
 )
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
+using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers
 using ClimateMachine.Atmos: AtmosModel
@@ -359,6 +360,9 @@ function main(::Type{FT}) where {FT}
 
     cb_check_cons = GenericCallbacks.EveryXSimulationSteps(1) do
         Q = solver_config.Q
+        if !isfinite(norm(Q))
+            show_not_finite_fields(Q)
+        end
         δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
         δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
         @show (abs(δρ))
