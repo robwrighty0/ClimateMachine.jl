@@ -146,7 +146,7 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         # if atmos.turbconv isa EDMF
         if :turbconv in propertynames(state)
             # println(":turbconv in propertynames(state)")
-            # @show state
+            @show state
 
             # FT = eltype(state)
             # this ρu[3]=0 is only for single_stack
@@ -257,8 +257,8 @@ function main(::Type{FT}) where {FT}
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    turbconv = EDMF(FT, N_updrafts, N_quad)
-    # turbconv = NoTurbConv()
+    # turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = NoTurbConv()
 
     model = stable_bl_model(
         FT,
