@@ -58,7 +58,7 @@
 #md #     `ClimateMachine` according to the instructions on the landing page.
 #md #     We assume the users' familiarity with the conservative form of the
 #md #     equations of motion for a compressible fluid (see the
-#md #     [AtmosModel](@ref AtmosModel-docs) page).
+#md #     [AtmosEquations](@ref AtmosEquations-docs) page).
 #md #
 #md #     The following topics are covered in this example
 #md #     - Defining the initial conditions
@@ -179,7 +179,7 @@ function warp_agnesi(xin, yin, zin; xmax = 1000.0, ymax = 1000.0, zmax = 1000.0)
     return x, y, z
 end
 
-# ## [Model Configuration](@id config-helper)
+# ## [Configuration](@id config-helper)
 # We define a configuration function to assist in prescribing the physical
 # model. The purpose of this is to populate the
 # `AtmosLESConfiguration` with arguments
@@ -229,13 +229,13 @@ function config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
     nothing # hide
 
     _C_smag = FT(0.21)
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = init_agnesi_hs_lin!,
         ref_state = ref_state,
         turbulence = Vreman(_C_smag),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = source,
         tracers = NoTracers(),
     )
@@ -249,8 +249,8 @@ function config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
         zmax,                    # Domain maximum size [m]
         param_set,               # Parameter set.
         init_agnesi_hs_lin!,     # Function specifying initial condition
-        solver_type = ode_solver,# Time-integrator type
-        model = model,           # Model type
+        solver_type = ode_solver,# Time-integrator
+        equations = atmos,       # Equations
         meshwarp = setmax(warp_agnesi, xmax, ymax, zmax),
     )
 

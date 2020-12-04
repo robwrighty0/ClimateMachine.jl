@@ -32,7 +32,7 @@ import ..BalanceLaws: vars_state
 using ..DGMethods:
     init_state_auxiliary!, continuous_field_gradient!, LocalGeometry
 
-export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
+export AbstractOrientation, NoOrientation, FlatOrientation, SphericalOrientation
 
 export init_aux!,
     orientation_nodal_init_aux!,
@@ -48,30 +48,30 @@ export init_aux!,
     cart_to_sphr_vec
 
 
-abstract type Orientation <: BalanceLaw end
+abstract type AbstractOrientation <: BalanceLaw end
 
 #####
 ##### Fallbacks
 #####
 
-function vars_state(m::Orientation, ::Auxiliary, FT)
+function vars_state(m::AbstractOrientation, ::Auxiliary, FT)
     @vars begin
         Φ::FT # gravitational potential
         ∇Φ::SVector{3, FT}
     end
 end
 
-gravitational_potential(::Orientation, aux::Vars) = aux.orientation.Φ
+gravitational_potential(::AbstractOrientation, aux::Vars) = aux.orientation.Φ
 
-∇gravitational_potential(::Orientation, aux::Vars) = aux.orientation.∇Φ
+∇gravitational_potential(::AbstractOrientation, aux::Vars) = aux.orientation.∇Φ
 
-function altitude(orientation::Orientation, param_set::APS, aux::Vars)
+function altitude(orientation::AbstractOrientation, param_set::APS, aux::Vars)
     FT = eltype(aux)
     return gravitational_potential(orientation, aux) / FT(grav(param_set))
 end
 
 function vertical_unit_vector(
-    orientation::Orientation,
+    orientation::AbstractOrientation,
     param_set::APS,
     aux::Vars,
 )
@@ -80,7 +80,7 @@ function vertical_unit_vector(
 end
 
 function projection_normal(
-    orientation::Orientation,
+    orientation::AbstractOrientation,
     param_set::APS,
     aux::Vars,
     u⃗::AbstractVector,
@@ -90,7 +90,7 @@ function projection_normal(
 end
 
 function projection_tangential(
-    orientation::Orientation,
+    orientation::AbstractOrientation,
     param_set::APS,
     aux::Vars,
     u⃗::AbstractVector,
@@ -100,7 +100,7 @@ end
 
 function init_aux!(
     m,
-    ::Orientation,
+    ::AbstractOrientation,
     state_auxiliary::MPIStateArray,
     grid,
     direction,
@@ -134,7 +134,7 @@ end
 
 No gravitational force or potential.
 """
-struct NoOrientation <: Orientation end
+struct NoOrientation <: AbstractOrientation end
 
 init_aux!(m, ::NoOrientation, state_auxiliary::MPIStateArray, grid, direction) =
     nothing
@@ -152,12 +152,12 @@ altitude(orientation::NoOrientation, param_set::APS, aux::Vars) =
 #####
 
 """
-    SphericalOrientation <: Orientation
+    SphericalOrientation <: AbstractOrientation
 
 Gravity acts towards the origin `(0,0,0)`, and the gravitational potential is relative
 to the surface of the planet.
 """
-struct SphericalOrientation <: Orientation end
+struct SphericalOrientation <: AbstractOrientation end
 
 function orientation_nodal_init_aux!(
     ::SphericalOrientation,
@@ -237,12 +237,12 @@ end
 #####
 
 """
-    FlatOrientation <: Orientation
+    FlatOrientation <: AbstractOrientation
 
 Gravity acts in the third coordinate, and the gravitational potential is relative to
 `coord[3] == 0`.
 """
-struct FlatOrientation <: Orientation
+struct FlatOrientation <: AbstractOrientation
     # for Coriolis we could add latitude?
 end
 function orientation_nodal_init_aux!(

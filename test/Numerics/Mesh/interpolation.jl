@@ -119,7 +119,7 @@ function run_brick_interpolation_test(DA, FT)
         DeviceArray = DA,
         polynomialorder = polynomialorder,
     )
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = Initialize_Brick_Interpolation_Test!,
@@ -129,7 +129,7 @@ function run_brick_interpolation_test(DA, FT)
     )
 
     dg = DGModel(
-        model,
+        atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
@@ -275,19 +275,19 @@ function run_cubed_sphere_interpolation_test(DA, FT)
         meshwarp = ClimateMachine.Mesh.Topologies.cubedshellwarp,
     )
 
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(0)),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = nothing,
     )
 
     dg = DGModel(
-        model,
+        atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),

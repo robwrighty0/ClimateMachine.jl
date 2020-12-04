@@ -115,16 +115,16 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
 
     domain_height::FT = 10e3               # distance between surface and top of atmosphere (m)
 
-    # Set up the atmosphere model
+    # Set up the atmosphere equations
     exp_name = "NonhydrostaticGravityWave"
 
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = init_nonhydrostatic_gravity_wave!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = (Gravity(),),
     )
 
@@ -135,7 +135,7 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         domain_height,
         param_set,
         init_nonhydrostatic_gravity_wave!;
-        model = model,
+        equations = atmos,
     )
 
     return config

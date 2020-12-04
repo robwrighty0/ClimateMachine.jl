@@ -1,14 +1,15 @@
-# Moisture model choices in Atmos.jl
+# Moisture model choices in AtmosEquations.jl
 
-The moisture model in `Atmos.jl` describes the behavior
+The moisture model in `moisture.jl` describes the behavior
   of suspended water in the atmosphere (i.e. water vapor,
   cloud liquid water and cloud ice).
-There are three options available: `DryModel`, `EquilMoist` and `NonEquilMoist`.
+There are three options available: `DryEquations`, `EquilMoist` and
+  `NonEquilMoist`.
 
 
-## DryModel
+## DryEquations
 
-The `DryModel` assumes that air is dry and there is no water available
+The `DryEquations` assumes that air is dry and there is no water available
   in any form.
 It does not add any water related variables to state variables.
 
@@ -49,12 +50,12 @@ Because the assumed relaxation timescale for condensation/evaporation and
 ## Implementation notes
 
 The moisture models rely on the
-  [new\_thermo\_state](https://clima.github.io/ClimateMachine.jl/latest/APIs/Atmos/AtmosModel/#ClimateMachine.Atmos.new_thermo_state)
+  [new\_thermo\_state](https://clima.github.io/ClimateMachine.jl/latest/APIs/Atmos/AtmosEquations/#ClimateMachine.Atmos.new_thermo_state)
   and
-  [recover\_thermo\_state](https://clima.github.io/ClimateMachine.jl/latest/APIs/Atmos/AtmosModel/#ClimateMachine.Atmos.recover_thermo_state)
+  [recover\_thermo\_state](https://clima.github.io/ClimateMachine.jl/latest/APIs/Atmos/AtmosEquations/#ClimateMachine.Atmos.recover_thermo_state)
   convenience functions to create a `struct` that stores
   air properties needed to uniquely define air thermodynamic state.
-For the `DryModel` it is the
+For the `DryEquations` it is the
   [PhaseDry](https://clima.github.io/ClimateMachine.jl/latest/APIs/Common/Thermodynamics/#ClimateMachine.Thermodynamics.PhaseDry)
   `struct` that has three fields:
   parameter set used by the `Atmos.jl` model, internal energy and air density.
@@ -79,14 +80,14 @@ For the `EquilMoist` model the `new_thermo_state` function calls
   the `saturation_adjustment` to find the equilibrium temperature.
 It populates the fields of the `PhaseEquil` `struct`
   and saves the equilibrium air temperature into the auxiliary state.
-For the `DryModel` and `NonEquilMoist` model the thermodynamic state `struct`
-  is created based on the current state variables.
+For the `DryEquations` and the `NonEquilMoist` equations the thermodynamic state
+  `struct` is created based on the current state variables.
 The `recover_thermo_state` function should be used throughout the code to create
   an instance of the thermodynamic state `struct`.
 For the `EquilMoist` model it populates the `PhaseEquil` fields based on the
   current state variables and the temperature stored in the auxiliary state.
 This avoids executing unnecessarily the `saturation_adjustemnt` algorithm.
-For the `DryModel` and `NonEquilMoist` model the `recover_thermo_state`
-  function is the same as the `new_thermo_state` function
-  and populates the corresponding `struct` fields based on
+For the `DryEquations` and the `NonEquilMoist` equations the
+  `recover_thermo_state` function is the same as the `new_thermo_state`
+  function and populates the corresponding `struct` fields based on
   the current state variables.

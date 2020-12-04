@@ -2,7 +2,7 @@
 
 """
     mixing_length(
-        m::AtmosModel{FT},
+        atmos::AtmosEquations{FT},
         ml::MixingLengthModel,
         state::Vars,
         diffusive::Vars,
@@ -15,7 +15,7 @@
     ) where {FT}
 
 Returns the mixing length used in the diffusive turbulence closure, given:
- - `m`, an `AtmosModel`
+ - `atmos`, the `AtmosEquations`
  - `ml`, a `MixingLengthModel`
  - `state`, state variables
  - `diffusive`, additional variables
@@ -27,7 +27,7 @@ Returns the mixing length used in the diffusive turbulence closure, given:
  - `env`, NamedTuple of environment variables
 """
 function mixing_length(
-    m::AtmosModel{FT},
+    atmos::AtmosEquations{FT},
     ml::MixingLengthModel,
     state::Vars,
     diffusive::Vars,
@@ -46,20 +46,20 @@ function mixing_length(
     en = state.turbconv.environment
     up = state.turbconv.updraft
     gm_aux = aux
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(atmos.turbconv)
 
-    z = altitude(m, aux)
-    _grav::FT = grav(m.param_set)
+    z = altitude(atmos, aux)
+    _grav::FT = grav(atmos.param_set)
     ρinv = 1 / gm.ρ
 
     Shear² = diffusive.turbconv.S²
     tke_en = max(en.ρatke, 0) * ρinv / env.a
 
-    ustar = m.turbconv.surface.ustar
-    obukhov_length = m.turbconv.surface.obukhov_length
+    ustar = atmos.turbconv.surface.ustar
+    obukhov_length = atmos.turbconv.surface.obukhov_length
 
     # buoyancy related functions
-    ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(m, state, diffusive, aux, t, ts)
+    ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(atmos, state, diffusive, aux, t, ts)
     Grad_Ri = ∇Richardson_number(∂b∂z, Shear², 1 / ml.max_length, ml.Ri_c)
     Pr_z = turbulent_Prandtl_number(ml.Pr_n, Grad_Ri, ml.ω_pr)
 
@@ -70,12 +70,12 @@ function mixing_length(
 
     # compute L2 - law of the wall
     surf_vals = subdomain_surface_values(
-        m.turbconv.surface,
-        m.turbconv,
-        m,
+        atmos.turbconv.surface,
+        atmos.turbconv,
+        atmos,
         gm,
         gm_aux,
-        m.turbconv.surface.zLL,
+        atmos.turbconv.surface.zLL,
     )
     tke_surf = surf_vals.tke
     L_W = ml.κ * z / (sqrt(tke_surf) * ml.c_m / ustar / ustar)

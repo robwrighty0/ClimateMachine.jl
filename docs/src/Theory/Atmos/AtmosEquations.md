@@ -1,13 +1,13 @@
-# Atmos Model
+# Atmos Equations
 
 This page provides a summary of a specific type of balance law within the
-`ClimateMachine` source code, the `AtmosModel`. This documentation aims to
-introduce a user to the properties of the `AtmosModel`, including the balance
+`ClimateMachine` source code, the `AtmosEquations`. This documentation aims to
+introduce a user to the properties of the `AtmosEquations`, including the balance
 law equations and default model configurations. Both LES and GCM configurations
 are included.
 
 ## Conservation Equations
-The conservation equations specific to this implementation of `AtmosModel`
+The conservation equations specific to this implementation of `AtmosEquations`
 are included below.
 
 ### Mass

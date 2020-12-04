@@ -46,7 +46,7 @@ export snow_melt
 """
     v0_rai(param_set, ρ)
 
- - `param_set` - abstract set with earth parameters
+ - `param_set` - parameter set with earth parameters
  - `ρ` air density
 
 Returns the proportionality coefficient in terminal velocity(r/r0).
@@ -64,7 +64,7 @@ end
 """
     n0_sno(snow_param_set, q_sno, ρ)
 
- - `snow_param_set` - abstract set with snow parameters
+ - `snow_param_set` - parameter set with snow parameters
  - `q_sno` -  snow specific humidity
  - `ρ` - air density
 
@@ -82,8 +82,8 @@ end
 """
     unpack_params(param_set, microphysics_param_set, ρ, q_)
 
- - `param_set` - abstract set with earth parameters
- - `microphysics_param_set` - abstract set with microphysics parameters
+ - `param_set` - parameter set with earth parameters
+ - `microphysics_param_set` - parameter set with microphysics parameters
  - `q_` - specific humidity
  - `ρ` - air density
 
@@ -228,8 +228,8 @@ end
     τ_relax(liquid_param_set)
     τ_relax(ice_param_set)
 
- - `liquid_param_set` - abstract set with cloud liquid water parameters
- - `ice_param_set` - abstract set with cloud ice parameters
+ - `liquid_param_set` - parameter set with cloud liquid water parameters
+ - `ice_param_set` - parameter set with cloud ice parameters
 
 Returns the relaxation timescale for condensation and evaporation of
 cloud liquid water or the relaxation timescale for sublimation and
@@ -250,7 +250,7 @@ end
     G_func(param_set, T, Liquid())
     G_func(param_set, T, Ice())
 
- - `param_set` - abstract set with earth parameters
+ - `param_set` - parameter set with earth parameters
  - `T` - air temperature
  - `Liquid()`, `Ice()` - liquid or ice phase to dispatch over.
 
@@ -286,8 +286,8 @@ end
 """
     terminal_velocity(param_set, precip_param_set, ρ, q_)
 
- - `param_set` - abstract set with earth parameters
- - `precip_param_set` - abstract set with rain or snow parameters
+ - `param_set` - parameter set with earth parameters
+ - `precip_param_set` - parameter set with rain or snow parameters
  - `ρ` - air density
  - `q_` - rain or snow specific humidity
 
@@ -322,8 +322,8 @@ end
     conv_q_vap_to_q_liq_ice(liquid_param_set::ALPS, q_sat, q)
     conv_q_vap_to_q_liq_ice(ice_param_set::AIPS, q_sat, q)
 
- - `liquid_param_set` - abstract set with cloud water parameters
- - `ice_param_set` - abstract set with cloud ice parameters
+ - `liquid_param_set` - parameter set with cloud water parameters
+ - `ice_param_set` - parameter set with cloud ice parameters
  - `q_sat` - PhasePartition at equilibrium
  - `q` - current PhasePartition
 
@@ -356,7 +356,7 @@ end
 """
     conv_q_liq_to_q_rai(rain_param_set, q_liq)
 
- - `rain_param_set` - abstract set with rain microphysics parameters
+ - `rain_param_set` - parameter set with rain microphysics parameters
  - `q_liq` - liquid water specific humidity
 
 Returns the q_rai tendency due to collisions between cloud droplets
@@ -373,8 +373,8 @@ end
 """
     conv_q_ice_to_q_sno(param_set, ice_param_set, q, ρ, T)
 
- - `param_set` - abstract set with earth parameters
- - `ice_param_set` - abstract set with ice microphysics parameters
+ - `param_set` - parameter set with earth parameters
+ - `ice_param_set` - parameter set with ice microphysics parameters
  - `q` - phase partition
  - `ρ` - air density
  - `T` - air temperature
@@ -417,9 +417,9 @@ end
 """
     accretion(param_set, cloud_param_set, precip_param_set, q_clo, q_pre, ρ)
 
- - `param_set` - abstract set with earth parameters
- - `cloud_param_set` - abstract set with cloud water or cloud ice parameters
- - `precip_param_set` - abstract set with rain or snow parameters
+ - `param_set` - parameter set with earth parameters
+ - `cloud_param_set` - parameter set with cloud water or cloud ice parameters
+ - `precip_param_set` - parameter set with rain or snow parameters
  - `q_clo` - cloud water or cloud ice specific humidity
  - `q_pre` - rain water or snow specific humidity
  - `ρ` - rain water or snow specific humidity
@@ -457,9 +457,9 @@ end
     accretion_rain_sink(param_set, ice_param_set, rain_param_set,
                         q_ice, q_rai, ρ)
 
- - `param_set` - abstract set with earth parameters
- - `ice_param_set` - abstract set with cloud ice parameters
- - `rain_param_set` - abstract set with rain parameters
+ - `param_set` - parameter set with earth parameters
+ - `ice_param_set` - parameter set with cloud ice parameters
+ - `rain_param_set` - parameter set with rain parameters
  - `q_ice` - cloud ice specific humidity
  - `q_rai` - rain water specific humidity
  - `ρ` - air density
@@ -554,8 +554,8 @@ end
          or rain for temperatures above freezing
  - `j` - rain for temperatures below freezing
          or rain for temperatures above freezing
- - `param_set` - abstract set with earth parameters
- - `i_param_set`, `j_param_set` - abstract set with snow or rain
+ - `param_set` - parameter set with earth parameters
+ - `i_param_set`, `j_param_set` - parameter set with snow or rain
     microphysics parameters
  - `q_` - specific humidity of snow or rain
  - `ρ` - air density
@@ -640,9 +640,9 @@ end
     evaporation_sublimation(param_set, rain_param_set, q, q_rai, ρ, T)
     evaporation_sublimation(param_set, snow_param_set, q, q_sno, ρ, T)
 
- - `param_set` - abstract set with earth parameters
- - `rain_param_set` - abstract set with rain microphysics parameters
- - `snow_param_set` - abstract set with snow microphysics parameters
+ - `param_set` - parameter set with earth parameters
+ - `rain_param_set` - parameter set with rain microphysics parameters
+ - `snow_param_set` - parameter set with snow microphysics parameters
  - `q` - phase partition
  - `q_rai` - rain specific humidity
  - `q_sno` - snow specific humidity
@@ -725,8 +725,8 @@ end
 """
     snow_melt(param_set, snow_param_set, q_sno, ρ, T)
 
- - `param_set` - abstract set with earth parameters
- - `snow_param_set` - abstract set with snow microphysics parameters
+ - `param_set` - parameter set with earth parameters
+ - `snow_param_set` - parameter set with snow microphysics parameters
  - `q_sno` - snow water specific humidity
  - `ρ` - air density
  - `T` - air temperature

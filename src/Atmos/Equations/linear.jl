@@ -36,7 +36,7 @@ function linearized_air_pressure(
 end
 
 @inline function linearized_pressure(
-    ::DryModel,
+    ::DryEquations,
     param_set::AbstractParameterSet,
     orientation::Orientation,
     state::Vars,
@@ -80,9 +80,9 @@ end
     )
 end
 
-abstract type AtmosLinearModel <: BalanceLaw end
+abstract type AbstractAtmosLinearEquations <: BalanceLaw end
 
-function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
+function vars_state(lm::AbstractAtmosLinearEquations, st::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
@@ -92,14 +92,14 @@ function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
         moisture::vars_state(lm.atmos.moisture, st, FT)
     end
 end
-vars_state(lm::AtmosLinearModel, ::AbstractStateType, FT) = @vars()
-vars_state(lm::AtmosLinearModel, st::Auxiliary, FT) =
+vars_state(lm::AbstractAtmosLinearEquations, ::AbstractStateType, FT) = @vars()
+vars_state(lm::AbstractAtmosLinearEquations, st::Auxiliary, FT) =
     vars_state(lm.atmos, st, FT)
 
 
 function update_auxiliary_state!(
     dg::DGModel,
-    lm::AtmosLinearModel,
+    lm::AbstractAtmosLinearEquations,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
@@ -107,7 +107,7 @@ function update_auxiliary_state!(
     return false
 end
 function flux_second_order!(
-    lm::AtmosLinearModel,
+    lm::AbstractAtmosLinearEquations,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
@@ -118,26 +118,26 @@ function flux_second_order!(
     nothing
 end
 integral_load_auxiliary_state!(
-    lm::AtmosLinearModel,
+    lm::AbstractAtmosLinearEquations,
     integ::Vars,
     state::Vars,
     aux::Vars,
 ) = nothing
-integral_set_auxiliary_state!(lm::AtmosLinearModel, aux::Vars, integ::Vars) =
+integral_set_auxiliary_state!(lm::AbstractAtmosLinearEquations, aux::Vars, integ::Vars) =
     nothing
 reverse_integral_load_auxiliary_state!(
-    lm::AtmosLinearModel,
+    lm::AbstractAtmosLinearEquations,
     integ::Vars,
     state::Vars,
     aux::Vars,
 ) = nothing
 reverse_integral_set_auxiliary_state!(
-    lm::AtmosLinearModel,
+    lm::AbstractAtmosLinearEquations,
     aux::Vars,
     integ::Vars,
 ) = nothing
 flux_second_order!(
-    lm::AtmosLinearModel,
+    lm::AbstractAtmosLinearEquations,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
@@ -145,7 +145,7 @@ flux_second_order!(
     t::Real,
 ) = nothing
 function wavespeed(
-    lm::AtmosLinearModel,
+    lm::AbstractAtmosLinearEquations,
     nM,
     state::Vars,
     aux::Vars,
@@ -158,26 +158,26 @@ end
 
 function boundary_state!(
     nf::NumericalFluxFirstOrder,
-    atmoslm::AtmosLinearModel,
+    atmoslm::AbstractAtmosLinearEquations,
     args...,
 )
     atmos_boundary_state!(nf, AtmosBC(), atmoslm, args...)
 end
 function boundary_state!(
     nf::NumericalFluxSecondOrder,
-    atmoslm::AtmosLinearModel,
+    atmoslm::AbstractAtmosLinearEquations,
     args...,
 )
     nothing
 end
 init_state_auxiliary!(
-    lm::AtmosLinearModel,
+    lm::AbstractAtmosLinearEquations,
     aux::MPIStateArray,
     grid,
     direction,
 ) = nothing
 init_state_prognostic!(
-    lm::AtmosLinearModel,
+    lm::AbstractAtmosLinearEquations,
     state::Vars,
     aux::Vars,
     coords,
@@ -185,18 +185,18 @@ init_state_prognostic!(
 ) = nothing
 
 
-struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
+struct AtmosAcousticLinearEquations{M} <: AbstractAtmosLinearEquations
     atmos::M
-    function AtmosAcousticLinearModel(atmos::M) where {M}
+    function AtmosAcousticLinearEquations(atmos::M) where {M}
         if atmos.ref_state === NoReferenceState()
-            error("AtmosAcousticLinearModel needs a model with a reference state")
+            error("AtmosAcousticLinearEquations needs a model with a reference state")
         end
         new{M}(atmos)
     end
 end
 
 function flux_first_order!(
-    lm::AtmosAcousticLinearModel,
+    lm::AtmosAcousticLinearEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -219,19 +219,19 @@ function flux_first_order!(
     flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
     nothing
 end
-source!(::AtmosAcousticLinearModel, _...) = nothing
+source!(::AtmosAcousticLinearEquations, _...) = nothing
 
-struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
+struct AtmosAcousticGravityLinearEquations{M} <: AbstractAtmosLinearEquations
     atmos::M
-    function AtmosAcousticGravityLinearModel(atmos::M) where {M}
+    function AtmosAcousticGravityLinearEquations(atmos::M) where {M}
         if atmos.ref_state === NoReferenceState()
-            error("AtmosAcousticGravityLinearModel needs a model with a reference state")
+            error("AtmosAcousticGravityLinearEquations needs a model with a reference state")
         end
         new{M}(atmos)
     end
 end
 function flux_first_order!(
-    lm::AtmosAcousticGravityLinearModel,
+    lm::AtmosAcousticGravityLinearEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -255,7 +255,7 @@ function flux_first_order!(
     nothing
 end
 function source!(
-    lm::AtmosAcousticGravityLinearModel,
+    lm::AtmosAcousticGravityLinearEquations,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -272,7 +272,7 @@ end
 
 function numerical_flux_first_order!(
     numerical_flux::RoeNumericalFlux,
-    balance_law::AtmosLinearModel,
+    balance_law::AbstractAtmosLinearEquations,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
     state_prognostic⁻::Vars{S},
@@ -282,7 +282,7 @@ function numerical_flux_first_order!(
     t,
     direction,
 ) where {S, A}
-    @assert balance_law.atmos.moisture isa DryModel
+    @assert balance_law.atmos.moisture isa DryEquations
 
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),
@@ -348,7 +348,7 @@ end
 
 function numerical_flux_first_order!(
     ::HLLCNumericalFlux,
-    balance_law::AtmosLinearModel,
+    balance_law::AbstractAtmosLinearEquations,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
     state_prognostic⁻::Vars{S},
@@ -359,7 +359,7 @@ function numerical_flux_first_order!(
     direction,
 ) where {S, A}
 
-    # There is no intermediate speed for the AtmosLinearModel.
+    # There is no intermediate speed for the AbstractAtmosLinearEquations.
     # As a result, HLLC simplifies to Rusanov.
     numerical_flux_first_order!(
         RusanovNumericalFlux(),

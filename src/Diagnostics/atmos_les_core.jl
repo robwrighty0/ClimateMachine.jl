@@ -43,7 +43,7 @@ function setup_atmos_core_diagnostics(
 end
 
 # Simple horizontal averages
-function vars_atmos_les_core_simple(m::AtmosModel, FT)
+function vars_atmos_les_core_simple(atmos::AtmosEquations, FT)
     @vars begin
         u_core::FT
         v_core::FT
@@ -57,12 +57,12 @@ function vars_atmos_les_core_simple(m::AtmosModel, FT)
         ei_core::FT             # e_int
     end
 end
-num_atmos_les_core_simple_vars(m, FT) =
-    varsize(vars_atmos_les_core_simple(m, FT))
-atmos_les_core_simple_vars(m, array) =
-    Vars{vars_atmos_les_core_simple(m, eltype(array))}(array)
+num_atmos_les_core_simple_vars(atmos, FT) =
+    varsize(vars_atmos_les_core_simple(atmos, FT))
+atmos_les_core_simple_vars(atmos, array) =
+    Vars{vars_atmos_les_core_simple(atmos, eltype(array))}(array)
 
-function atmos_les_core_simple_sums!(atmos::AtmosModel, state, thermo, MH, sums)
+function atmos_les_core_simple_sums!(atmos::AtmosEquations, state, thermo, MH, sums)
     sums.u_core += MH * state.ρu[1]
     sums.v_core += MH * state.ρu[2]
     sums.w_core += MH * state.ρu[3]
@@ -78,7 +78,7 @@ function atmos_les_core_simple_sums!(atmos::AtmosModel, state, thermo, MH, sums)
 end
 
 # Variances and covariances
-function vars_atmos_les_core_ho(m::AtmosModel, FT)
+function vars_atmos_les_core_ho(atmos::AtmosEquations, FT)
     @vars begin
         var_u_core::FT          # u′u′
         var_v_core::FT          # v′v′
@@ -95,11 +95,11 @@ function vars_atmos_les_core_ho(m::AtmosModel, FT)
         cov_qt_ei_core::FT      # q_tot′e_int′
     end
 end
-num_atmos_les_core_ho_vars(m, FT) = varsize(vars_atmos_les_core_ho(m, FT))
-atmos_les_core_ho_vars(m, array) =
-    Vars{vars_atmos_les_core_ho(m, eltype(array))}(array)
+num_atmos_les_core_ho_vars(atmos, FT) = varsize(vars_atmos_les_core_ho(atmos, FT))
+atmos_les_core_ho_vars(atmos, array) =
+    Vars{vars_atmos_les_core_ho(atmos, eltype(array))}(array)
 
-function atmos_les_core_ho_sums!(atmos::AtmosModel, state, thermo, MH, ha, sums)
+function atmos_les_core_ho_sums!(atmos::AtmosEquations, state, thermo, MH, ha, sums)
     u = state.ρu[1] / state.ρ
     u′ = u - ha.u_core
     v = state.ρu[2] / state.ρ

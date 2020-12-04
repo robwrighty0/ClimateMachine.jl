@@ -1,4 +1,4 @@
-abstract type DiagnosticsGroupParams end
+abstract type AbstractDiagnosticsGroupParams end
 
 """
     DiagnosticsGroup
@@ -6,7 +6,7 @@ abstract type DiagnosticsGroupParams end
 Holds a set of diagnostics that share a collection interval, a filename
 prefix, an output writer, an interpolation, and any extra parameters.
 """
-mutable struct DiagnosticsGroup{DGP <: Union{Nothing, DiagnosticsGroupParams}}
+mutable struct DiagnosticsGroup{DGP <: Union{Nothing, AbstractDiagnosticsGroupParams}}
     name::String
     init::Function
     fini::Function

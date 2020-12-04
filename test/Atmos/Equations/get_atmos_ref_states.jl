@@ -19,7 +19,7 @@ ClimateMachine.init()
 function get_atmos_ref_states(nelem_vert, N_poly, RH)
 
     FT = Float64
-    model = AtmosModel{FT}(
+    model = AtmosEquations{FT}(
         SingleStackConfigType,
         param_set;
         ref_state = HydrostaticState(

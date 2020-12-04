@@ -49,12 +49,12 @@ where:
 ## Coupling to the state variables
 
 Following the conservation equations for
-[moisture](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/AtmosModel/#Moisture)
-and [mass](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/AtmosModel/#Mass),
+[moisture](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/AtmosEquations/#Moisture)
+and [mass](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/AtmosEquations/#Mass),
 the ``\mathcal{S}_{q_{tot}}`` sink has to be multiplied by ``\rho`` before
   adding it as one of the sink terms to both moisture and mass state variables.
 For the conservation equation for
-[total energy](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/AtmosModel/#Energy),
+[total energy](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/AtmosEquations/#Energy),
   no additional source/sink terms $M$ are considered, and the
   the sink due to removing ``q_{tot}`` is computed as:
 ```math

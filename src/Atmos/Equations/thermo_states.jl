@@ -3,7 +3,7 @@
 export new_thermo_state, recover_thermo_state
 
 """
-    new_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars)
+    new_thermo_state(atmos::AtmosEquations, state::Vars, aux::Vars)
 
 Create a new thermodynamic state, based on the `state`, and _not_
 the `aux` state.
@@ -12,12 +12,12 @@ the `aux` state.
     This method calls the iterative saturation adjustment
     procedure for EquilMoist models.
 """
-new_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
+new_thermo_state(atmos::AtmosEquations, state::Vars, aux::Vars) =
     new_thermo_state(atmos, atmos.moisture, state, aux)
 
 function new_thermo_state(
-    atmos::AtmosModel,
-    moist::DryModel,
+    atmos::AtmosEquations,
+    moist::DryEquations,
     state::Vars,
     aux::Vars,
 )
@@ -26,7 +26,7 @@ function new_thermo_state(
 end
 
 function new_thermo_state(
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     moist::EquilMoist,
     state::Vars,
     aux::Vars,
@@ -43,7 +43,7 @@ function new_thermo_state(
 end
 
 function new_thermo_state(
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     moist::NonEquilMoist,
     state::Vars,
     aux::Vars,
@@ -64,7 +64,7 @@ function new_thermo_state(
 end
 
 """
-    recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars)
+    recover_thermo_state(atmos::AtmosEquations, state::Vars, aux::Vars)
 
 Recover the thermodynamic state, based on the `state` _and_
 the `aux` state, based on the existing temperature.
@@ -73,12 +73,12 @@ the `aux` state, based on the existing temperature.
     This method does _not_ call the iterative saturation adjustment
     procedure.
 """
-recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
+recover_thermo_state(atmos::AtmosEquations, state::Vars, aux::Vars) =
     recover_thermo_state(atmos, atmos.moisture, state, aux)
 
 function recover_thermo_state(
-    atmos::AtmosModel,
-    moist::DryModel,
+    atmos::AtmosEquations,
+    moist::DryEquations,
     state::Vars,
     aux::Vars,
 )
@@ -87,7 +87,7 @@ function recover_thermo_state(
 end
 
 function recover_thermo_state(
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     moist::EquilMoist,
     state::Vars,
     aux::Vars,
@@ -103,7 +103,7 @@ function recover_thermo_state(
 end
 
 function recover_thermo_state(
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     moist::NonEquilMoist,
     state::Vars,
     aux::Vars,

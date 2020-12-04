@@ -130,10 +130,10 @@ function test_run(
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
     )
-    # -------------- Define model ---------------------------------- #
+    # -------------- Define equations ---------------------------------- #
     source = Gravity()
     T_profile = DryAdiabaticProfile{FT}(param_set)
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = Initialise_Density_Current!,
@@ -143,7 +143,7 @@ function test_run(
     )
     # -------------- Define DGModel --------------------------- #
     dg = DGModel(
-        model,
+        atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
@@ -196,9 +196,9 @@ function test_run(
             outprefix,
             Q,
             dg,
-            flattenednames(vars_state(model, Prognostic(), FT)),
+            flattenednames(vars_state(atmos, Prognostic(), FT)),
             dg.state_auxiliary,
-            flattenednames(vars_state(model, Auxiliary(), FT)),
+            flattenednames(vars_state(atmos, Auxiliary(), FT)),
         )
         vtkstep[1] += 1
         nothing

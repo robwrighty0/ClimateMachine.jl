@@ -9,7 +9,7 @@ module TurbulenceConvection
 using ..BalanceLaws: BalanceLaw, AbstractStateType
 using ..VariableTemplates: @vars, Vars, Grad
 
-export TurbulenceConvectionModel, NoTurbConv
+export AbstractTurbulenceConvection, NoTurbConv
 
 export init_state_prognostic!,
     init_aux_turbconv!, turbconv_nodal_update_auxiliary_state!
@@ -30,20 +30,20 @@ import ..BalanceLaws:
 using ..MPIStateArrays: MPIStateArray
 using ..DGMethods: DGModel, LocalGeometry
 
-abstract type TurbulenceConvectionModel end
+abstract type AbstractTurbulenceConvection end
 
 """
-    NoTurbConv <: TurbulenceConvectionModel
+    NoTurbConv <: AbstractTurbulenceConvection
 
 A "no model" type, which results in kernels that
 pass through and do nothing.
 """
-struct NoTurbConv <: TurbulenceConvectionModel end
+struct NoTurbConv <: AbstractTurbulenceConvection end
 
-vars_state(m::TurbulenceConvectionModel, ::AbstractStateType, FT) = @vars()
+vars_state(m::AbstractTurbulenceConvection, ::AbstractStateType, FT) = @vars()
 
 function init_aux_turbconv!(
-    m::TurbulenceConvectionModel,
+    m::AbstractTurbulenceConvection,
     bl::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
@@ -53,7 +53,7 @@ end
 
 function update_auxiliary_state!(
     dg::DGModel,
-    m::TurbulenceConvectionModel,
+    m::AbstractTurbulenceConvection,
     bl::BalanceLaw,
     Q::MPIStateArray,
     t::Real,
@@ -63,7 +63,7 @@ function update_auxiliary_state!(
 end
 
 function turbconv_nodal_update_auxiliary_state!(
-    m::TurbulenceConvectionModel,
+    m::AbstractTurbulenceConvection,
     bl::BalanceLaw,
     state::Vars,
     aux::Vars,
@@ -73,7 +73,7 @@ function turbconv_nodal_update_auxiliary_state!(
 end
 
 function flux_first_order!(
-    m::TurbulenceConvectionModel,
+    m::AbstractTurbulenceConvection,
     bl::BalanceLaw,
     flux::Grad,
     state::Vars,
@@ -84,7 +84,7 @@ function flux_first_order!(
 end
 
 function compute_gradient_argument!(
-    m::TurbulenceConvectionModel,
+    m::AbstractTurbulenceConvection,
     bl::BalanceLaw,
     transform::Vars,
     state::Vars,
@@ -95,7 +95,7 @@ function compute_gradient_argument!(
 end
 
 function compute_gradient_flux!(
-    m::TurbulenceConvectionModel,
+    m::AbstractTurbulenceConvection,
     bl::BalanceLaw,
     diffusive::Vars,
     ∇transform::Grad,
@@ -107,7 +107,7 @@ function compute_gradient_flux!(
 end
 
 function flux_second_order!(
-    m::TurbulenceConvectionModel,
+    m::AbstractTurbulenceConvection,
     bl::BalanceLaw,
     flux::Grad,
     state::Vars,
@@ -119,7 +119,7 @@ function flux_second_order!(
 end
 
 function integral_load_auxiliary_state!(
-    m::TurbulenceConvectionModel,
+    m::AbstractTurbulenceConvection,
     bl::BalanceLaw,
     integ::Vars,
     state::Vars,
@@ -129,7 +129,7 @@ function integral_load_auxiliary_state!(
 end
 
 function integral_set_auxiliary_state!(
-    m::TurbulenceConvectionModel,
+    m::AbstractTurbulenceConvection,
     bl::BalanceLaw,
     aux::Vars,
     integ::Vars,

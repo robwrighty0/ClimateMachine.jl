@@ -86,7 +86,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose explicit multirate solver
     ode_solver = ClimateMachine.MultirateSolverType(
-        fast_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearEquations,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
@@ -96,7 +96,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     T_profile = DryAdiabaticProfile{FT}(param_set)
     C_smag = FT(0.23)
     ref_state = HydrostaticState(T_profile)
-    model = AtmosModel{FT}(
+    model = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = init_risingbubble!,

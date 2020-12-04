@@ -25,7 +25,7 @@ export average_density_sfc_int
             moisture = Impermeable()
             tracer  = ImpermeableTracer())
 
-The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
+The standard boundary condition for [`AtmosEquations`](@ref). The default options imply a "no flux" boundary condition.
 """
 Base.@kwdef struct AtmosBC{M, E, Q, TR, TC}
     momentum::M = Impenetrable(FreeSlip())
@@ -37,7 +37,7 @@ end
 
 function boundary_state!(
     nf,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state⁺,
     aux⁺,
     n,
@@ -67,7 +67,7 @@ end
 
 function boundary_state!(
     nf::Union{CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence},
-    m::AtmosModel,
+    atmos::AtmosEquations,
     x...,
 )
     nothing
@@ -121,7 +121,7 @@ end
 
 function normal_boundary_flux_second_order!(
     nf,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     fluxᵀn::Vars{S},
     n⁻,
     state⁻,
@@ -158,7 +158,7 @@ end
 @generated function atmos_normal_boundary_flux_second_order!(
     nf,
     tup::Tuple,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     fluxᵀn,
     n⁻,
     state⁻,
@@ -204,7 +204,7 @@ end
 function atmos_normal_boundary_flux_second_order!(
     nf,
     bc::AtmosBC,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     args...,
 )
     atmos_momentum_normal_boundary_flux_second_order!(

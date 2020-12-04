@@ -1,5 +1,5 @@
 using Test
 
-@testset "Atmos Model" begin
+@testset "Atmos Equations" begin
     include("ref_state.jl")
 end

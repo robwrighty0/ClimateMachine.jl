@@ -42,36 +42,36 @@ import ClimateMachine.BalanceLaws: boundary_state!
 import ClimateMachine.Atmos: flux_second_order!
 
 # -------------------- Radiation Model -------------------------- #
-vars_state(::RadiationModel, ::AbstractStateType, FT) = @vars()
+vars_state(::AbstractRadiationEquations, ::AbstractStateType, FT) = @vars()
 
 function atmos_nodal_update_auxiliary_state!(
-    ::RadiationModel,
-    ::AtmosModel,
+    ::AbstractRadiationEquations,
+    ::AtmosEquations,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
 
 function integral_load_auxiliary_state!(
-    ::RadiationModel,
+    ::AbstractRadiationEquations,
     integ::Vars,
     state::Vars,
     aux::Vars,
 ) end
-function integral_set_auxiliary_state!(::RadiationModel, aux::Vars, integ::Vars) end
+function integral_set_auxiliary_state!(::AbstractRadiationEquations, aux::Vars, integ::Vars) end
 function reverse_integral_load_auxiliary_state!(
-    ::RadiationModel,
+    ::AbstractRadiationEquations,
     integ::Vars,
     state::Vars,
     aux::Vars,
 ) end
 function reverse_integral_set_auxiliary_state!(
-    ::RadiationModel,
+    ::AbstractRadiationEquations,
     aux::Vars,
     integ::Vars,
 ) end
 function flux_radiation!(
-    ::RadiationModel,
+    ::AbstractRadiationEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -80,14 +80,14 @@ function flux_radiation!(
 
 # ------------------------ Begin Radiation Model ---------------------- #
 """
-  DYCOMSRadiation <: RadiationModel
+  DYCOMSRadiation <: AbstractRadiationEquations
 
 Stevens et. al (2005) approximation of longwave radiative fluxes in DYCOMS.
 Analytical description as a function of the liquid water path and inversion height zᵢ
 
 * Stevens, B. et. al. (2005) "Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus". Mon. Wea. Rev., 133, 1443–1462, https://doi.org/10.1175/MWR2930.1
 """
-struct DYCOMSRadiation{FT} <: RadiationModel
+struct DYCOMSRadiation{FT} <: AbstractRadiationEquations
     "mass absorption coefficient `[m^2/kg]`"
     κ::FT
     "Troposphere cooling parameter `[m^(-4/3)]`"
@@ -147,7 +147,7 @@ end
 
 function flux_radiation!(
     m::DYCOMSRadiation,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -314,7 +314,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         ),
         init_state_prognostic = init_dycoms!,
     )
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         problem = problem,
@@ -339,7 +339,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         param_set,
         init_dycoms!,
         solver_type = ode_solver,
-        model = model,
+        equations = atmos,
     )
     return config
 end

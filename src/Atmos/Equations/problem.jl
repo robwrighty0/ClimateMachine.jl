@@ -8,7 +8,7 @@ abstract type AbstractAtmosProblem <: AbstractProblem end
     AtmosProblem
 
 The default problem definition (initial and boundary conditions)
-for `AtmosModel`.
+for `AtmosEquations`.
 """
 struct AtmosProblem{BC, ISP, ISA} <: AbstractAtmosProblem
     "Boundary condition specification"
@@ -33,7 +33,7 @@ end
 
 atmos_problem_init_state_auxiliary(
     problem::AtmosProblem,
-    model::AtmosModel,
+    atmos::AtmosEquations,
     aux::Vars,
     geom::LocalGeometry,
 ) = nothing

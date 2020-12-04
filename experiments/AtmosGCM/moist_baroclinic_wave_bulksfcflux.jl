@@ -225,7 +225,7 @@ function config_baroclinic_wave(
         DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
-    # Set up the atmosphere model
+    # Set up the atmosphere equations
     exp_name = "BaroclinicWave"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     if with_moisture
@@ -233,7 +233,7 @@ function config_baroclinic_wave(
         moisture = EquilMoist{FT}()
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
-        moisture = DryModel()
+        moisture = DryEquations()
     end
 
     _C_drag = C_drag(param_set)::FT
@@ -258,7 +258,7 @@ function config_baroclinic_wave(
         init_state_prognostic = init_baroclinic_wave!,
     )
 
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosGCMConfigType,
         param_set;
         problem = problem,
@@ -276,7 +276,7 @@ function config_baroclinic_wave(
         domain_height,
         param_set,
         init_baroclinic_wave!;
-        model = model,
+        equations = atmos,
     )
 
     return config
@@ -325,7 +325,7 @@ function main()
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_model = AtmosAcousticGravityLinearEquations,
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
         split_explicit_implicit = true,

@@ -102,7 +102,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         ),
         init_state_prognostic = init_surfacebubble!,
     )
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         problem = problem,
@@ -120,7 +120,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         param_set,
         init_surfacebubble!,
         solver_type = ode_solver,
-        model = model,
+        equations = atmos,
     )
 
     return config

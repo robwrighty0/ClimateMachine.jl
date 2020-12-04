@@ -1,29 +1,29 @@
 #### Precipitation component in atmosphere model
-abstract type PrecipitationModel end
+abstract type AbstractPrecipitationEquations <: AbstractAtmosComponent end
 
-export NoPrecipitation, Rain
+export AbstractPrecipitationEquations, NoPrecipitation, Rain
 
 using ..Microphysics
 
-vars_state(::PrecipitationModel, ::AbstractStateType, FT) = @vars()
+vars_state(::AbstractPrecipitationEquations, ::AbstractStateType, FT) = @vars()
 
 function atmos_nodal_update_auxiliary_state!(
-    ::PrecipitationModel,
-    m::AtmosModel,
+    ::AbstractPrecipitationEquations,
+    ::AtmosEquations,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
 function flux_precipitation!(
-    ::PrecipitationModel,
-    atmos::AtmosModel,
+    ::AbstractPrecipitationEquations,
+    ::AtmosEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
 function compute_gradient_flux!(
-    ::PrecipitationModel,
+    ::AbstractPrecipitationEquations,
     diffusive,
     ∇transform,
     state,
@@ -32,16 +32,16 @@ function compute_gradient_flux!(
     ρD_t,
 ) end
 function flux_second_order!(
-    ::PrecipitationModel,
+    ::AbstractPrecipitationEquations,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
     aux::Vars,
     t::Real,
 ) end
-function flux_first_order!(::PrecipitationModel, _...) end
+function flux_first_order!(::AbstractPrecipitationEquations, _...) end
 function compute_gradient_argument!(
-    ::PrecipitationModel,
+    ::AbstractPrecipitationEquations,
     transform::Vars,
     state::Vars,
     aux::Vars,
@@ -49,19 +49,19 @@ function compute_gradient_argument!(
 ) end
 
 """
-    NoPrecipitation <: PrecipitationModel
+    NoPrecipitation <: AbstractPrecipitationEquations
 
 No precipitation.
 """
-struct NoPrecipitation <: PrecipitationModel end
+struct NoPrecipitation <: AbstractPrecipitationEquations end
 
 
 """
-    Rain <: PrecipitationModel
+    Rain <: AbstractPrecipitationEquations
 
 Precipitation model with rain only.
 """
-struct Rain <: PrecipitationModel end
+struct Rain <: AbstractPrecipitationEquations end
 
 vars_state(::Rain, ::Prognostic, FT) = @vars(ρq_rain::FT)
 vars_state(::Rain, ::Gradient, FT) = @vars(q_rain::FT)
@@ -71,7 +71,7 @@ vars_state(::Rain, ::Auxiliary, FT) =
 
 function atmos_nodal_update_auxiliary_state!(
     rain::Rain,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state::Vars,
     aux::Vars,
     t::Real,
@@ -139,7 +139,7 @@ end
 
 function flux_precipitation!(
     rain::Rain,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,

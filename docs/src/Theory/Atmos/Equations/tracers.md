@@ -2,7 +2,7 @@
 
 !!! note
 
-    Usage: Enable tracers using a keyword argument in the AtmosModel
+    Usage: Enable tracers using a keyword argument in the AtmosEquations
     specification\
     - `tracers = NoTracer()`\
     - `tracers = NTracers{N, FT}(δ_χ)` where N is the number of tracers
@@ -43,21 +43,21 @@ no-tracers), and [`NTracers`](@ref multiple-tracers).
 Default stub functions for a generic tracer type are defined here.
 
 ```julia
-abstract type TracerModel <: BalanceLaw end
+abstract type AbstractTracer <: BalanceLaw end
 
-vars_state(::TracerModel, ::AbstractStateType, FT) = @vars()
+vars_state(::AbstractTracer, ::AbstractStateType, FT) = @vars()
 
 function atmos_init_aux!(
-    ::TracerModel,
-    ::AtmosModel,
+    ::AbstractTracer,
+    atmos::AtmosEquations,
     aux::Vars,
     geom::LocalGeometry,
 )
     nothing
 end
 function atmos_nodal_update_auxiliary_state!(
-    ::TracerModel,
-    m::AtmosModel,
+    ::AbstractTracer,
+    atmos::AtmosEquations,
     state::Vars,
     aux::Vars,
     t::Real,
@@ -65,8 +65,8 @@ function atmos_nodal_update_auxiliary_state!(
     nothing
 end
 function flux_tracers!(
-    ::TracerModel,
-    atmos::AtmosModel,
+    ::AbstractTracer,
+    atmos::AtmosEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -75,7 +75,7 @@ function flux_tracers!(
     nothing
 end
 function compute_gradient_flux!(
-    ::TracerModel,
+    ::AbstractTracer,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
@@ -85,7 +85,7 @@ function compute_gradient_flux!(
     nothing
 end
 function flux_second_order!(
-    ::TracerModel,
+    ::AbstractTracer,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
@@ -96,7 +96,7 @@ function flux_second_order!(
     nothing
 end
 function compute_gradient_argument!(
-    ::TracerModel,
+    ::AbstractTracer,
     transform::Vars,
     state::Vars,
     aux::Vars,

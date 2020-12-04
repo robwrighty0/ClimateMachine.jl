@@ -6,7 +6,7 @@ using Statistics
     subdomain_surface_values(
         surf::SurfaceModel,
         turbconv::EDMF{FT},
-        atmos::AtmosModel{FT},
+        atmos::AtmosEquations{FT},
         state::Vars,
         aux::Vars,
         zLL::FT,
@@ -19,7 +19,7 @@ water specific humidity (`q_tot`), environmental variances of
 `q_tot`, and environmental TKE, given:
  - `surf`, a `SurfaceModel`
  - `turbconv`, an `EDMF` model
- - `atmos`, an `AtmosModel`
+ - `atmos`, the `AtmosEquations`
  - `state`, state variables
  - `aux`, auxiliary variables
  - `zLL`, height of the lowest nodal level
@@ -27,7 +27,7 @@ water specific humidity (`q_tot`), environmental variances of
 function subdomain_surface_values(
     surf::SurfaceModel,
     turbconv::EDMF{FT},
-    atmos::AtmosModel{FT},
+    atmos::AtmosEquations{FT},
     state::Vars,
     aux::Vars,
     zLL::FT,

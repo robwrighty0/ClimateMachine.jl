@@ -1,13 +1,13 @@
-abstract type EnergyBC end
+abstract type AbstractEnergyBC end
 
 using ..TurbulenceClosures
 
 """
-    Insulating() :: EnergyBC
+    Insulating() :: AbstractEnergyBC
 
 No energy flux across the boundary.
 """
-struct Insulating <: EnergyBC end
+struct Insulating <: AbstractEnergyBC end
 function atmos_energy_boundary_state!(nf, bc_energy::Insulating, atmos, args...) end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
@@ -18,12 +18,12 @@ function atmos_energy_normal_boundary_flux_second_order!(
 
 
 """
-    PrescribedTemperature(fn) :: EnergyBC
+    PrescribedTemperature(fn) :: AbstractEnergyBC
 
 Prescribe the temperature at the boundary by `fn`, a function with signature
 `fn(state, aux, t)` returning the temperature (in K).
 """
-struct PrescribedTemperature{FN} <: EnergyBC
+struct PrescribedTemperature{FN} <: AbstractEnergyBC
     fn::FN
 end
 function atmos_energy_boundary_state!(
@@ -77,12 +77,12 @@ end
 
 
 """
-    PrescribedEnergyFlux(fn) :: EnergyBC
+    PrescribedEnergyFlux(fn) :: AbstractEnergyBC
 
 Prescribe the net inward energy flux across the boundary by `fn`, a function
 with signature `fn(state, aux, t)`, returning the flux (in W/m^2).
 """
-struct PrescribedEnergyFlux{FN} <: EnergyBC
+struct PrescribedEnergyFlux{FN} <: AbstractEnergyBC
     fn::FN
 end
 function atmos_energy_boundary_state!(
@@ -116,7 +116,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
 end
 
 """
-    BulkFormulaEnergy(fn) :: EnergyBC
+    BulkFormulaEnergy(fn) :: AbstractEnergyBC
 
 Calculate the net inward energy flux across the boundary. The drag
 coefficient is `C_h = fn_C_h(state, aux, t, normu_int_tan)`. The surface
@@ -124,7 +124,7 @@ temperature and q_tot are `T, q_tot = fn_T_and_q_tot(state, aux, t)`.
 
 Return the flux (in W m^-2).
 """
-struct BulkFormulaEnergy{FNX, FNTM} <: EnergyBC
+struct BulkFormulaEnergy{FNX, FNTM} <: AbstractEnergyBC
     fn_C_h::FNX
     fn_T_and_q_tot::FNTM
 end

@@ -1,7 +1,7 @@
 # # Rising Thermal Bubble
 #
 # In this example, we demonstrate the usage of the `ClimateMachine`
-# [AtmosModel](@ref AtmosModel-docs) machinery to solve the fluid
+# [AtmosEquations](@ref AtmosEquations-docs) machinery to solve the fluid
 # dynamics of a thermal perturbation in a neutrally stratified background state
 # defined by its uniform potential temperature. We solve a flow in a box configuration - 
 # this is representative of a large-eddy simulation. Several versions of the problem
@@ -34,7 +34,7 @@
 #md #     `ClimateMachine` according to the instructions on the landing page.
 #md #     We assume the users' familiarity with the conservative form of the
 #md #     equations of motion for a compressible fluid (see the
-#md #     [AtmosModel](@ref AtmosModel-docs) page).
+#md #     [AtmosEquations](@ref AtmosEquations-docs) page).
 #md #
 #md #     The following topics are covered in this example
 #md #     - Package requirements
@@ -170,7 +170,7 @@ function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
     state.tracers.ρχ = ρχ
 end
 
-# ## [Model Configuration](@id config-helper)
+# ## [Configuration](@id config-helper)
 # We define a configuration function to assist in prescribing the physical
 # model. The purpose of this is to populate the
 # `ClimateMachine.AtmosLESConfiguration` with arguments
@@ -188,7 +188,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     ## the ode_solver above can be replaced with
     ##
     ## `ode_solver = ClimateMachine.MultirateSolverType(
-    ##    fast_model = AtmosAcousticGravityLinearModel,
+    ##    fast_model = AtmosAcousticGravityLinearEquations,
     ##    slow_method = LSRK144NiegemannDiehlBusch,
     ##    fast_method = LSRK144NiegemannDiehlBusch,
     ##    timestep_ratio = 10,
@@ -202,7 +202,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     ## tracer index identifier)
     ntracers = 4
     δ_χ = SVector{ntracers, FT}(1, 2, 3, 4)
-    ## To assemble `AtmosModel` with no tracers, set `tracers = NoTracers()`.
+    ## To assemble `AtmosEquations` with no tracers, set `tracers = NoTracers()`.
 
     ## The model coefficient for the turbulence closure is defined via the
     ## [CLIMAParameters
@@ -213,15 +213,15 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
     ref_state = HydrostaticState(T_profile)
 
-    ## Here we assemble the `AtmosModel`.
+    ## Here we assemble the `AtmosEquations`.
     _C_smag = FT(C_smag(param_set))
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
         param_set;                                     ## Parameter set corresponding to earth parameters
         init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
         ref_state = ref_state,                         ## Reference state
         turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
-        moisture = DryModel(),                         ## Exclude moisture variables
+        moisture = DryEquations(),                     ## Exclude moisture variables
         source = (Gravity(),),                         ## Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
     )
@@ -238,7 +238,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         param_set,               ## Parameter set.
         init_risingbubble!,      ## Function specifying initial condition
         solver_type = ode_solver,## Time-integrator type
-        model = model,           ## Model type
+        equations = atmos,       ## Equations
     )
     return config
 end

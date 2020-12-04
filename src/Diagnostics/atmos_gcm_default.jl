@@ -66,7 +66,7 @@ end
 include("diagnostic_fields.jl")
 
 # 3D variables
-function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
+function vars_atmos_gcm_default_simple_3d(atmos::AtmosEquations, FT)
     @vars begin
         u::FT
         v::FT
@@ -84,7 +84,7 @@ function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
         moisture::vars_atmos_gcm_default_simple_3d(atmos.moisture, FT)
     end
 end
-vars_atmos_gcm_default_simple_3d(::MoistureModel, FT) = @vars()
+vars_atmos_gcm_default_simple_3d(::AbstractMoistureEquations, FT) = @vars()
 function vars_atmos_gcm_default_simple_3d(m::EquilMoist, FT)
     @vars begin
         qt::FT                  # q_tot
@@ -96,13 +96,13 @@ function vars_atmos_gcm_default_simple_3d(m::EquilMoist, FT)
 
     end
 end
-num_atmos_gcm_default_simple_3d_vars(m, FT) =
-    varsize(vars_atmos_gcm_default_simple_3d(m, FT))
-atmos_gcm_default_simple_3d_vars(m, array) =
-    Vars{vars_atmos_gcm_default_simple_3d(m, eltype(array))}(array)
+num_atmos_gcm_default_simple_3d_vars(atmos, FT) =
+    varsize(vars_atmos_gcm_default_simple_3d(atmos, FT))
+atmos_gcm_default_simple_3d_vars(atmos, array) =
+    Vars{vars_atmos_gcm_default_simple_3d(atmos, eltype(array))}(array)
 
 function atmos_gcm_default_simple_3d_vars!(
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state_prognostic,
     thermo,
     dyni,
@@ -132,7 +132,7 @@ function atmos_gcm_default_simple_3d_vars!(
     return nothing
 end
 function atmos_gcm_default_simple_3d_vars!(
-    ::MoistureModel,
+    ::AbstractMoistureEquations,
     state_prognostic,
     thermo,
     vars,

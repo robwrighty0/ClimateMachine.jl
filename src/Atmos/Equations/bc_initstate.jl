@@ -11,7 +11,7 @@ struct InitStateBC end
 function atmos_boundary_state!(
     ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     bc::InitStateBC,
-    m::AtmosModel,
+    atmos::AtmosEquations,
     state⁺::Vars,
     aux⁺::Vars,
     n⁻,
@@ -21,7 +21,7 @@ function atmos_boundary_state!(
     t,
     _...,
 )
-    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, t)
+    init_state_prognostic!(atmos, state⁺, aux⁺, aux⁺.coord, t)
 end
 
 function atmos_normal_boundary_flux_second_order!(
@@ -66,7 +66,7 @@ end
 
 function boundary_state!(
     ::NumericalFluxSecondOrder,
-    m::AtmosModel,
+    atmos::AtmosEquations,
     state⁺::Vars,
     diff⁺::Vars,
     aux⁺::Vars,
@@ -78,5 +78,5 @@ function boundary_state!(
     t,
     args...,
 )
-    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, t)
+    init_state_prognostic!(atmos, state⁺, aux⁺, aux⁺.coord, t)
 end

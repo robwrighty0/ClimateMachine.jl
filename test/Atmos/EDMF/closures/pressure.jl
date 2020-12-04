@@ -2,7 +2,7 @@
 
 """
     perturbation_pressure(
-        m::AtmosModel{FT},
+        atmos::AtmosEquations{FT},
         press::PressureModel,
         state::Vars,
         diffusive::Vars,
@@ -13,7 +13,7 @@
     ) where {FT}
 Returns the value of perturbation pressure gradient
 for updraft i following He et al. (JAMES, 2020), given:
- - `m`, an `AtmosModel`
+ - `atmos`, the `AtmosEquations`
  - `press`, a `PressureModel`
  - `state`, state variables
  - `diffusive`, additional variables
@@ -23,7 +23,7 @@ for updraft i following He et al. (JAMES, 2020), given:
  - `i`, index of the updraft
 """
 function perturbation_pressure(
-    m::AtmosModel{FT},
+    atmos::AtmosEquations{FT},
     press::PressureModel,
     state::Vars,
     diffusive::Vars,
@@ -40,7 +40,7 @@ function perturbation_pressure(
     up_aux = aux.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
 
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(atmos.turbconv)
     w_up_i = up[i].ρaw / up[i].ρa
 
     nh_press_buoy = press.α_b * up_aux[i].buoyancy

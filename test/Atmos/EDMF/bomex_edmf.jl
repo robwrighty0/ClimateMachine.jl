@@ -16,7 +16,7 @@ include("edmf_kernels.jl")
 """
     init_state_prognostic!(
             turbconv::EDMF{FT},
-            m::AtmosModel{FT},
+            atmos::AtmosEquations{FT},
             state::Vars,
             aux::Vars,
             coords,
@@ -28,7 +28,7 @@ This method is only called at `t=0`.
 """
 function init_state_prognostic!(
     turbconv::EDMF{FT},
-    m::AtmosModel{FT},
+    atmos::AtmosEquations{FT},
     state::Vars,
     aux::Vars,
     coords,
@@ -40,14 +40,14 @@ function init_state_prognostic!(
     up = state.turbconv.updraft
     N_up = n_updrafts(turbconv)
     # GCM setting - Initialize the grid mean profiles of prognostic variables (ρ,e_int,q_tot,u,v,w)
-    z = altitude(m, aux)
+    z = altitude(atmos, aux)
 
     # SCM setting - need to have separate cases coded and called from a folder - see what LES does
     # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile
-    e_int = internal_energy(m, state, aux)
+    e_int = internal_energy(atmos, state, aux)
 
     q_tot = state.moisture.ρq_tot / state.ρ
-    ts = PhaseEquil(m.param_set, e_int, state.ρ, q_tot)
+    ts = PhaseEquil(atmos.param_set, e_int, state.ρ, q_tot)
     T = air_temperature(ts)
     p = air_pressure(ts)
     q = PhasePartition(ts)

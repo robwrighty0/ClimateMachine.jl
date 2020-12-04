@@ -84,16 +84,16 @@ function config_isothermal_zonal_flow(FT, poly_order, resolution)
 
     domain_height = FT(10e3)
 
-    # Set up the atmosphere model
+    # Set up the atmosphere equations
     exp_name = "IsothermalZonalFlow"
 
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = init_isothermal_zonal_flow!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = (Gravity(),),
     )
 
@@ -104,7 +104,7 @@ function config_isothermal_zonal_flow(FT, poly_order, resolution)
         domain_height,
         param_set,
         init_isothermal_zonal_flow!;
-        model = model,
+        equations = atmos,
     )
 
     return config
@@ -152,7 +152,7 @@ function main()
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_model = AtmosAcousticGravityLinearEquations,
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
         split_explicit_implicit = true,

@@ -8,10 +8,10 @@ theory_docs = Any[
         "Turbulence Closures" => "Theory/Common/Turbulence.md",
     ],
     "Atmos" => Any[
-        "AtmosModel" => "Theory/Atmos/AtmosModel.md",
+        "AtmosEquations" => "Theory/Atmos/AtmosEquations.md",
         "Microphysics_0M" => "Theory/Atmos/Microphysics_0M.md",
         "Microphysics" => "Theory/Atmos/Microphysics.md",
         "EDMF equations" => "Theory/Atmos/EDMFEquations.md",
-        "Tracers" => "Theory/Atmos/Model/tracers.md",
+        "Tracers" => "Theory/Atmos/Equations/tracers.md",
     ],
 ]

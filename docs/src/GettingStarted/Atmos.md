@@ -1,14 +1,14 @@
-# Atmosphere model configurations
+# Atmosphere equations configurations
 
-The struct `AtmosModel` defines a specific subtype of a balance law
+The struct `AtmosEquations` defines a specific subtype of a balance law
 (i.e. conservation equations) specific to atmospheric modeling. A
 complete description of a `model` is provided by the fields listed
-below. In this implementation of the `AtmosModel` we concern ourselves
+below. In this implementation of the `AtmosEquations` we concern ourselves
 with the conservative form of the compressible equations of moist fluid
 motion given a set of initial, boundary and forcing(source) conditions.
 
 ### LES Configuration (with defaults)
-Default field values for the LES `AtmosModel` definition are included
+Default field values for the LES `AtmosEquations` definition are included
 below. Users are directed to the model subcomponent pages to view the
 possible options for each subcomponent.
 ```
@@ -30,14 +30,14 @@ possible options for each subcomponent.
 
 !!! note
 
-    Most AtmosModel subcomponents are common to both LES / GCM
+    Most AtmosEquations components are common to both LES / GCM
     configurations.  Equation sets are written in vector-invariant form and
     solved in Cartesian coordinates.  The component `orientation` determines
     whether the problem is solved in a `box (LES)` or a `sphere (GCM)`)
 
 
 ### GCM Configuration (with defaults)
-Default field values for the GCM `AtmosModel` definition are included
+Default field values for the GCM `AtmosEquations` definition are included
 below. Users are directed to the model subcomponent pages to view the
 possible options for each subcomponent.
 

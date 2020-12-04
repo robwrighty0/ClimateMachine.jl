@@ -50,7 +50,7 @@ end
 # - operate on interpolated grid (no `MH` scaling)
 # - skip `w_ht_sgs` and `w_qt_sgs`
 function atmos_les_default_perturbations_sums!(
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state,
     thermo,
     sums,
@@ -73,7 +73,7 @@ function atmos_les_default_perturbations_sums!(
     return nothing
 end
 function atmos_les_default_perturbations_sums!(
-    ::MoistureModel,
+    ::AbstractMoisture,
     state,
     thermo,
     sums,
@@ -96,7 +96,7 @@ function atmos_les_default_perturbations_sums!(
 end
 
 # Perturbations from horizontal averages
-function vars_atmos_les_default_perturbations(m::AtmosModel, FT)
+function vars_atmos_les_default_perturbations(atmos::AtmosEquations, FT)
     @vars begin
         u_prime::FT
         v_prime::FT
@@ -113,7 +113,7 @@ function vars_atmos_les_default_perturbations(m::AtmosModel, FT)
         moisture::vars_atmos_les_default_perturbations(m.moisture, FT)
     end
 end
-vars_atmos_les_default_perturbations(::MoistureModel, FT) = @vars()
+vars_atmos_les_default_perturbations(::AbstractMoisture, FT) = @vars()
 function vars_atmos_les_default_perturbations(m::EquilMoist, FT)
     @vars begin
         qt_prime::FT                  # q_tot
@@ -123,14 +123,14 @@ function vars_atmos_les_default_perturbations(m::EquilMoist, FT)
         thl_prime::FT                 # θ_liq
     end
 end
-num_atmos_les_default_perturbation_vars(m, FT) =
-    varsize(vars_atmos_les_default_perturbations(m, FT))
-atmos_les_default_perturbation_vars(m, array) =
-    Vars{vars_atmos_les_default_perturbations(m, eltype(array))}(array)
+num_atmos_les_default_perturbation_vars(atmos, FT) =
+    varsize(vars_atmos_les_default_perturbations(atmos, FT))
+atmos_les_default_perturbation_vars(atmos, array) =
+    Vars{vars_atmos_les_default_perturbations(atmos, eltype(array))}(array)
 
 # Compute the perturbations from horizontal averages
 function atmos_les_default_perturbations!(
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state,
     thermo,
     ha,
@@ -164,8 +164,8 @@ function atmos_les_default_perturbations!(
     return nothing
 end
 function atmos_les_default_perturbations!(
-    ::MoistureModel,
-    ::AtmosModel,
+    ::AbstractMoisture,
+    ::AtmosEquations,
     state,
     thermo,
     ha,
@@ -175,7 +175,7 @@ function atmos_les_default_perturbations!(
 end
 function atmos_les_default_perturbations!(
     m::EquilMoist,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state,
     thermo,
     ha,

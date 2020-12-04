@@ -1,23 +1,23 @@
-abstract type MomentumBC end
-abstract type MomentumDragBC end
+abstract type AbstractMomentumBC end
+abstract type AbstractMomentumDragBC end
 
 """
-    Impenetrable(drag::MomentumDragBC) :: MomentumBC
+    Impenetrable(drag::AbstractMomentumDragBC) :: AbstractMomentumBC
 
 Defines an impenetrable wall model for momentum. This implies:
   - no flow in the direction normal to the boundary, and
   - flow parallel to the boundary is subject to the `drag` condition.
 """
-struct Impenetrable{D <: MomentumDragBC} <: MomentumBC
+struct Impenetrable{D <: AbstractMomentumDragBC} <: AbstractMomentumBC
     drag::D
 end
 
 """
-    FreeSlip() :: MomentumDragBC
+    FreeSlip() :: AbstractMomentumDragBC
 
 No surface drag on momentum parallel to the boundary.
 """
-struct FreeSlip <: MomentumDragBC end
+struct FreeSlip <: AbstractMomentumDragBC end
 
 
 
@@ -61,11 +61,11 @@ function atmos_momentum_normal_boundary_flux_second_order!(
 
 
 """
-    NoSlip() :: MomentumDragBC
+    NoSlip() :: AbstractMomentumDragBC
 
 Zero momentum at the boundary.
 """
-struct NoSlip <: MomentumDragBC end
+struct NoSlip <: AbstractMomentumDragBC end
 
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxFirstOrder,
@@ -106,14 +106,14 @@ function atmos_momentum_normal_boundary_flux_second_order!(
 
 
 """
-    DragLaw(fn) :: MomentumDragBC
+    DragLaw(fn) :: AbstractMomentumDragBC
 
 Drag law for momentum parallel to the boundary. The drag coefficient is
 `C = fn(state, aux, t, normu_int_tan)`, where `normu_int_tan` is the internal speed
 parallel to the boundary.
 `_int` refers to the first interior node.
 """
-struct DragLaw{FN} <: MomentumDragBC
+struct DragLaw{FN} <: AbstractMomentumDragBC
     fn::FN
 end
 function atmos_momentum_boundary_state!(

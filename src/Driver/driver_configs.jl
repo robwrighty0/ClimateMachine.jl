@@ -12,20 +12,20 @@
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
 
-abstract type ConfigSpecificInfo end
-struct AtmosLESSpecificInfo <: ConfigSpecificInfo end
-struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
+abstract type AbstractConfigSpecificInfo end
+struct AtmosLESSpecificInfo <: AbstractConfigSpecificInfo end
+struct AtmosGCMSpecificInfo{FT} <: AbstractConfigSpecificInfo
     domain_height::FT
     nelem_vert::Int
     nelem_horz::Int
 end
-struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
-struct OceanSplitExplicitSpecificInfo <: ConfigSpecificInfo
+struct OceanBoxGCMSpecificInfo <: AbstractConfigSpecificInfo end
+struct OceanSplitExplicitSpecificInfo <: AbstractConfigSpecificInfo
     model_2D::BalanceLaw
     grid_2D::DiscontinuousSpectralElementGrid
     dg::DGModel
 end
-struct SingleStackSpecificInfo <: ConfigSpecificInfo end
+struct SingleStackSpecificInfo <: AbstractConfigSpecificInfo end
 
 include("SolverTypes/SolverTypes.jl")
 
@@ -42,7 +42,7 @@ struct DriverConfiguration{FT}
     array_type
     solver_type::AbstractSolverType
     #
-    # Model details
+    # Equations details
     param_set::AbstractParameterSet
     bl::BalanceLaw
     #
@@ -58,7 +58,7 @@ struct DriverConfiguration{FT}
     numerical_flux_gradient::NumericalFluxGradient
     #
     # configuration-specific info
-    config_info::ConfigSpecificInfo
+    config_info::AbstractConfigSpecificInfo
 
     function DriverConfiguration(
         config_type,
@@ -74,7 +74,7 @@ struct DriverConfiguration{FT}
         numerical_flux_first_order::NumericalFluxFirstOrder,
         numerical_flux_second_order::NumericalFluxSecondOrder,
         numerical_flux_gradient::NumericalFluxGradient,
-        config_info::ConfigSpecificInfo,
+        config_info::AbstractConfigSpecificInfo,
     )
         return new{FT}(
             config_type,
@@ -94,14 +94,14 @@ struct DriverConfiguration{FT}
     end
 end
 
-function print_model_info(model)
-    msg = "Model composition\n"
-    for key in fieldnames(typeof(model))
+function print_equations_info(equations)
+    msg = "Equations composition\n"
+    for key in fieldnames(typeof(equations))
         msg =
             msg * @sprintf(
                 "    %s = %s\n",
                 string(key),
-                string((getproperty(model, key)))
+                string((getproperty(equations, key)))
             )
     end
     @info msg
@@ -124,7 +124,7 @@ function AtmosLESConfiguration(
         implicit_solver = SingleColumnLU,
         implicit_solver_adjustable = false,
     ),
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = init_LES!,
@@ -138,7 +138,7 @@ function AtmosLESConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    print_model_info(model)
+    print_equations_info(atmos)
 
     brickrange = (
         grid1d(xmin, xmax, elemsize = Δx * N),
@@ -192,7 +192,7 @@ Establishing Atmos LES configuration for %s
         array_type,
         solver_type,
         param_set,
-        model,
+        atmos,
         mpicomm,
         grid,
         numerical_flux_first_order,
@@ -211,7 +211,7 @@ function AtmosGCMConfiguration(
     init_GCM!;
     array_type = ClimateMachine.array_type(),
     solver_type = DefaultSolverType(),
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = init_GCM!,
@@ -223,7 +223,7 @@ function AtmosGCMConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    print_model_info(model)
+    print_equations_info(atmos)
 
     _planet_radius::FT = planet_radius(param_set)
     vert_range = grid1d(
@@ -277,7 +277,7 @@ Establishing Atmos GCM configuration for %s
         array_type,
         solver_type,
         param_set,
-        model,
+        atmos,
         mpicomm,
         grid,
         numerical_flux_first_order,
@@ -502,7 +502,7 @@ function SingleStackConfiguration(
     nelem_vert::Int,
     zmax::FT,
     param_set::AbstractParameterSet,
-    model::BalanceLaw;
+    bl::BalanceLaw;
     zmin = zero(FT),
     hmax = one(FT),
     array_type = ClimateMachine.array_type(),
@@ -516,7 +516,7 @@ function SingleStackConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    print_model_info(model)
+    print_equations_info(bl)
 
     xmin, xmax = zero(FT), hmax
     ymin, ymax = zero(FT), hmax
@@ -574,7 +574,7 @@ Establishing single stack configuration for %s
         array_type,
         solver_type,
         param_set,
-        model,
+        bl,
         mpicomm,
         grid,
         numerical_flux_first_order,

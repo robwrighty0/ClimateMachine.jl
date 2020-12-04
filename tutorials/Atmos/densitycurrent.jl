@@ -37,7 +37,7 @@
 #md #
 #md #     The following topics are covered in this example
 #md #     - Package requirements
-#md #     - Defining a `model` subtype for the set of conservation equations
+#md #     - Defining an `equations` subtype for the set of conservation equations
 #md #     - Defining the initial conditions
 #md #     - Applying boundary conditions
 #md #     - Applying source terms
@@ -69,7 +69,7 @@ ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
-# - Required so that we inherit the appropriate model types for the large-eddy
+# - Required so that we inherit the appropriate configuration types for the large-eddy
 #   simulation (LES) and global-circulation-model (GCM) configurations.
 using ClimateMachine.ConfigTypes
 # - Required so that we may define diagnostics configurations, e.g. choice of
@@ -177,7 +177,7 @@ function init_densitycurrent!(problem, bl, state, aux, (x, y, z), t)
     state.ρe = ρe_tot
 end
 
-# ## [Model Configuration](@id config-helper)
+# ## [Configuration](@id config-helper)
 # We define a configuration function to assist in prescribing the physical
 # model.
 function config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
@@ -197,28 +197,28 @@ function config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
     ref_state = HydrostaticState(T_profile)
 
-    ## The fun part! Here we assemble the `AtmosModel`.
+    ## The fun part! Here we assemble the `AtmosEquations`.
     ##md # !!! note
-    ##md #     Docs on model subcomponent options can be found here:
+    ##md #     Docs on equation component options can be found here:
     ##md #     - [`param_set`](https://CliMA.github.io/CLIMAParameters.jl/dev/)
     ##md #     - [`turbulence`](@ref Turbulence-Closures-docs)
     ##md #     - [`source`](@ref atmos-sources)
     ##md #     - [`init_state`](@ref init-dc)
 
     _C_smag = FT(0.21)
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,                             # Flow in a box, requires the AtmosLESConfigType
         param_set;                                      # Parameter set corresponding to earth parameters
         init_state_prognostic = init_densitycurrent!,   # Apply the initial condition
         ref_state = ref_state,                          # Reference state
-        turbulence = Vreman(_C_smag),                   # Turbulence closure model
-        moisture = DryModel(),                          # Exclude moisture variables
+        turbulence = Vreman(_C_smag),                   # Turbulence closure
+        moisture = DryEquations(),                      # Exclude moisture variables
         source = (Gravity(),),                          # Gravity is the only source term here
         tracers = NoTracers(),                          # Tracer model with diffusivity coefficients
     )
 
     ## Finally, we pass a `Problem Name` string, the mesh information, and the
-    ## model type to  the [`AtmosLESConfiguration`](@ref ClimateMachine.AtmosLESConfiguration) object.
+    ## equations type to  the [`AtmosLESConfiguration`](@ref ClimateMachine.AtmosLESConfiguration) object.
     config = ClimateMachine.AtmosLESConfiguration(
         "DryDensitycurrent",      # Problem title [String]
         N,                        # Polynomial order [Int]
@@ -229,7 +229,7 @@ function config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
         param_set,                # Parameter set.
         init_densitycurrent!,     # Function specifying initial condition
         solver_type = ode_solver, # Time-integrator type
-        model = model,            # Model type
+        equations = atmos,        # Equations
         periodicity = (false, false, false),
         boundary = ((1, 1), (1, 1), (1, 1)),   # Set all boundaries to solid walls
     )

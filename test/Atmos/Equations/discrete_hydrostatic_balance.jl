@@ -37,7 +37,7 @@ vars_state(m::TestRefState, ::Auxiliary, FT) =
     vars_state(m.hydrostatic_state, Auxiliary(), FT)
 function atmos_init_ref_state_pressure!(
     m::TestRefState,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     aux::Vars,
     geom::LocalGeometry,
 )
@@ -45,7 +45,7 @@ function atmos_init_ref_state_pressure!(
 end
 function atmos_init_aux!(
     m::TestRefState,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
@@ -69,13 +69,13 @@ function config_balanced(
 )
     ref_state = HydrostaticState(temp_profile)
 
-    model = AtmosModel{FT}(
+    model = AtmosEquations{FT}(
         config_type,
         param_set;
         ref_state = TestRefState(ref_state),
         turbulence = ConstantDynamicViscosity(FT(0)),
         hyperdiffusion = NoHyperDiffusion(),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = Gravity(),
         init_state_prognostic = init_to_ref_state!,
     )
@@ -117,7 +117,7 @@ function main()
 
     imex_solver_type = ClimateMachine.IMEXSolverType(
         splitting_type = HEVISplitting(),
-        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_model = AtmosAcousticGravityLinearEquations,
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
     )

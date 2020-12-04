@@ -6,7 +6,7 @@ using ..Atmos
 using ..Mesh.Topologies
 using ..Mesh.Grids
 
-struct TurbulenceStatsParams <: DiagnosticsGroupParams
+struct TurbulenceStatsParams <: AbstractDiagnosticsGroupParams
     nor::Float64
     iter::Float64
 end

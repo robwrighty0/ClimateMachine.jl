@@ -47,9 +47,9 @@ function setup_atmos_refstate_perturbations(
     )
 end
 
-function vars_atmos_refstate_perturbations(m::AtmosModel, FT)
+function vars_atmos_refstate_perturbations(atmos::AtmosEquations, FT)
     @vars begin
-        ref_state::vars_atmos_refstate_perturbations(m.ref_state, FT)
+        ref_state::vars_atmos_refstate_perturbations(atmos.ref_state, FT)
     end
 end
 vars_atmos_refstate_perturbations(::ReferenceState, FT) = @vars()
@@ -68,7 +68,7 @@ atmos_refstate_perturbation_vars(m, array) =
     Vars{vars_atmos_refstate_perturbations(m, eltype(array))}(array)
 
 function atmos_refstate_perturbations!(
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state,
     aux,
     thermo,
@@ -85,8 +85,8 @@ function atmos_refstate_perturbations!(
     return nothing
 end
 function atmos_refstate_perturbations!(
-    ::ReferenceState,
-    ::AtmosModel,
+    ::AbstractReferenceState,
+    ::AtmosEquations,
     state,
     aux,
     thermo,
@@ -96,7 +96,7 @@ function atmos_refstate_perturbations!(
 end
 function atmos_refstate_perturbations!(
     rs::HydrostaticState,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state,
     aux,
     thermo,

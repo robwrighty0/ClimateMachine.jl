@@ -1,5 +1,5 @@
 using ..Atmos
-using ..Atmos: MoistureModel, recover_thermo_state
+using ..Atmos: AbstractMoistureEquations, recover_thermo_state
 using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..Thermodynamics
@@ -44,7 +44,7 @@ function setup_atmos_default_diagnostics(
 end
 
 # Simple horizontal averages
-function vars_atmos_les_default_simple(m::AtmosModel, FT)
+function vars_atmos_les_default_simple(atmos::AtmosEquations, FT)
     @vars begin
         u::FT
         v::FT
@@ -60,10 +60,10 @@ function vars_atmos_les_default_simple(m::AtmosModel, FT)
         hi::FT
         w_ht_sgs::FT
 
-        moisture::vars_atmos_les_default_simple(m.moisture, FT)
+        moisture::vars_atmos_les_default_simple(atmos.moisture, FT)
     end
 end
-vars_atmos_les_default_simple(::MoistureModel, FT) = @vars()
+vars_atmos_les_default_simple(::AbstractMoistureEquations, FT) = @vars()
 function vars_atmos_les_default_simple(m::Union{EquilMoist, NonEquilMoist}, FT)
     @vars begin
         qt::FT                  # q_tot
@@ -81,7 +81,7 @@ atmos_les_default_simple_vars(m, array) =
     Vars{vars_atmos_les_default_simple(m, eltype(array))}(array)
 
 function atmos_les_default_simple_sums!(
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state,
     gradflux,
     aux,
@@ -120,7 +120,7 @@ function atmos_les_default_simple_sums!(
     return nothing
 end
 function atmos_les_default_simple_sums!(
-    ::MoistureModel,
+    ::AbstractMoistureEquations,
     state,
     gradflux,
     thermo,
@@ -152,7 +152,7 @@ function atmos_les_default_simple_sums!(
 end
 
 function atmos_les_default_clouds(
-    ::MoistureModel,
+    ::AbstractMoistureEquations,
     thermo,
     idx,
     qc_gt_0_z,
@@ -185,7 +185,7 @@ function atmos_les_default_clouds(
 end
 
 # Variances and covariances
-function vars_atmos_les_default_ho(m::AtmosModel, FT)
+function vars_atmos_les_default_ho(atmos::AtmosEquations, FT)
     @vars begin
         var_u::FT               # u′u′
         var_v::FT               # v′v′
@@ -200,10 +200,10 @@ function vars_atmos_les_default_ho(m::AtmosModel, FT)
         cov_w_thd::FT           # w′θ_dry′
         cov_w_ei::FT            # w′e_int′
 
-        moisture::vars_atmos_les_default_ho(m.moisture, FT)
+        moisture::vars_atmos_les_default_ho(atmos.moisture, FT)
     end
 end
-vars_atmos_les_default_ho(::MoistureModel, FT) = @vars()
+vars_atmos_les_default_ho(::AbstractMoistureEquations, FT) = @vars()
 function vars_atmos_les_default_ho(m::Union{EquilMoist, NonEquilMoist}, FT)
     @vars begin
         var_qt::FT              # q_tot′q_tot′
@@ -224,7 +224,7 @@ atmos_les_default_ho_vars(m, array) =
     Vars{vars_atmos_les_default_ho(m, eltype(array))}(array)
 
 function atmos_les_default_ho_sums!(
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state,
     thermo,
     MH,
@@ -268,7 +268,7 @@ function atmos_les_default_ho_sums!(
     return nothing
 end
 function atmos_les_default_ho_sums!(
-    ::MoistureModel,
+    ::AbstractMoistureEquations,
     state,
     thermo,
     MH,

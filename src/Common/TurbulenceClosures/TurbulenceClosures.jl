@@ -4,8 +4,8 @@
 Functions for turbulence, sub-grid scale modelling. These include
 viscosity terms, diffusivity and stress tensors.
 
-- [`ConstantViscosity`](@ref)
-- [`ViscousSponge`](@ref)
+- [`AbstractConstantViscosity`](@ref)
+- [`AbstractViscousSponge`](@ref)
 - [`SmagorinskyLilly`](@ref)
 - [`Vreman`](@ref)
 - [`AnisoMinDiss`](@ref)
@@ -18,8 +18,8 @@ module TurbulenceClosures
 # pointwise models of the eddy viscosity/eddy diffusivity type are
 # supported for turbulent shear and tracer diffusivity. Methods currently supported
 # are:\
-# [`ConstantViscosity`](@ref constant-viscosity)\
-# [`ViscousSponge`](@ref viscous-sponge)\
+# [`AbstractConstantViscosity`](@ref constant-viscosity)\
+# [`AbstractViscousSponge`](@ref viscous-sponge)\
 # [`SmagorinskyLilly`](@ref smagorinsky-lilly)\
 # [`Vreman`](@ref vreman)\
 # [`AnisoMinDiss`](@ref aniso-min-diss)\
@@ -30,7 +30,7 @@ module TurbulenceClosures
 #md #     $\nu$ is the kinematic viscosity, $C_smag$ is the Smagorinsky Model coefficient,
 #md #     `turbulence=ConstantDynamicViscosity(ρν)`\
 #md #     `turbulence=ConstantKinematicViscosity(ν)`\
-#md #     `turbulence=ViscousSponge(ν, z_max, z_sponge, α, γ)`\
+#md #     `turbulence=ViscousSponge(ν, z_max, z_sponge, α, γ)`\ # FIXME
 #md #     `turbulence=SmagorinskyLilly(C_smag)`\
 #md #     `turbulence=Vreman(C_smag)`\
 #md #     `turbulence=AnisoMinDiss(C_poincare)`
@@ -68,14 +68,14 @@ import ClimateMachine.BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 
-export TurbulenceClosureModel,
-    ConstantViscosity,
+export AbstractTurbulenceClosure,
+    AbstractConstantViscosity,
     ConstantDynamicViscosity,
     ConstantKinematicViscosity,
     SmagorinskyLilly,
     Vreman,
     AnisoMinDiss,
-    HyperDiffusion,
+    AbstractHyperDiffusion,
     NoHyperDiffusion,
     DryBiharmonic,
     EquilMoistBiharmonic,
@@ -88,7 +88,7 @@ export TurbulenceClosureModel,
     sponge_viscosity_modifier!
 
 # ### Abstract Type
-# We define a `TurbulenceClosureModel` abstract type and
+# We define a `AbstractTurbulenceClosure` abstract type and
 # default functions for the generic turbulence closure
 # which will be overloaded with model specific functions.
 
@@ -97,26 +97,26 @@ export TurbulenceClosureModel,
     Abstract type with default do-nothing behaviour for
 arbitrary turbulence closure models.
 """
-abstract type TurbulenceClosureModel end
+abstract type AbstractTurbulenceClosure end
 
-vars_state(::TurbulenceClosureModel, ::AbstractStateType, FT) = @vars()
+vars_state(::AbstractTurbulenceClosure, ::AbstractStateType, FT) = @vars()
 
 """
-    ConstantViscosity <: TurbulenceClosureModel
+    AbstractConstantViscosity <: AbstractTurbulenceClosure
 Abstract type for constant viscosity models
 """
-abstract type ConstantViscosity <: TurbulenceClosureModel end
+abstract type AbstractConstantViscosity <: AbstractTurbulenceClosure end
 
 """
     Abstract type for Hyperdiffusion models
 """
-abstract type HyperDiffusion end
+abstract type AbstractHyperDiffusion end
 
 """
     Abstract type for viscous sponge layers. 
 Modifier for viscosity computed from existing turbulence closures.
 """
-abstract type ViscousSponge end
+abstract type AbstractViscousSponge end
 
 
 """
@@ -125,7 +125,7 @@ Initialise auxiliary variables for turbulence models.
 Overload for specific turbulence closure type.
 """
 function init_aux_turbulence!(
-    ::TurbulenceClosureModel,
+    ::AbstractTurbulenceClosure,
     ::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
@@ -137,7 +137,7 @@ Update auxiliary variables for turbulence models.
 Overload for specific turbulence closure type.
 """
 function turbulence_nodal_update_auxiliary_state!(
-    ::TurbulenceClosureModel,
+    ::AbstractTurbulenceClosure,
     ::BalanceLaw,
     state::Vars,
     aux::Vars,
@@ -149,18 +149,18 @@ function turbulence_nodal_update_auxiliary_state!(
 Assign pre-gradient-transform variables specific to turbulence models.
 """
 function compute_gradient_argument!(
-    ::TurbulenceClosureModel,
+    ::AbstractTurbulenceClosure,
     transform::Vars,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
 """
-    compute_gradient_flux!(::TurbulenceClosureModel, _...)
+    compute_gradient_flux!(::AbstractTurbulenceClosure, _...)
 Post-gradient-transformed variables specific to turbulence models.
 """
 function compute_gradient_flux!(
-    ::TurbulenceClosureModel,
+    ::AbstractTurbulenceClosure,
     ::Orientation,
     diffusive,
     ∇transform,
@@ -170,23 +170,23 @@ function compute_gradient_flux!(
 ) end
 
 # Fallback functions for hyperdiffusion model
-vars_state(::HyperDiffusion, ::AbstractStateType, FT) = @vars()
+vars_state(::AbstractHyperDiffusion, ::AbstractStateType, FT) = @vars()
 
 function init_aux_hyperdiffusion!(
-    ::HyperDiffusion,
+    ::AbstractHyperDiffusion,
     ::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
 ) end
 function hyperdiffusion_nodal_update_auxiliary_state!(
-    ::HyperDiffusion,
+    ::AbstractHyperDiffusion,
     ::BalanceLaw,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
 function compute_gradient_argument!(
-    ::HyperDiffusion,
+    ::AbstractHyperDiffusion,
     ::BalanceLaw,
     transform::Vars,
     state::Vars,
@@ -194,7 +194,7 @@ function compute_gradient_argument!(
     t::Real,
 ) end
 function transform_post_gradient_laplacian!(
-    h::HyperDiffusion,
+    h::AbstractHyperDiffusion,
     bl::BalanceLaw,
     hyperdiffusive::Vars,
     gradvars::Grad,
@@ -203,7 +203,7 @@ function transform_post_gradient_laplacian!(
     t::Real,
 ) end
 function flux_second_order!(
-    h::HyperDiffusion,
+    h::AbstractHyperDiffusion,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
@@ -212,7 +212,7 @@ function flux_second_order!(
     t::Real,
 ) end
 function compute_gradient_flux!(
-    h::HyperDiffusion,
+    h::AbstractHyperDiffusion,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
@@ -225,7 +225,7 @@ function hyperviscosity_tensors end
 
 """
     ν, D_t, τ = turbulence_tensors(
-                    ::TurbulenceClosureModel,
+                    ::AbstractTurbulenceClosure,
                     orientation::Orientation,
                     param_set::AbstractParameterSet,
                     state::Vars,
@@ -239,7 +239,7 @@ for the returned quantities.
 
 # Arguments
 
-- `::TurbulenceClosureModel` = Struct identifier for turbulence closure model
+- `::AbstractTurbulenceClosure` = Struct identifier for turbulence closure model
 - `orientation` = `BalanceLaw.orientation`
 - `param_set` parameter set
 - `state` = Array of prognostic (state) variables. See `vars_state` in `BalanceLaw`
@@ -247,7 +247,7 @@ for the returned quantities.
 - `aux` = Array of auxiliary variables
 - `t` = time
 """
-turbulence_tensors(m::TurbulenceClosureModel, bl::BalanceLaw, args...) =
+turbulence_tensors(m::AbstractTurbulenceClosure, bl::BalanceLaw, args...) =
     turbulence_tensors(m, bl.orientation, bl.param_set, args...)
 
 # We also provide generic math functions for use within the turbulence closures,
@@ -356,7 +356,7 @@ struct WithoutDivergence end
 export WithoutDivergence
 
 # ### [Constant Viscosity Model](@id constant-viscosity)
-# `ConstantViscosity` requires a user to specify the constant viscosity (dynamic or kinematic)
+# `AbstractConstantViscosity` requires a user to specify the constant viscosity (dynamic or kinematic)
 # and appropriately computes the turbulent stress tensor based on this term. Diffusivity can be
 # computed using the turbulent Prandtl number for the appropriate problem regime.
 # ```math
@@ -369,7 +369,7 @@ export WithoutDivergence
 
 
 """
-    ConstantDynamicViscosity <: ConstantViscosity
+    ConstantDynamicViscosity <: AbstractConstantViscosity
 
 Turbulence with constant dynamic viscosity (`ρν`).
 Divergence terms are included in the momentum flux tensor if divergence_type is WithDivergence.
@@ -378,7 +378,7 @@ Divergence terms are included in the momentum flux tensor if divergence_type is 
 
 $(DocStringExtensions.FIELDS)
 """
-struct ConstantDynamicViscosity{FT, DT} <: ConstantViscosity
+struct ConstantDynamicViscosity{FT, DT} <: AbstractConstantViscosity
     "Dynamic Viscosity [kg/m/s]"
     ρν::FT
     divergence_type::DT
@@ -391,7 +391,7 @@ struct ConstantDynamicViscosity{FT, DT} <: ConstantViscosity
 end
 
 """
-    ConstantKinematicViscosity <: ConstantViscosity
+    ConstantKinematicViscosity <: AbstractConstantViscosity
 
 Turbulence with constant kinematic viscosity (`ν`).
 Divergence terms are included in the momentum flux tensor if divergence_type is WithDivergence.
@@ -400,7 +400,7 @@ Divergence terms are included in the momentum flux tensor if divergence_type is 
 
 $(DocStringExtensions.FIELDS)
 """
-struct ConstantKinematicViscosity{FT, DT} <: ConstantViscosity
+struct ConstantKinematicViscosity{FT, DT} <: AbstractConstantViscosity
     "Kinematic Viscosity [m2/s]"
     ν::FT
     divergence_type::DT
@@ -412,12 +412,12 @@ struct ConstantKinematicViscosity{FT, DT} <: ConstantViscosity
     end
 end
 
-vars_state(::ConstantViscosity, ::Gradient, FT) = @vars()
-vars_state(::ConstantViscosity, ::GradientFlux, FT) =
+vars_state(::AbstractConstantViscosity, ::Gradient, FT) = @vars()
+vars_state(::AbstractConstantViscosity, ::GradientFlux, FT) =
     @vars(S::SHermitianCompact{3, FT, 6})
 
 function compute_gradient_flux!(
-    ::ConstantViscosity,
+    ::AbstractConstantViscosity,
     ::Orientation,
     diffusive::Vars,
     ∇transform::Grad,
@@ -503,7 +503,7 @@ end
 # stratification correction factor $\mathrm{f}_{b}$ so that $\Delta_{vert} = \Delta z f_b$.
 
 """
-    SmagorinskyLilly <: TurbulenceClosureModel
+    SmagorinskyLilly <: AbstractTurbulenceClosure
 
 # Fields
 
@@ -546,7 +546,7 @@ $(DocStringExtensions.FIELDS)
       https://doi.org/10.1175/1520-0469(1982)039<2152:OTEOMO>2.0.CO;2
 
 """
-struct SmagorinskyLilly{FT} <: TurbulenceClosureModel
+struct SmagorinskyLilly{FT} <: AbstractTurbulenceClosure
     "Smagorinsky Coefficient [dimensionless]"
     C_smag::FT
 end
@@ -643,7 +643,7 @@ end
 # ```
 
 """
-    Vreman{FT} <: TurbulenceClosureModel
+    Vreman{FT} <: AbstractTurbulenceClosure
 
 Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Smagorinsky coefficient
 is specified and used to compute the equivalent Vreman coefficient.
@@ -672,7 +672,7 @@ $(DocStringExtensions.FIELDS)
       publisher={AIP}
     }
 """
-struct Vreman{FT} <: TurbulenceClosureModel
+struct Vreman{FT} <: AbstractTurbulenceClosure
     "Smagorinsky Coefficient [dimensionless]"
     C_smag::FT
 end
@@ -755,7 +755,7 @@ end
 # \nu_e = (\mathrm{C}\delta)^2  \mathrm{max}\left[0, - \frac{\hat{\partial}_k \hat{u}_{i} \hat{\partial}_k \hat{u}_{j} \mathrm{\hat{S}}_{ij}}{\hat{\partial}_p \hat{u}_{q}} \right]
 # ```
 """
-    AnisoMinDiss{FT} <: TurbulenceClosureModel
+    AnisoMinDiss{FT} <: AbstractTurbulenceClosure
 
 Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Poincare coefficient
 is specified and used to compute the equivalent AnisoMinDiss coefficient (computed as the solution to the
@@ -780,7 +780,7 @@ $(DocStringExtensions.FIELDS)
     }
 
 """
-struct AnisoMinDiss{FT} <: TurbulenceClosureModel
+struct AnisoMinDiss{FT} <: AbstractTurbulenceClosure
     C_poincare::FT
 end
 vars_state(::AnisoMinDiss, ::Auxiliary, FT) = @vars(Δ::FT)
@@ -858,16 +858,16 @@ function turbulence_tensors(
 end
 
 """
-  NoHyperDiffusion <: HyperDiffusion
+  NoHyperDiffusion <: AbstractHyperDiffusion
 Defines a default hyperdiffusion model with zero hyperdiffusive fluxes.
 """
-struct NoHyperDiffusion <: HyperDiffusion end
+struct NoHyperDiffusion <: AbstractHyperDiffusion end
 
-hyperviscosity_tensors(m::HyperDiffusion, bl::BalanceLaw, args...) =
+hyperviscosity_tensors(m::AbstractHyperDiffusion, bl::BalanceLaw, args...) =
     hyperviscosity_tensors(m, bl.orientation, bl.param_set, args...)
 
 """
-  EquilMoistBiharmonic{FT} <: HyperDiffusion
+  EquilMoistBiharmonic{FT} <: AbstractHyperDiffusion
 
 Assumes equilibrium thermodynamics in compressible flow.
 Horizontal hyperdiffusion methods for application in GCM and LES settings
@@ -877,7 +877,7 @@ computed as a function of the grid lengthscale.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct EquilMoistBiharmonic{FT} <: HyperDiffusion
+struct EquilMoistBiharmonic{FT} <: AbstractHyperDiffusion
     τ_timescale::FT
     τ_timescale_q_tot::FT
 end
@@ -962,7 +962,7 @@ function flux_second_order!(
 end
 
 """
-  DryBiharmonic{FT} <: HyperDiffusion
+  DryBiharmonic{FT} <: AbstractHyperDiffusion
 
 Assumes dry compressible flow. 
 Horizontal hyperdiffusion methods for application in GCM and LES settings
@@ -972,7 +972,7 @@ computed as a function of the grid lengthscale.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct DryBiharmonic{FT} <: HyperDiffusion
+struct DryBiharmonic{FT} <: AbstractHyperDiffusion
     τ_timescale::FT
 end
 vars_state(::DryBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
@@ -1043,7 +1043,7 @@ function flux_second_order!(
 end
 
 # ### [Viscous Sponge](@id viscous-sponge)
-# `ViscousSponge` requires a user to specify a constant viscosity (kinematic), 
+# `AbstractViscousSponge` requires a user to specify a constant viscosity (kinematic), 
 # a sponge start height, the domain height, a sponge strength, and a sponge
 # exponent.
 # Given viscosity, diffusivity and stresses from arbitrary turbulence models, 
@@ -1059,7 +1059,7 @@ No modifiers applied to viscosity/diffusivity in sponge layer
 #
 $(DocStringExtensions.FIELDS)
 """
-struct NoViscousSponge <: ViscousSponge end
+struct NoViscousSponge <: AbstractViscousSponge end
 function sponge_viscosity_modifier!(
     bl::BalanceLaw,
     m::NoViscousSponge,
@@ -1079,7 +1079,7 @@ in a user-specified upper domain sponge region
 #
 $(DocStringExtensions.FIELDS)
 """
-struct UpperAtmosSponge{FT} <: ViscousSponge
+struct UpperAtmosSponge{FT} <: AbstractViscousSponge
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"

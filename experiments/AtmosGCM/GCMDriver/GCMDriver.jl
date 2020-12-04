@@ -157,10 +157,10 @@ function config_gcm_experiment(
     base_state = parse_base_state_arg(base_state_arg)
     moisture_profile = parse_moisture_profile_arg(moisture_profile_arg)
 
-    # Choose the moisture model
+    # Choose the moisture equations
     if moisture_profile isa NoMoistureProfile
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
-        moisture = DryModel()
+        moisture = DryEquations()
     else
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
         moisture = EquilMoist{FT}()
@@ -183,8 +183,8 @@ function config_gcm_experiment(
         moisture_profile = moisture_profile,
     )
 
-    # Create the Atmosphere model
-    model = AtmosModel{FT}(
+    # Create the Atmosphere equations
+    atmos = AtmosEquations{FT}(
         AtmosGCMConfigType,
         param_set;
         problem = problem,
@@ -204,7 +204,7 @@ function config_gcm_experiment(
         domain_height,
         param_set,
         init_gcm_experiment!;
-        model = model,
+        equations = atmos,
     )
 
     return config
@@ -310,7 +310,7 @@ function main()
 
     # Choose time stepper
     ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_model = AtmosAcousticGravityLinearEquations,
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
         split_explicit_implicit = true,

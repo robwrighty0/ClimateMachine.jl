@@ -6,8 +6,8 @@
 # include those that have passed offline tests at the full simulation time of
 # 6 hours. Suggested offline tests included plotting horizontal-domain averages
 # of key properties (see AtmosDiagnostics). The timestepper configuration is in
-# `src/Driver/solver_configs.jl` while the `AtmosModel` defaults can be found in
-# `src/Atmos/Model/AtmosModel.jl` and `src/Driver/driver_configs.jl`
+# `src/Driver/solver_configs.jl` while the `AtmosEquations` defaults can be found in
+# `src/Atmos/Equations/AtmosEquations.jl` and `src/Driver/driver_configs.jl`
 #
 # This setup works in both Float32 and Float64 precision. `FT`
 #
@@ -113,7 +113,7 @@ struct BomexGeostrophic{FT} <: Source
 end
 function atmos_source!(
     s::BomexGeostrophic,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -158,7 +158,7 @@ struct BomexSponge{FT} <: Source
 end
 function atmos_source!(
     s::BomexSponge,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -211,7 +211,7 @@ struct BomexTendencies{FT} <: Source
 end
 function atmos_source!(
     s::BomexTendencies,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -505,7 +505,7 @@ function bomex_model(
     )
 
     # Assemble model components
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         config_type,
         param_set;
         problem = problem,
@@ -515,7 +515,7 @@ function bomex_model(
         turbconv = turbconv,
     )
 
-    return model
+    return atmos
 end
 
 function config_diagnostics(driver_config)

@@ -1,6 +1,6 @@
 # Spectrum calculator
 
-struct SpectraDiagnosticsParams <: DiagnosticsGroupParams
+struct SpectraDiagnosticsParams <: AbstractDiagnosticsGroupParams
     nor::Float64
 end
 

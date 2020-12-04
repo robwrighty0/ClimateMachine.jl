@@ -2,7 +2,7 @@
 #
 #md # !!! note
 #md #
-#md #     Usage: Enable tracers using a keyword argument in the AtmosModel specification\
+#md #     Usage: Enable tracers using a keyword argument in the AtmosEquations specification\
 #md #     `tracers = NoTracer()`\
 #md #     `tracers = NTracers{N, FT}(δ_χ)` where N is the number of tracers required.\
 #md #     FT is the float-type and $\delta_{\chi}$ is an SVector of diffusivity scaling coefficients
@@ -33,23 +33,23 @@ using DocStringExtensions
 # Default methods for a generic tracer type are defined here.
 #
 
-abstract type TracerModel end
+abstract type AbstractTracer end
 
 export NoTracers, NTracers
 
-vars_state(::TracerModel, ::AbstractStateType, FT) = @vars()
+vars_state(::AbstractTracer, ::AbstractStateType, FT) = @vars()
 
 function atmos_init_aux!(
-    ::TracerModel,
-    ::AtmosModel,
+    ::AbstractTracer,
+    ::AtmosEquations,
     aux::Vars,
     geom::LocalGeometry,
 )
     nothing
 end
 function atmos_nodal_update_auxiliary_state!(
-    ::TracerModel,
-    m::AtmosModel,
+    ::AbstractTracer,
+    ::AtmosEquations,
     state::Vars,
     aux::Vars,
     t::Real,
@@ -57,8 +57,8 @@ function atmos_nodal_update_auxiliary_state!(
     nothing
 end
 function flux_tracers!(
-    ::TracerModel,
-    atmos::AtmosModel,
+    ::AbstractTracer,
+    ::AtmosEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -67,7 +67,7 @@ function flux_tracers!(
     nothing
 end
 function compute_gradient_flux!(
-    ::TracerModel,
+    ::AbstractTracer,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
@@ -77,7 +77,7 @@ function compute_gradient_flux!(
     nothing
 end
 function flux_second_order!(
-    ::TracerModel,
+    ::AbstractTracer,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
@@ -88,7 +88,7 @@ function flux_second_order!(
     nothing
 end
 function compute_gradient_argument!(
-    ::TracerModel,
+    ::AbstractTracer,
     transform::Vars,
     state::Vars,
     aux::Vars,
@@ -97,7 +97,7 @@ function compute_gradient_argument!(
     nothing
 end
 function wavespeed_tracers!(
-    ::TracerModel,
+    ::AbstractTracer,
     wavespeed::Vars,
     nM,
     state::Vars,
@@ -114,10 +114,10 @@ end
 # considered separately in `moisture.jl`.
 #
 """
-    NoTracers <: TracerModel
+    NoTracers <: AbstractTracer
 No tracers. Default model.
 """
-struct NoTracers <: TracerModel end
+struct NoTracers <: AbstractTracer end
 
 # ### [NTracers](@id multiple-tracers)
 # Allows users to specify an integer corresponding to the number of
@@ -130,8 +130,8 @@ struct NoTracers <: TracerModel end
 # `init_state_prognostic!` hook at the experiment level.
 
 """
-    NTracers{N, FT} <: TracerModel
-Currently the simplest way to get n-tracers in an AtmosModel run
+    NTracers{N, FT} <: AbstractTracer
+Currently the simplest way to get n-tracers in an AtmosEquations run
 using the existing machinery. Model input: SVector of
 diffusivity scaling coefficients. Length of SVector allows number
 of tracers to be inferred. Tracers are currently identified by indices.
@@ -140,7 +140,7 @@ of tracers to be inferred. Tracers are currently identified by indices.
 #
 $(DocStringExtensions.FIELDS)
 """
-struct NTracers{N, FT} <: TracerModel
+struct NTracers{N, FT} <: AbstractTracer
     "N-component `SVector` with scaling ratios for tracer diffusivities"
     δ_χ::SVector{N, FT}
 end
@@ -153,7 +153,7 @@ vars_state(tr::NTracers, ::Auxiliary, FT) = @vars(δ_χ::typeof(tr.δ_χ))
 
 function atmos_init_aux!(
     tr::NTracers,
-    am::AtmosModel,
+    atmos::AtmosEquations,
     aux::Vars,
     geom::LocalGeometry,
 )
@@ -181,7 +181,7 @@ function compute_gradient_flux!(
 end
 function flux_tracers!(
     tr::NTracers,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,

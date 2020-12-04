@@ -75,7 +75,7 @@ struct UnstableBLGeostrophic{FT} <: Source
 end
 function atmos_source!(
     s::UnstableBLGeostrophic,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -120,7 +120,7 @@ struct UnstableBLSponge{FT} <: Source
 end
 function atmos_source!(
     s::UnstableBLSponge,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -274,7 +274,7 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
     )
 
     # Assemble model components
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         problem = problem,
@@ -294,7 +294,7 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
         param_set,
         init_problem!,
         solver_type = ode_solver_type,
-        model = model,
+        equations = atmos,
     )
     return config
 end

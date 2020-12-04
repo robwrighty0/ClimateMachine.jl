@@ -1,6 +1,6 @@
 """
     nondimensional_exchange_functions(
-        m::AtmosModel{FT},
+        atmos::AtmosEquations{FT},
         entr::EntrainmentDetrainment,
         state::Vars,
         aux::Vars,
@@ -12,7 +12,7 @@
 
 Returns the nondimensional entrainment and detrainment
 functions following Cohen et al. (JAMES, 2020), given:
- - `m`, an `AtmosModel`
+ - `atmos`, the `AtmosEquations`
  - `entr`, an `EntrainmentDetrainment` model
  - `state`, state variables
  - `aux`, auxiliary variables
@@ -22,7 +22,7 @@ functions following Cohen et al. (JAMES, 2020), given:
  - `i`, the updraft index
 """
 function nondimensional_exchange_functions(
-    m::AtmosModel{FT},
+    atmos::AtmosEquations{FT},
     entr::EntrainmentDetrainment,
     state::Vars,
     aux::Vars,
@@ -40,7 +40,7 @@ function nondimensional_exchange_functions(
 
     # precompute vars
     w_min = entr.w_min
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(atmos.turbconv)
     ρinv = 1 / gm.ρ
     a_up_i = up[i].ρa * ρinv
     w_up_i = up[i].ρaw / up[i].ρa

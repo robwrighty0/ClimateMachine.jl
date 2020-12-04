@@ -149,8 +149,8 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         init_state_prognostic = init_problem!,
     )
 
-    ## Set up the model
-    model = AtmosModel{FT}(
+    ## Set up the equations
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         problem = problem,
@@ -181,7 +181,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         param_set,
         init_problem!,
         solver_type = ode_solver,
-        model = model,
+        equations = atmos,
     )
     return config
 end

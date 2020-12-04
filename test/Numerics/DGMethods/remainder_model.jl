@@ -83,18 +83,18 @@ function test_run(
 
     # This is the base model which defines all the data (all other DGModels
     # for substepping components will piggy-back off of this models data)
-    fullmodel = AtmosModel{FT}(
+    full_atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = Vreman(FT(0.23)),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = Gravity(),
     )
     dg = DGModel(
-        fullmodel,
+        full_atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
@@ -103,10 +103,10 @@ function test_run(
     Random.seed!(1235)
     Q = init_ode_state(dg, FT(0); init_on_cpu = true)
 
-    acousticmodel = AtmosAcousticGravityLinearModel(fullmodel)
+    acoustic_atmos = AtmosAcousticGravityLinearEquations(full_atmos)
 
     acoustic_dg = DGModel(
-        acousticmodel,
+        acoustic_atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
@@ -115,7 +115,7 @@ function test_run(
         state_auxiliary = dg.state_auxiliary,
     )
     vacoustic_dg = DGModel(
-        acousticmodel,
+        acoustic_atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
@@ -124,7 +124,7 @@ function test_run(
         state_auxiliary = dg.state_auxiliary,
     )
     hacoustic_dg = DGModel(
-        acousticmodel,
+        acoustic_atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),

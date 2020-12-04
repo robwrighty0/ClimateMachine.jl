@@ -139,28 +139,28 @@ function test_run(
         init_state_prognostic = isentropicvortex_initialcondition!,
     )
 
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         problem = problem,
         orientation = NoOrientation(),
         ref_state = IsentropicVortexReferenceState{FT}(setup),
         turbulence = ConstantDynamicViscosity(FT(0)),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = nothing,
     )
-    # The linear model has the fast time scales
-    fast_model = AtmosAcousticLinearModel(model)
+    # The linear equations have the fast time scales
+    fast_atmos = AtmosAcousticLinearEquations(atmos)
 
     dg = DGModel(
-        model,
+        atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
     fast_dg = DGModel(
-        fast_model,
+        fast_atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
@@ -173,7 +173,7 @@ function test_run(
     # determine the slow time step
     elementsize = minimum(step.(brickrange))
     slow_dt =
-        2 * elementsize / soundspeed_air(model.param_set, setup.T∞) /
+        2 * elementsize / soundspeed_air(atmos.param_set, setup.T∞) /
         polynomialorder^2
     nsteps = ceil(Int, timeend / slow_dt)
     slow_dt = timeend / nsteps
@@ -226,14 +226,14 @@ function test_run(
 
         vtkstep = 0
         # output initial step
-        do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q, model)
+        do_output(mpicomm, vtkdir, vtkstep, dg, Q, Q, atmos)
 
         # setup the output callback
         outputtime = timeend
         cbvtk = EveryXSimulationSteps(floor(outputtime / slow_dt)) do
             vtkstep += 1
             Qe = init_ode_state(dg, gettime(ode_solver))
-            do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model)
+            do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, atmos)
         end
         callbacks = (callbacks..., cbvtk)
     end
@@ -273,7 +273,7 @@ vars_state(::IsentropicVortexReferenceState, ::Auxiliary, FT) =
     @vars(ρ::FT, ρe::FT, p::FT, T::FT)
 function atmos_init_aux!(
     m::IsentropicVortexReferenceState,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
@@ -343,7 +343,7 @@ function do_output(
     dg,
     Q,
     Qe,
-    model,
+    bl,
     testname = "isentropicvortex_mrigark",
 )
     ## name of the file that this MPI rank will write
@@ -355,7 +355,7 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    statenames = flattenednames(vars_state(bl, Prognostic(), eltype(Q)))
     exactnames = statenames .* "_exact"
 
     writevtk(filename, Q, dg, statenames, Qe, exactnames)

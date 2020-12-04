@@ -29,7 +29,7 @@ Updraft thermodynamic states given:
  `recover_thermo_state` vs. `new_thermo_state`.
 """
 new_thermo_state_up(
-    bl::AtmosModel,
+    bl::AtmosEquations,
     state::Vars,
     aux::Vars,
     ts::ThermodynamicState = recover_thermo_state(bl, state, aux),
@@ -52,7 +52,7 @@ Environment thermodynamic state given:
  `recover_thermo_state` vs. `new_thermo_state`.
 """
 new_thermo_state_en(
-    bl::AtmosModel,
+    bl::AtmosEquations,
     state::Vars,
     aux::Vars,
     ts::ThermodynamicState = recover_thermo_state(bl, state, aux),
@@ -115,13 +115,13 @@ recover_thermo_state_en(bl, state, aux) =
 ####
 
 function new_thermo_state_up(
-    m::AtmosModel,
+    atmos::AtmosEquations,
     moist::EquilMoist,
     state::Vars,
     aux::Vars,
     ts::ThermodynamicState,
 )
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(atmos.turbconv)
     up = state.turbconv.updraft
     p = air_pressure(ts)
 
@@ -134,7 +134,7 @@ function new_thermo_state_up(
         q_tot_up = ρaq_tot_up / ρa_up
 
         LiquidIcePotTempSHumEquil_given_pressure(
-            m.param_set,
+            atmos.param_set,
             θ_liq_up,
             p,
             q_tot_up,
@@ -144,13 +144,13 @@ function new_thermo_state_up(
 end
 
 function new_thermo_state_en(
-    m::AtmosModel,
+    atmos::AtmosEquations,
     moist::EquilMoist,
     state::Vars,
     aux::Vars,
     ts::ThermodynamicState,
 )
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(atmos.turbconv)
     up = state.turbconv.updraft
 
     # diagnose environment thermo state
@@ -161,8 +161,8 @@ function new_thermo_state_en(
     a_en = environment_area(state, aux, N_up)
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
     q_tot_en = (q_tot - sum(vuntuple(j -> up[j].ρaq_tot * ρ_inv, N_up))) / a_en
-    a_min = m.turbconv.subdomains.a_min
-    a_max = m.turbconv.subdomains.a_max
+    a_min = atmos.turbconv.subdomains.a_min
+    a_max = atmos.turbconv.subdomains.a_max
     if !(0 <= θ_liq_en)
         @print("θ_liq_en = ", θ_liq_en, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
@@ -172,7 +172,7 @@ function new_thermo_state_en(
         error("Environment q_tot_en out-of-bounds in new_thermo_state_en")
     end
     ts_en = LiquidIcePotTempSHumEquil_given_pressure(
-        m.param_set,
+        atmos.param_set,
         θ_liq_en,
         p,
         q_tot_en,
@@ -181,31 +181,31 @@ function new_thermo_state_en(
 end
 
 function recover_thermo_state_up(
-    m::AtmosModel,
+    atmos::AtmosEquations,
     moist::EquilMoist,
     state::Vars,
     aux::Vars,
-    ts::ThermodynamicState = recover_thermo_state(m, state, aux),
+    ts::ThermodynamicState = recover_thermo_state(atmos, state, aux),
 )
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(atmos.turbconv)
     ts_up = vuntuple(N_up) do i
-        recover_thermo_state_up_i(m, state, aux, i, ts)
+        recover_thermo_state_up_i(atmos, state, aux, i, ts)
     end
     return ts_up
 end
 
-recover_thermo_state_up_i(m, state, aux, i_up, ts) =
-    recover_thermo_state_up_i(m, m.moisture, state, aux, i_up, ts)
+recover_thermo_state_up_i(atmos, state, aux, i_up, ts) =
+    recover_thermo_state_up_i(atmos, atmos.moisture, state, aux, i_up, ts)
 function recover_thermo_state_up_i(
-    m::AtmosModel,
+    atmos::AtmosEquations,
     moist::EquilMoist,
     state::Vars,
     aux::Vars,
     i_up,
-    ts::ThermodynamicState = recover_thermo_state(m, state, aux),
+    ts::ThermodynamicState = recover_thermo_state(atmos, state, aux),
 )
     FT = eltype(state)
-    param_set = m.param_set
+    param_set = atmos.param_set
     up = state.turbconv.updraft
 
     p = air_pressure(ts)
@@ -226,15 +226,15 @@ end
 
 
 function recover_thermo_state_en(
-    m::AtmosModel,
+    atmos::AtmosEquations,
     moist::EquilMoist,
     state::Vars,
     aux::Vars,
-    ts::ThermodynamicState = recover_thermo_state(m, state, aux),
+    ts::ThermodynamicState = recover_thermo_state(atmos, state, aux),
 )
     FT = eltype(state)
-    param_set = m.param_set
-    N_up = n_updrafts(m.turbconv)
+    param_set = atmos.param_set
+    N_up = n_updrafts(atmos.turbconv)
     up = state.turbconv.updraft
 
     p = air_pressure(ts)

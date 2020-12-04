@@ -2,7 +2,7 @@
 
 """
     entr_detr(
-        m::AtmosModel{FT},
+        atmos::AtmosEquations{FT},
         entr::EntrainmentDetrainment,
         state::Vars,
         aux::Vars,
@@ -14,7 +14,7 @@
 Returns the dynamic entrainment and detrainment rates,
 as well as the turbulent entrainment rate, following
 Cohen et al. (JAMES, 2020), given:
- - `m`, an `AtmosModel`
+ - `atmos`, the `AtmosEquations`
  - `entr`, an `EntrainmentDetrainment` model
  - `state`, state variables
  - `aux`, auxiliary variables
@@ -24,7 +24,7 @@ Cohen et al. (JAMES, 2020), given:
  - `i`, index of the updraft
 """
 function entr_detr(
-    m::AtmosModel{FT},
+    atmos::AtmosEquations{FT},
     entr::EntrainmentDetrainment,
     state::Vars,
     aux::Vars,
@@ -41,7 +41,7 @@ function entr_detr(
     en_aux = aux.turbconv.environment
     up_aux = aux.turbconv.updraft
 
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(atmos.turbconv)
     ρ_inv = 1 / gm.ρ
     a_up_i = up[i].ρa * ρ_inv
 
@@ -58,15 +58,15 @@ function entr_detr(
     Δb = up_aux[i].buoyancy - en_aux.buoyancy
 
     D_ε, D_δ, M_δ, M_ε =
-        nondimensional_exchange_functions(m, entr, state, aux, t, ts, env, i)
+        nondimensional_exchange_functions(atmos, entr, state, aux, t, ts, env, i)
 
     # I am commenting this out for now, to make sure there is no slowdown here
     Λ_w = abs(Δb / Δw)
     Λ_tke = entr.c_λ * abs(Δb / (max(en.ρatke * ρ_inv, 0) + w_min))
     λ = lamb_smooth_minimum(
         SVector(Λ_w, Λ_tke),
-        m.turbconv.mix_len.smin_ub,
-        m.turbconv.mix_len.smin_rm,
+        atmos.turbconv.mix_len.smin_ub,
+        atmos.turbconv.mix_len.smin_rm,
     )
 
     # compute limiters
@@ -76,7 +76,7 @@ function entr_detr(
     # compute entrainment/detrainment components
     ε_trb =
         2 * a_up_i * entr.c_t * sqrt_tke /
-        max((w_up_i * a_up_i * m.turbconv.pressure.H_up), entr.εt_min)
+        max((w_up_i * a_up_i * atmos.turbconv.pressure.H_up), entr.εt_min)
     ε_dyn = λ / w_up_i * (D_ε + M_ε) * ε_lim
     δ_dyn = λ / w_up_i * (D_δ + M_δ) * δ_lim
 

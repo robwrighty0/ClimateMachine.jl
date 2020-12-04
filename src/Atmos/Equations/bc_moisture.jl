@@ -1,11 +1,11 @@
-abstract type MoistureBC end
+abstract type AbstractMoistureBC end
 
 """
-    Impermeable() :: MoistureBC
+    Impermeable() :: AbstractMoistureBC
 
 No moisture flux.
 """
-struct Impermeable <: MoistureBC end
+struct Impermeable <: AbstractMoistureBC end
 function atmos_moisture_boundary_state!(
     nf,
     bc_moisture::Impermeable,
@@ -21,12 +21,12 @@ function atmos_moisture_normal_boundary_flux_second_order!(
 
 
 """
-    PrescribedMoistureFlux(fn) :: MoistureBC
+    PrescribedMoistureFlux(fn) :: AbstractMoistureBC
 
 Prescribe the net inward moisture flux across the boundary by `fn`, a function
 with signature `fn(state, aux, t)`, returning the flux (in kg/m^2).
 """
-struct PrescribedMoistureFlux{FN} <: MoistureBC
+struct PrescribedMoistureFlux{FN} <: AbstractMoistureBC
     fn::FN
 end
 function atmos_moisture_boundary_state!(
@@ -62,7 +62,7 @@ function atmos_moisture_normal_boundary_flux_second_order!(
 end
 
 """
-    BulkFormulaMoisture(fn) :: MoistureBC
+    BulkFormulaMoisture(fn) :: AbstractMoistureBC
 
 Calculate the net inward moisture flux across the boundary using
 the bulk formula. The drag coefficient is `C_q = fn_C_q(state, aux,
@@ -71,7 +71,7 @@ fn_q_tot(state, aux, t)`.
 
 Return the flux (in kg m^-2 s^-1).
 """
-struct BulkFormulaMoisture{FNX, FNM} <: MoistureBC
+struct BulkFormulaMoisture{FNX, FNM} <: AbstractMoistureBC
     fn_C_q::FNX
     fn_q_tot::FNM
 end

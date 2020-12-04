@@ -100,18 +100,18 @@ let
                     init_state_prognostic = initialcondition!,
                 )
 
-                model = AtmosModel{FT}(
+                atmos = AtmosEquations{FT}(
                     AtmosLESConfigType,
                     param_set;
                     problem = problem,
                     ref_state = NoReferenceState(),
                     turbulence = ConstantDynamicViscosity(μ, WithDivergence()),
-                    moisture = DryModel(),
+                    moisture = DryEquations(),
                     source = Gravity(),
                 )
 
                 dg = DGModel(
-                    model,
+                    atmos,
                     grid,
                     RusanovNumericalFlux(),
                     CentralNumericalFluxSecondOrder(),
@@ -128,15 +128,15 @@ let
 
                 translation_speed = FT(norm([150.0, 150.0, 0.0]))
                 diff_speed_h =
-                    FT(μ / air_density(model.param_set, FT(T∞), FT(p∞)))
+                    FT(μ / air_density(atmos.param_set, FT(T∞), FT(p∞)))
                 diff_speed_v =
-                    FT(μ / air_density(model.param_set, FT(T∞), FT(p∞)))
+                    FT(μ / air_density(atmos.param_set, FT(T∞), FT(p∞)))
                 c_h =
                     Δt * (
                         translation_speed +
-                        soundspeed_air(model.param_set, FT(T∞))
+                        soundspeed_air(atmos.param_set, FT(T∞))
                     ) / Δx_h
-                c_v = Δt * (soundspeed_air(model.param_set, FT(T∞))) / Δx_v
+                c_v = Δt * (soundspeed_air(atmos.param_set, FT(T∞))) / Δx_v
                 d_h = Δt * diff_speed_h / Δx_h^2
                 d_v = Δt * diff_speed_v / Δx_v^2
                 simtime = FT(0)
@@ -146,7 +146,7 @@ let
                 @test courant(
                     nondiffusive_courant,
                     dg,
-                    model,
+                    atmos,
                     Q,
                     Δt,
                     simtime,
@@ -155,7 +155,7 @@ let
                 @test courant(
                     nondiffusive_courant,
                     dg,
-                    model,
+                    atmos,
                     Q,
                     Δt,
                     simtime,
@@ -166,7 +166,7 @@ let
                 @test courant(
                     diffusive_courant,
                     dg,
-                    model,
+                    atmos,
                     Q,
                     Δt,
                     simtime,
@@ -175,7 +175,7 @@ let
                 @test courant(
                     diffusive_courant,
                     dg,
-                    model,
+                    atmos,
                     Q,
                     Δt,
                     simtime,

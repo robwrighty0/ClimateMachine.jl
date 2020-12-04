@@ -10,7 +10,7 @@ Supported constructors include are:\
 
 !!! note
     Usage: This is a quick-ref guide to using turbulence models as a
-    subcomponent of `AtmosModel` \
+    subcomponent of `AtmosEquations` \
     $\nu$ is the kinematic viscosity, $C_smag$ is the Smagorinsky Model coefficient,
     - `turbulence=ConstantDynamicViscosity(ν)`\
     - `turbulence=SmagorinskyLilly(C_smag)`\
@@ -38,7 +38,7 @@ vars_state(::TurbulenceClosure, ::AbstractStateType, FT) = @vars()
 
 function atmos_init_aux!(
     ::TurbulenceClosure,
-    ::AtmosModel,
+    ::AtmosEquations,
     aux::Vars,
     geom::LocalGeometry,
 ) end
@@ -68,7 +68,7 @@ models)
 vars_state(::TurbulenceClosure, ::Prognostic, FT) = @vars()
 function atmos_nodal_update_auxiliary_state!(
     ::TurbulenceClosure,
-    ::AtmosModel,
+    ::AtmosEquations,
     state::Vars,
     aux::Vars,
     t::Real,

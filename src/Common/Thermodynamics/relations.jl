@@ -608,25 +608,25 @@ A condensed phase, to dispatch over
 [`saturation_vapor_pressure`](@ref) and
 [`q_vap_saturation_generic`](@ref).
 """
-abstract type Phase end
+abstract type AbstractPhase end
 
 """
-    Liquid <: Phase
+    Liquid <: AbstractPhase
 
 A liquid phase, to dispatch over
 [`saturation_vapor_pressure`](@ref) and
 [`q_vap_saturation_generic`](@ref).
 """
-struct Liquid <: Phase end
+struct Liquid <: AbstractPhase end
 
 """
-    Ice <: Phase
+    Ice <: AbstractPhase
 
 An ice phase, to dispatch over
 [`saturation_vapor_pressure`](@ref) and
 [`q_vap_saturation_generic`](@ref).
 """
-struct Ice <: Phase end
+struct Ice <: AbstractPhase end
 
 """
     saturation_vapor_pressure(param_set, T, Liquid())
@@ -764,7 +764,7 @@ function q_vap_saturation_generic(
     param_set::APS,
     T::FT,
     ρ::FT,
-    phase::Phase,
+    phase::AbstractPhase,
 ) where {FT <: Real}
     p_v_sat = saturation_vapor_pressure(param_set, T, phase)
     return q_vap_saturation_from_pressure(param_set, T, ρ, p_v_sat)

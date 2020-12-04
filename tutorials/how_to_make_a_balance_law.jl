@@ -85,16 +85,16 @@
 # argument inside these methods behave as dictionaries, for example:
 
 # ```julia
-# struct MyModel <: BalanceLaw end
+# struct MyEquations <: BalanceLaw end
 
-# function vars_state(m::MyModel, ::Prognostic, FT)
+# function vars_state(m::MyEquations, ::Prognostic, FT)
 #     @vars begin
 #         ρ::FT
 #         T::FT
 #     end
 # end
 
-# function source!(m::MyModel, source::Vars, args...)
+# function source!(m::MyEquations, source::Vars, args...)
 #     source.ρ = 1 # adds a source of 1 to RHS of ρ equation
 #     source.T = 1 # adds a source of 1 to RHS of T equation
 # end

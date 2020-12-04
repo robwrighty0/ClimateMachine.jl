@@ -895,17 +895,29 @@ function update_auxiliary_state!(
 end
 
 """
-    courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
-            state_prognostic::MPIStateArray, direction=EveryDirection())
+    courant(
+        local_courant::Function,
+        dg::DGModel,
+        bl::BalanceLaw,
+        state_prognostic::MPIStateArray,
+        direction = EveryDirection(),
+    )
+
 Returns the maximum of the evaluation of the function `local_courant`
 pointwise throughout the domain.  The function `local_courant` is given an
 approximation of the local node distance `Δx`.  The `direction` controls which
 reference directions are considered when computing the minimum node distance
 `Δx`.
+
 An example `local_courant` function is
-    function local_courant(m::AtmosModel, state_prognostic::Vars, state_auxiliary::Vars,
-                           diffusive::Vars, Δx)
-      return Δt * cmax / Δx
+    function local_courant(
+        atmos::AtmosEquations,
+        state_prognostic::Vars,
+        state_auxiliary::Vars,
+        diffusive::Vars,
+        Δx,
+    )
+        return Δt * cmax / Δx
     end
 where `Δt` is the time step size and `cmax` is the maximum flow speed in the
 model.
@@ -913,7 +925,7 @@ model.
 function courant(
     local_courant::Function,
     dg::DGModel,
-    m::BalanceLaw,
+    bl::BalanceLaw,
     state_prognostic::MPIStateArray,
     Δt,
     simtime,
@@ -945,7 +957,7 @@ function courant(
             dependencies = (event,),
         )
         event = kernel_local_courant!(device, min(Nq * Nq * Nqk, 1024))(
-            m,
+            bl,
             Val(dim),
             Val(N),
             pointwise_courant,

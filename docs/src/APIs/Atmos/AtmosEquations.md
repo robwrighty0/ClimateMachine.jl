@@ -1,4 +1,4 @@
-# [AtmosModel](@id AtmosModel-docs)
+# [AtmosEquations](@id AtmosEquations-docs)
 
 ```@meta
 CurrentModule = ClimateMachine
@@ -10,20 +10,20 @@ CurrentModule = ClimateMachine
 ClimateMachine.Atmos.AtmosProblem
 ```
 
-## AtmosModel balance law
+## AtmosEquations balance law
 
 ```@docs
-ClimateMachine.Atmos.AtmosModel
+ClimateMachine.Atmos.AtmosEquations
 ```
 
-## AtmosModel methods
+## AtmosEquations methods
 
 ```@docs
-ClimateMachine.BalanceLaws.flux_first_order!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars, t::Real, direction)
-ClimateMachine.BalanceLaws.flux_second_order!(atmos::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, hyperdiffusive::Vars, aux::Vars, t::Real)
-ClimateMachine.BalanceLaws.init_state_auxiliary!(m::AtmosModel, state_auxiliary::MPIStateArray, grid, direction)
-ClimateMachine.BalanceLaws.source!(m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real, direction)
-ClimateMachine.BalanceLaws.init_state_prognostic!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
+ClimateMachine.BalanceLaws.flux_first_order!(atmos::AtmosEquations, flux::Grad, state::Vars, aux::Vars, t::Real, direction)
+ClimateMachine.BalanceLaws.flux_second_order!(atmos::AtmosEquations, flux::Grad, state::Vars, diffusive::Vars, hyperdiffusive::Vars, aux::Vars, t::Real)
+ClimateMachine.BalanceLaws.init_state_auxiliary!(atmos::AtmosEquations, state_auxiliary::MPIStateArray, grid, direction)
+ClimateMachine.BalanceLaws.source!(atmos::AtmosEquations, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real, direction)
+ClimateMachine.BalanceLaws.init_state_prognostic!(atmos::AtmosEquations, state::Vars, aux::Vars, coords, t, args...)
 ```
 
 ## Reference states
@@ -45,7 +45,7 @@ ClimateMachine.Atmos.new_thermo_state
 ## Moisture
 
 ```@docs
-ClimateMachine.Atmos.DryModel
+ClimateMachine.Atmos.DryEquations
 ClimateMachine.Atmos.EquilMoist
 ClimateMachine.Atmos.NonEquilMoist
 ClimateMachine.Atmos.NoPrecipitation

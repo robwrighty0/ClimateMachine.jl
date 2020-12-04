@@ -23,15 +23,15 @@ using ClimateMachine.Thermodynamics:
     PhasePartition
 using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
-    AtmosModel,
-    DryModel,
+    AtmosEquations,
+    DryEquations,
     NoPrecipitation,
     NoRadiation,
     NTracers,
     vars_state,
     Gravity,
     HydrostaticState,
-    AtmosAcousticGravityLinearModel
+    AtmosAcousticGravityLinearEquations
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Orientations:
     SphericalOrientation, gravitational_potential, altitude, latitude, longitude
@@ -117,21 +117,21 @@ function test_run(
     T_profile = IsothermalProfile(param_set, setup.T_ref)
     δ_χ = @SVector [FT(ii) for ii in 1:ntracers]
 
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = ConstantDynamicViscosity(FT(0)),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = Gravity(),
         tracers = NTracers{length(δ_χ), FT}(δ_χ),
     )
-    linearmodel = AtmosAcousticGravityLinearModel(model)
+    linear_atmos = AtmosAcousticGravityLinearEquations(atmos)
 
     dg = DGModel(
-        model,
+        atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
@@ -139,7 +139,7 @@ function test_run(
     )
 
     lineardg = DGModel(
-        linearmodel,
+        linear_atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
@@ -150,7 +150,7 @@ function test_run(
 
     # determine the time step
     element_size = (setup.domain_height / numelem_vert)
-    acoustic_speed = soundspeed_air(model.param_set, FT(setup.T_ref))
+    acoustic_speed = soundspeed_air(atmos.param_set, FT(setup.T_ref))
     dt_factor = 445
     dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
     # Adjust the time step so we exactly hit 1 hour for VTK output
@@ -242,13 +242,13 @@ function test_run(
 
         vtkstep = 0
         # output initial step
-        do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
+        do_output(mpicomm, vtkdir, vtkstep, dg, Q, atmos)
 
         # setup the output callback
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
             Qe = init_ode_state(dg, gettime(odesolver))
-            do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
+            do_output(mpicomm, vtkdir, vtkstep, dg, Q, atmos)
         end
         callbacks = (callbacks..., cbvtk)
     end
@@ -314,7 +314,7 @@ function do_output(
     vtkstep,
     dg,
     Q,
-    model,
+    bl,
     testname = "acousticwave",
 )
     ## name of the file that this MPI rank will write
@@ -326,8 +326,8 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
-    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
+    statenames = flattenednames(vars_state(bl, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(bl, Auxiliary(), eltype(Q)))
     writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
     ## Generate the pvtu file for these vtk files

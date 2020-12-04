@@ -1,27 +1,27 @@
-export DryModel, EquilMoist, NonEquilMoist
+export AbstractMoistureEquations, DryEquations, EquilMoist, NonEquilMoist
 
 #### Moisture component in atmosphere model
-abstract type MoistureModel end
+abstract type AbstractMoistureEquations <: AbstractAtmosComponent end
 
-vars_state(::MoistureModel, ::AbstractStateType, FT) = @vars()
+vars_state(::AbstractMoistureEquations, ::AbstractStateType, FT) = @vars()
 
 function atmos_nodal_update_auxiliary_state!(
-    ::MoistureModel,
-    m::AtmosModel,
+    ::AbstractMoistureEquations,
+    ::AtmosEquations,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
 function flux_moisture!(
-    ::MoistureModel,
-    ::AtmosModel,
+    ::AbstractMoistureEquations,
+    ::AtmosEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
 function compute_gradient_flux!(
-    ::MoistureModel,
+    ::AbstractMoistureEquations,
     diffusive,
     ∇transform,
     state,
@@ -29,7 +29,7 @@ function compute_gradient_flux!(
     t,
 ) end
 function flux_second_order!(
-    ::MoistureModel,
+    ::AbstractMoistureEquations,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
@@ -37,20 +37,20 @@ function flux_second_order!(
     t::Real,
     D_t,
 ) end
-function flux_first_order!(::MoistureModel, _...) end
+function flux_first_order!(::AbstractMoistureEquations, _...) end
 function compute_gradient_argument!(
-    ::MoistureModel,
+    ::AbstractMoistureEquations,
     transform::Vars,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
 
-internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
+internal_energy(atmos::AtmosEquations, state::Vars, aux::Vars) =
     internal_energy(atmos.moisture, atmos.orientation, state, aux)
 
 @inline function internal_energy(
-    moist::MoistureModel,
+    moist::AbstractMoistureEquations,
     orientation::Orientation,
     state::Vars,
     aux::Vars,
@@ -64,16 +64,16 @@ internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
 end
 
 """
-    DryModel
+    DryEquations
 
 Assumes the moisture components is in the dry limit.
 """
-struct DryModel <: MoistureModel end
+struct DryEquations <: AbstractMoistureEquations end
 
-vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
+vars_state(::DryEquations, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
 @inline function atmos_nodal_update_auxiliary_state!(
-    moist::DryModel,
-    atmos::AtmosModel,
+    moist::DryEquations,
+    atmos::AtmosEquations,
     state::Vars,
     aux::Vars,
     t::Real,
@@ -89,7 +89,7 @@ end
 
 Assumes the moisture components are computed via thermodynamic equilibrium.
 """
-struct EquilMoist{FT} <: MoistureModel
+struct EquilMoist{FT} <: AbstractMoistureEquations
     maxiter::Int
     tolerance::FT
 end
@@ -107,7 +107,7 @@ vars_state(::EquilMoist, ::Auxiliary, FT) =
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::EquilMoist,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state::Vars,
     aux::Vars,
     t::Real,
@@ -145,7 +145,7 @@ end
 
 function flux_moisture!(
     moist::EquilMoist,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -180,7 +180,7 @@ end
 
 Does not assume that the moisture components are in equilibrium.
 """
-struct NonEquilMoist <: MoistureModel end
+struct NonEquilMoist <: AbstractMoistureEquations end
 
 vars_state(::NonEquilMoist, ::Prognostic, FT) =
     @vars(ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
@@ -195,7 +195,7 @@ vars_state(::NonEquilMoist, ::Auxiliary, FT) = @vars(temperature::FT, θ_v::FT)
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::NonEquilMoist,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     state::Vars,
     aux::Vars,
     t::Real,
@@ -235,7 +235,7 @@ end
 
 function flux_moisture!(
     moist::NonEquilMoist,
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     flux::Grad,
     state::Vars,
     aux::Vars,

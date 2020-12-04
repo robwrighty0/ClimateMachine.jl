@@ -1,11 +1,11 @@
-abstract type TracerBC end
+abstract type AbstractTracerBC end
 
 """
-    ImpermeableTracer() :: TracerBC
+    ImpermeableTracer() :: AbstractTracerBC
 
 No tracer diffusion across boundary
 """
-struct ImpermeableTracer <: TracerBC end
+struct ImpermeableTracer <: AbstractTracerBC end
 function atmos_tracer_boundary_state!(
     nf,
     bc_tracer::ImpermeableTracer,

@@ -21,7 +21,7 @@ end
 
 """
     compute_buoyancy_gradients(
-        m::AtmosModel{FT},
+        atmos::AtmosEquations{FT},
         state::Vars,
         diffusive::Vars,
         aux::Vars,
@@ -31,14 +31,14 @@ end
 Returns the environmental buoyancy gradient following Tan et al. (JAMES, 2018)
 and the effective environmental static stability following
 Lopez-Gomez et al. (JAMES, 2020), given:
- - `m`, an `AtmosModel`
+ - `atmos`, the `AtmosEquations`
  - `state`, state variables
  - `diffusive`, additional variables
  - `aux`, auxiliary variables
  - `t`, the time
 """
 function compute_buoyancy_gradients(
-    m::AtmosModel{FT},
+    atmos::AtmosEquations{FT},
     state::Vars,
     diffusive::Vars,
     aux::Vars,
@@ -48,12 +48,12 @@ function compute_buoyancy_gradients(
     # Alias convention:
     gm = state
     en_dif = diffusive.turbconv.environment
-    N_up = n_updrafts(m.turbconv)
+    N_up = n_updrafts(atmos.turbconv)
 
-    _grav::FT = grav(m.param_set)
-    _R_d::FT = R_d(m.param_set)
-    _R_v::FT = R_v(m.param_set)
-    ε_v::FT = 1 / molmass_ratio(m.param_set)
+    _grav::FT = grav(atmos.param_set)
+    _R_d::FT = R_d(atmos.param_set)
+    _R_v::FT = R_v(atmos.param_set)
+    ε_v::FT = 1 / molmass_ratio(atmos.param_set)
     p = air_pressure(ts.gm)
 
     q_tot_en = total_specific_humidity(ts.en)
@@ -66,7 +66,7 @@ function compute_buoyancy_gradients(
     θ_virt = virtual_pottemp(ts.en)
 
     (ts_dry, ts_cloudy, cloud_frac) =
-        compute_subdomain_statistics(m, state, aux, t)
+        compute_subdomain_statistics(atmos, state, aux, t)
     cloudy = thermo_variables(ts_cloudy)
     dry = thermo_variables(ts_dry)
 

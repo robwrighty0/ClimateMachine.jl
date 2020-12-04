@@ -163,7 +163,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
-    # Set up the atmosphere model
+    # Set up the atmosphere equations
     exp_name = "HeldSuarez"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
 
@@ -174,14 +174,14 @@ function config_heldsuarez(FT, poly_order, resolution)
         tracers = NoTracers()
     end
 
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = init_heldsuarez!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!),
         tracers = tracers,
     )
@@ -193,7 +193,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         domain_height,
         param_set,
         init_heldsuarez!;
-        model = model,
+        equations = atmos,
     )
 
     return config
@@ -214,7 +214,7 @@ function main()
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_model = AtmosAcousticGravityLinearEquations,
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
         split_explicit_implicit = true,

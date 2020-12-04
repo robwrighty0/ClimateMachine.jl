@@ -27,8 +27,8 @@ using ClimateMachine.Thermodynamics:
     PhasePartition
 using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
-    AtmosModel,
-    DryModel,
+    AtmosEquations,
+    DryEquations,
     NoPrecipitation,
     NoRadiation,
     NTracers,
@@ -36,8 +36,8 @@ using ClimateMachine.Atmos:
     vars_state,
     Gravity,
     HydrostaticState,
-    AtmosAcousticGravityLinearModel,
-    AtmosAcousticLinearModel
+    AtmosAcousticGravityLinearEquations,
+    AtmosAcousticLinearEquations
 using ClimateMachine.Orientations:
     SphericalOrientation, gravitational_potential, altitude, latitude, longitude
 using ClimateMachine.VariableTemplates: flattenednames
@@ -126,19 +126,19 @@ function test_run(
     T_profile = IsothermalProfile(param_set, setup.T_ref)
     δ_χ = @SVector [FT(ii) for ii in 1:ntracers]
 
-    fullmodel = AtmosModel{FT}(
+    full_atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = ConstantDynamicViscosity(FT(0)),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = Gravity(),
         tracers = NTracers{length(δ_χ), FT}(δ_χ),
     )
     dg = DGModel(
-        fullmodel,
+        full_atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
@@ -146,12 +146,11 @@ function test_run(
     )
     Q = init_ode_state(dg, FT(0))
 
-    # The linear model which contains the fast modes
-    # acousticmodel = AtmosAcousticLinearModel(fullmodel)
-    acousticmodel = AtmosAcousticGravityLinearModel(fullmodel)
+    # The linear equations which contain the fast modes
+    acoustic_atmos = AtmosAcousticGravityLinearEquations(full_atmos)
 
     vacoustic_dg = DGModel(
-        acousticmodel,
+        acoustic_atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
@@ -160,13 +159,13 @@ function test_run(
         state_auxiliary = dg.state_auxiliary,
     )
 
-    # Advection model is the difference between the fullmodel and acousticmodel.
+    # Advection model is the difference between the full_atmos and acoustic_atmos.
     # This will be handled with explicit substepping (time step in between the
     # vertical and horizontally acoustic models)
     rem_dg = remainder_DGModel(dg, (vacoustic_dg,))
 
-    # determine the time step for the model components
-    acoustic_speed = soundspeed_air(fullmodel.param_set, FT(setup.T_ref))
+    # determine the time step for the components
+    acoustic_speed = soundspeed_air(full_atmos.param_set, FT(setup.T_ref))
     advection_speed = 1 # What's a reasonable number here?
 
     vacoustic_dt = vmnd / acoustic_speed
@@ -270,13 +269,13 @@ function test_run(
 
         vtkstep = 0
         # output initial step
-        do_output(mpicomm, vtkdir, vtkstep, dg, Q, fullmodel)
+        do_output(mpicomm, vtkdir, vtkstep, dg, Q, full_atmos)
 
         # setup the output callback
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
             Qe = init_ode_state(dg, gettime(odesolver))
-            do_output(mpicomm, vtkdir, vtkstep, dg, Q, fullmodel)
+            do_output(mpicomm, vtkdir, vtkstep, dg, Q, full_atmos)
         end
         callbacks = (callbacks..., cbvtk)
     end
@@ -340,7 +339,7 @@ function do_output(
     vtkstep,
     dg,
     Q,
-    model,
+    bl,
     testname = "acousticwave",
 )
     ## name of the file that this MPI rank will write
@@ -352,8 +351,8 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
-    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
+    statenames = flattenednames(vars_state(bl, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(bl, Auxiliary(), eltype(Q)))
     writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
     ## Generate the pvtu file for these vtk files

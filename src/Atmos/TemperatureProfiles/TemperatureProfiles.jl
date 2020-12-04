@@ -2,24 +2,24 @@ module TemperatureProfiles
 
 using DocStringExtensions
 
-export TemperatureProfile,
+export AbstractTemperatureProfile,
     IsothermalProfile, DecayingTemperatureProfile, DryAdiabaticProfile
 
 using CLIMAParameters: AbstractParameterSet
 using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref
 
 """
-    TemperatureProfile
+    AbstractTemperatureProfile
 
 Specifies the temperature or virtual temperature profile for a reference state.
 
 Instances of this type are required to be callable objects with the following signature
 
-    T,p = (::TemperatureProfile)(param_set::AbstractParameterSet, z::FT) where {FT}
+    T,p = (::AbstractTemperatureProfile)(param_set::AbstractParameterSet, z::FT) where {FT}
 
 where `T` is the temperature or virtual temperature (in K), and `p` is the pressure (in Pa).
 """
-abstract type TemperatureProfile{FT} end
+abstract type AbstractTemperatureProfile{FT} end
 
 """
     IsothermalProfile(param_set, T_virt)
@@ -40,7 +40,7 @@ function IsothermalProfile(
 end
 
 """
-    DryAdiabaticProfile{FT} <: TemperatureProfile{FT}
+    DryAdiabaticProfile{FT} <: AbstractTemperatureProfile{FT}
 
 
 A temperature profile that has uniform dry potential temperature `θ`
@@ -49,7 +49,7 @@ A temperature profile that has uniform dry potential temperature `θ`
 
 $(DocStringExtensions.FIELDS)
 """
-struct DryAdiabaticProfile{FT} <: TemperatureProfile{FT}
+struct DryAdiabaticProfile{FT} <: AbstractTemperatureProfile{FT}
     "Surface temperature (K)"
     T_surface::FT
     "Minimum temperature (K)"
@@ -98,7 +98,7 @@ function (profile::DryAdiabaticProfile)(
 end
 
 """
-    DecayingTemperatureProfile{F} <: TemperatureProfile{FT}
+    DecayingTemperatureProfile{F} <: AbstractTemperatureProfile{FT}
 
 A virtual temperature profile that decays smoothly with height `z`, from
 `T_virt_surf` to `T_min_ref` over a height scale `H_t`. The default height
@@ -112,7 +112,7 @@ T_{\\text{v}}(z) = \\max(T_{\\text{v, sfc}} − (T_{\\text{v, sfc}} - T_{\\text{
 
 $(DocStringExtensions.FIELDS)
 """
-struct DecayingTemperatureProfile{FT} <: TemperatureProfile{FT}
+struct DecayingTemperatureProfile{FT} <: AbstractTemperatureProfile{FT}
     "Virtual temperature at surface (K)"
     T_virt_surf::FT
     "Minimum virtual temperature at the top of the atmosphere (K)"

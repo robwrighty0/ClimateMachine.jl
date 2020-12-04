@@ -1,37 +1,37 @@
 ### Reference state
 using DocStringExtensions
 using ..TemperatureProfiles
-export ReferenceState, NoReferenceState, HydrostaticState
+export AbstractReferenceState, NoReferenceState, HydrostaticState
 
 using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref
 
 """
-    ReferenceState
+    AbstractReferenceState
 
 Hydrostatic reference state, for example, used as initial
 condition or for linearization.
 """
-abstract type ReferenceState end
+abstract type AbstractReferenceState end
 
-vars_state(m::ReferenceState, ::AbstractStateType, FT) = @vars()
+vars_state(m::AbstractReferenceState, ::AbstractStateType, FT) = @vars()
 
 atmos_init_aux!(
-    ::ReferenceState,
-    ::AtmosModel,
+    ::AbstractReferenceState,
+    ::AtmosEquations,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
 ) = nothing
 
 """
-    NoReferenceState <: ReferenceState
+    NoReferenceState <: AbstractReferenceState
 
 No reference state used
 """
-struct NoReferenceState <: ReferenceState end
+struct NoReferenceState <: AbstractReferenceState end
 
 """
-    HydrostaticState{P,T} <: ReferenceState
+    HydrostaticState{P,T} <: AbstractReferenceState
 
 A hydrostatic state specified by a virtual
 temperature profile and relative humidity.
@@ -39,7 +39,7 @@ temperature profile and relative humidity.
 By default, this is a dry hydrostatic reference
 state.
 """
-struct HydrostaticState{P, FT} <: ReferenceState
+struct HydrostaticState{P, FT} <: AbstractReferenceState
     virtual_temperature_profile::P
     relative_humidity::FT
 end
@@ -58,7 +58,7 @@ vars_state(m::HydrostaticState, ::Auxiliary, FT) =
 atmos_init_ref_state_pressure!(m, _...) = nothing
 function atmos_init_ref_state_pressure!(
     m::HydrostaticState{P, F},
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     aux::Vars,
     geom::LocalGeometry,
 ) where {P, F}
@@ -69,7 +69,7 @@ end
 
 function atmos_init_aux!(
     m::HydrostaticState{P, F},
-    atmos::AtmosModel,
+    atmos::AtmosEquations,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
@@ -100,7 +100,7 @@ function atmos_init_aux!(
     q_tot = q_pt.tot
     q_liq = q_pt.liq
     q_ice = q_pt.ice
-    if atmos.moisture isa DryModel
+    if atmos.moisture isa DryEquations
         ts = PhaseDry_given_ρT(atmos.param_set, ρ, T)
     else
         ts = TemperatureSHumEquil(atmos.param_set, T, ρ, q_tot)
@@ -124,33 +124,33 @@ using ..DGMethods.NumericalFluxes:
 
 
 """
-    PressureGradientModel
+    PressureGradientEquations
 
 A mini balance law that is used to take the gradient of reference
 pressure. The gradient is computed as ∇ ⋅(pI) and the calculation
 uses the balance law interface to be numerically consistent with
 the way this gradient is computed in the dynamics.
 """
-struct PressureGradientModel <: BalanceLaw end
-vars_state(::PressureGradientModel, ::Auxiliary, T) = @vars(p::T)
-vars_state(::PressureGradientModel, ::Prognostic, T) = @vars(∇p::SVector{3, T})
-vars_state(::PressureGradientModel, ::Gradient, T) = @vars()
-vars_state(::PressureGradientModel, ::GradientFlux, T) = @vars()
+struct PressureGradientEquations <: BalanceLaw end
+vars_state(::PressureGradientEquations, ::Auxiliary, T) = @vars(p::T)
+vars_state(::PressureGradientEquations, ::Prognostic, T) = @vars(∇p::SVector{3, T})
+vars_state(::PressureGradientEquations, ::Gradient, T) = @vars()
+vars_state(::PressureGradientEquations, ::GradientFlux, T) = @vars()
 function init_state_auxiliary!(
-    m::PressureGradientModel,
+    m::PressureGradientEquations,
     state_auxiliary::MPIStateArray,
     grid,
     direction,
 ) end
 function init_state_prognostic!(
-    ::PressureGradientModel,
+    ::PressureGradientEquations,
     state::Vars,
     aux::Vars,
     coord,
     t,
 ) end
 function flux_first_order!(
-    ::PressureGradientModel,
+    ::PressureGradientEquations,
     flux::Grad,
     state::Vars,
     auxstate::Vars,
@@ -159,16 +159,16 @@ function flux_first_order!(
 )
     flux.∇p -= auxstate.p * I
 end
-flux_second_order!(::PressureGradientModel, _...) = nothing
-source!(::PressureGradientModel, _...) = nothing
-boundary_state!(nf, ::PressureGradientModel, _...) = nothing
+flux_second_order!(::PressureGradientEquations, _...) = nothing
+source!(::PressureGradientEquations, _...) = nothing
+boundary_state!(nf, ::PressureGradientEquations, _...) = nothing
 
 ∇reference_pressure(::NoReferenceState, state_auxiliary, grid) = nothing
-function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
+function ∇reference_pressure(::AbstractReferenceState, state_auxiliary, grid)
     FT = eltype(state_auxiliary)
     ∇p = similar(state_auxiliary; vars = @vars(∇p::SVector{3, FT}), nstate = 3)
 
-    grad_model = PressureGradientModel()
+    grad_model = PressureGradientEquations()
     # Note that the choice of numerical fluxes doesn't matter
     # for taking the gradient of a continuous field
     grad_dg = DGModel(

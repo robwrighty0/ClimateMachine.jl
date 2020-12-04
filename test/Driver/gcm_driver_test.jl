@@ -72,20 +72,20 @@ function main()
     orientation = SphericalOrientation()
     ref_state = HydrostaticState(T_profile)
     turbulence = ConstantDynamicViscosity(FT(0))
-    model = AtmosModel{FT}(
+    model = AtmosEquations{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = setup,
         orientation = orientation,
         ref_state = ref_state,
         turbulence = turbulence,
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = Gravity(),
     )
 
     ode_solver = ClimateMachine.MultirateSolverType(
         splitting_type = ClimateMachine.HEVISplitting(),
-        fast_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearEquations,
         implicit_solver_adjustable = true,
         slow_method = LSRK54CarpenterKennedy,
         fast_method = ARK2ImplicitExplicitMidpoint,

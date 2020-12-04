@@ -119,7 +119,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
             boundarycondition = InitStateBC(),
             init_state_prognostic = mms2_init_state!,
         )
-        model = AtmosModel{FT}(
+        atmos = AtmosEquations{FT}(
             AtmosLESConfigType,
             param_set;
             problem = problem,
@@ -129,7 +129,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                 FT(μ_exact),
                 WithDivergence(),
             ),
-            moisture = DryModel(),
+            moisture = DryEquations(),
             source = mms2_source!,
         )
     else
@@ -137,7 +137,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
             boundarycondition = InitStateBC(),
             init_state_prognostic = mms3_init_state!,
         )
-        model = AtmosModel{FT}(
+        atmos = AtmosEquations{FT}(
             AtmosLESConfigType,
             param_set;
             problem = problem,
@@ -147,13 +147,13 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                 FT(μ_exact),
                 WithDivergence(),
             ),
-            moisture = DryModel(),
+            moisture = DryEquations(),
             source = mms3_source!,
         )
     end
 
     dg = DGModel(
-        model,
+        atmos,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),

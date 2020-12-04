@@ -1,6 +1,6 @@
 export PhasePartition
 # Thermodynamic states
-export ThermodynamicState,
+export AbstractThermodynamicState,
     PhaseDry,
     PhaseDry_given_ρT,
     PhaseDry_given_pT,
@@ -23,7 +23,7 @@ Represents the mass fractions of the moist air mixture.
 # Constructors
 
     PhasePartition(q_tot::Real[, q_liq::Real[, q_ice::Real]])
-    PhasePartition(ts::ThermodynamicState)
+    PhasePartition(ts::AbstractThermodynamicState)
 
 See also [`PhasePartition_equil`](@ref)
 
@@ -52,17 +52,17 @@ PhasePartition(q_tot::FT) where {FT <: Real} =
     PhasePartition(q_tot, zero(FT), zero(FT))
 
 """
-    ThermodynamicState{FT}
+    AbstractThermodynamicState{FT}
 
 A thermodynamic state, which can be initialized for
 various thermodynamic formulations (via its sub-types).
-All `ThermodynamicState`'s have access to functions to
+All `AbstractThermodynamicState`'s have access to functions to
 compute all other thermodynamic properties.
 """
-abstract type ThermodynamicState{FT} end
+abstract type AbstractThermodynamicState{FT} end
 
 """
-    PhaseEquil{FT} <: ThermodynamicState
+    PhaseEquil{FT} <: AbstractThermodynamicState
 
 A thermodynamic state assuming thermodynamic equilibrium (therefore, saturation adjustment
 may be needed).
@@ -75,7 +75,7 @@ may be needed).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseEquil{FT, PS} <: ThermodynamicState{FT}
+struct PhaseEquil{FT, PS} <: AbstractThermodynamicState{FT}
     "parameter set, used to dispatch planet parameter function calls"
     param_set::PS
     "internal energy"
@@ -126,7 +126,7 @@ function PhaseEquil(
 end
 
 """
-    PhaseDry{FT} <: ThermodynamicState
+    PhaseDry{FT} <: AbstractThermodynamicState
 
 A dry thermodynamic state (`q_tot = 0`).
 
@@ -138,7 +138,7 @@ A dry thermodynamic state (`q_tot = 0`).
 
 $(DocStringExtensions.FIELDS)
 """
-struct PhaseDry{FT, PS} <: ThermodynamicState{FT}
+struct PhaseDry{FT, PS} <: AbstractThermodynamicState{FT}
     "parameter set, used to dispatch planet parameter function calls"
     param_set::PS
     "internal energy"
@@ -314,7 +314,7 @@ function TemperatureSHumEquil_given_pressure(
 end
 
 """
-   	 PhaseNonEquil{FT} <: ThermodynamicState
+   	 PhaseNonEquil{FT} <: AbstractThermodynamicState
 
 A thermodynamic state assuming thermodynamic non-equilibrium (therefore, temperature can
 be computed directly).
@@ -328,7 +328,7 @@ be computed directly).
 $(DocStringExtensions.FIELDS)
 
 """
-struct PhaseNonEquil{FT, PS} <: ThermodynamicState{FT}
+struct PhaseNonEquil{FT, PS} <: AbstractThermodynamicState{FT}
     "parameter set, used to dispatch planet parameter function calls"
     param_set::PS
     "internal energy"

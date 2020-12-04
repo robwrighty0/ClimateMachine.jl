@@ -175,13 +175,13 @@ function config_schar(FT, N, resolution, xmax, ymax, zmax)
 
     _C_smag = FT(0.21)
     _δχ = SVector{1, FT}(0)
-    model = AtmosModel{FT}(
+    atmos = AtmosEquations{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = init_schar!,
         ref_state = ref_state,
         turbulence = Vreman(_C_smag),
-        moisture = DryModel(),
+        moisture = DryEquations(),
         source = source,
         tracers = NTracers{1, FT}(_δχ),
     )
@@ -196,7 +196,7 @@ function config_schar(FT, N, resolution, xmax, ymax, zmax)
         param_set,               # Parameter set.
         init_schar!,             # Function specifying initial condition
         solver_type = ode_solver,# Time-integrator type
-        model = model,           # Model type
+        equations = atmos,       # Equations
         meshwarp = setmax(warp_schar, xmax, ymax, zmax),
     )
 

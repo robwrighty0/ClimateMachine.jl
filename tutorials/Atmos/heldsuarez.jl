@@ -137,9 +137,9 @@ ClimateMachine.init();
 FT = Float32;
 
 
-# ## Setup model configuration
+# ## Setup configuration
 # Now that we have defined our forcing and initialization functions, and have
-# initialized ClimateMachine, we can set up the model.
+# initialized ClimateMachine, we can set up the equations.
 #
 # ## Set up a reference state
 # We start by setting up a reference state. This is simply a vector field that
@@ -165,27 +165,27 @@ exponent = FT(2)                       # sponge exponent for squared-sinusoid pr
 u_relax = SVector(FT(0), FT(0), FT(0)) # relaxation velocity (m/s)
 sponge = RayleighSponge(domain_height, z_sponge, α_relax, u_relax, exponent);
 
-# ## Set up turbulence models
+# ## Set up turbulence
 # In order to produce a stable simulation, we need to dissipate energy and
 # enstrophy at the smallest scales of the developed flow field. To achieve this
 # we set up diffusive forcing functions.
 c_smag = FT(0.21);   # Smagorinsky constant
 τ_hyper = FT(4 * 3600); # hyperdiffusion time scale
-turbulence_model = SmagorinskyLilly(c_smag);
-hyperdiffusion_model = DryBiharmonic(FT(4 * 3600));
+turbulence = SmagorinskyLilly(c_smag);
+hyperdiffusion = DryBiharmonic(FT(4 * 3600));
 
 
-# ## Instantiate the model
+# ## Instantiate the equations
 # The Held Suarez setup was designed to produce an equilibrated state that is
 # comparable to the zonal mean of the Earth’s atmosphere.
-model = AtmosModel{FT}(
+atmos = AtmosEquations{FT}(
     AtmosGCMConfigType,
     param_set;
     init_state_prognostic = init_heldsuarez!,
     ref_state = ref_state,
-    turbulence = turbulence_model,
-    hyperdiffusion = hyperdiffusion_model,
-    moisture = DryModel(),
+    turbulence = turbulence,
+    hyperdiffusion = hyperdiffusion,
+    moisture = DryEquations(),
     source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
 );
 
@@ -212,7 +212,7 @@ driver_config = ClimateMachine.AtmosGCMConfiguration(
     domain_height,
     param_set,
     init_heldsuarez!;
-    model = model,
+    equations = atmos,
 );
 
 # The next lines set up the time stepper. Since the resolution
@@ -223,7 +223,7 @@ driver_config = ClimateMachine.AtmosGCMConfiguration(
 # are treated explicitly.
 ode_solver_type = ClimateMachine.IMEXSolverType(
     splitting_type = HEVISplitting(),
-    implicit_model = AtmosAcousticGravityLinearModel,
+    implicit_model = AtmosAcousticGravityLinearEquations,
     implicit_solver = ManyColumnLU,
     solver_method = ARK2GiraldoKellyConstantinescu,
 );
@@ -248,7 +248,7 @@ filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder);
 cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
     Filters.apply!(
         solver_config.Q,
-        AtmosFilterPerturbations(model),
+        AtmosFilterPerturbations(atmos),
         solver_config.dg.grid,
         filter,
         state_auxiliary = solver_config.dg.state_auxiliary,

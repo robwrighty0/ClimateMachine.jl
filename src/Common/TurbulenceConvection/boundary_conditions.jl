@@ -6,14 +6,14 @@ export TurbConvBC,
     turbconv_boundary_state!,
     turbconv_normal_boundary_flux_second_order!
 
-abstract type TurbConvBC end
+abstract type AbstractTurbConvBC end
 
 """
-    NoTurbConvBC <: TurbConvBC
+    NoTurbConvBC <: AbstractTurbConvBC
 
 Boundary conditions are not applied
 """
-struct NoTurbConvBC <: TurbConvBC end
+struct NoTurbConvBC <: AbstractTurbConvBC end
 
 turbconv_bcs(::NoTurbConv) = NoTurbConvBC()
 

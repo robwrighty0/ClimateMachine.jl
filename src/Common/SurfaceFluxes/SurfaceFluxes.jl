@@ -44,7 +44,7 @@ using CLIMAParameters.Planet: molmass_ratio, grav
 using CLIMAParameters.SubgridScale: von_karman_const
 
 const APS = AbstractParameterSet
-abstract type SurfaceFluxesModel end
+abstract type AbstractSurfaceFluxes end
 
 struct Momentum end
 struct Heat end

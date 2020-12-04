@@ -22,7 +22,7 @@ export remove_precipitation
 """
     remove_precipitation(param_set::APS, q; q_vap_sat)
 
- - `param_set` - abstract parameter set
+ - `param_set` - parameter set
  - `q` - current PhasePartition
  - `q_vap_sat` - water vapor specific humidity at saturation
 
