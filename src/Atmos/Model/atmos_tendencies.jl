@@ -2,8 +2,6 @@
 ##### Tendency specification
 #####
 
-import ..BalanceLaws: eq_tends
-
 #####
 ##### Sources
 #####
@@ -67,16 +65,23 @@ eq_tends(pv::PV, m::AtmosModel, ::Flux{FirstOrder}) where {PV <: Momentum} =
     (Advect{PV}(), PressureGradient{PV}())
 
 # Energy
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Energy} =
-    (Advect{PV}(), Pressure{PV}())
+eq_tends(pv::PV, m::AtmosModel, tt::Flux{FirstOrder}) where {PV <: Energy} =
+    (Advect{PV}(), Pressure{PV}(), eq_tends(pv, m.radiation, tt)...)
 
 # Moisture
 eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Moisture} =
     (Advect{PV}(),)
 
 # Precipitation
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Precipitation} =
-    ()
+eq_tends(
+    pv::PV,
+    m::AtmosModel,
+    tt::Flux{FirstOrder},
+) where {PV <: Precipitation} = (eq_tends(pv, m.precipitation, tt)...,)
+
+# Tracers
+eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {N, PV <: Tracers{N}} =
+    (Advect{PV}(),)
 
 #####
 ##### Second order fluxes
@@ -106,3 +111,10 @@ eq_tends(
     ::AtmosModel,
     ::Flux{SecondOrder},
 ) where {PV <: Precipitation} = ()
+
+# Tracers
+eq_tends(
+    pv::PV,
+    ::AtmosModel,
+    ::Flux{SecondOrder},
+) where {N, PV <: Tracers{N}} = ()
