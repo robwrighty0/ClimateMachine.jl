@@ -186,10 +186,11 @@ let
     numelem = (5, 5, 5)
     lvls = 1
 
-    polynomialorder = 4
+    polynomialorder = (4, 0)
 
     for FT in (Float64,) #Float32)
         for dim in 2:3
+            polynomialorder = dim == 2 ? (4, 0) : (4, 4, 0)
             err = zeros(FT, lvls)
             for l in 1:lvls
                 @info (ArrayType, FT, dim)

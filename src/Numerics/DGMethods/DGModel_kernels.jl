@@ -2107,7 +2107,7 @@ See [`BalanceLaw`](@ref) for usage.
 
                 # multiply in the curve jacobian
                 @unroll for s in 1:nout
-                    local_kernel[s, k] *= Jc
+                    @show local_kernel[s, k] *= Jc
                 end
             end
 
