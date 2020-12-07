@@ -26,4 +26,5 @@ eq_tends(::Y, ::TestBL, ::Source) = (S{Y}(),)
     @test sources(bl) == (S{X}(), S{Y}())
     show_tendencies(bl)
     show_tendencies(bl; include_params = true)
+    include("prog_prim_conversion.jl")
 end
