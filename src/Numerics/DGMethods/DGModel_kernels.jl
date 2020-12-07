@@ -2420,36 +2420,36 @@ end
 
         bctag = (bc_dn, bc_up)
 
-        e = (e_dn, e, e_up)
+        els = (e_dn, e, e_up)
 
         # Load the normal vectors and surface mass matrix on the faces
         normal_vector = ntuple(
             k -> SVector(
-                sgeo[_n1, n, faces[k], e[2]],
-                sgeo[_n2, n, faces[k], e[2]],
-                sgeo[_n3, n, faces[k], e[2]],
+                sgeo[_n1, n, faces[k], e],
+                sgeo[_n2, n, faces[k], e],
+                sgeo[_n3, n, faces[k], e],
             ),
             Val(2),
         )
-        sM = ntuple(k -> sgeo[_sM, n, faces[k], e[2]], Val(2))
+        sM = ntuple(k -> sgeo[_sM, n, faces[k], e], Val(2))
 
         # volume mass same on both faces
-        vMI = sgeo[_vMI, n, faces[1], e[2]]
+        vMI = sgeo[_vMI, n, faces[1], e]
 
         # Get the mass matrix for each of the elements
-        M = ntuple(k -> vgeo[n, _M, e[k]], Val(3))
+        M = ntuple(k -> vgeo[n, _M, els[k]], Val(3))
 
         # load prognostic data
         @unroll for k in 1:3
             @unroll for s in 1:num_state_prognostic
-                local_state_prognostic[k][s] = state_prognostic[n, s, e[k]]
+                local_state_prognostic[k][s] = state_prognostic[n, s, els[k]]
             end
         end
 
         # load auxiliary data
         @unroll for k in 1:3
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary[k][s] = state_auxiliary[n, s, e[k]]
+                local_state_auxiliary[k][s] = state_auxiliary[n, s, els[k]]
             end
         end
 
@@ -2542,7 +2542,7 @@ end
         # This is the surface integral evaluated discretely
         # M^(-1) Mf G*
         @unroll for s in 1:num_state_gradient_flux
-            state_gradient_flux[n, s, e[2]] += local_state_gradient_flux[s]
+            state_gradient_flux[n, s, e] += local_state_gradient_flux[s]
         end
     end
 end
