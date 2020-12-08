@@ -244,7 +244,6 @@ struct DiscontinuousSpectralElementGrid{
             j -> indefinite_integral_interpolation_matrix(ξ[j], ω[j]),
             dim,
         )
-        @show Imat[end]
         D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
 
         (vgeo, sgeo, x_vtk) =
