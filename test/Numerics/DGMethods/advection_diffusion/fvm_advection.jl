@@ -8,7 +8,7 @@ import ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxSecondOrder,
     CentralNumericalFluxGradient
-import ClimateMachine.DGMethods: DGFVMModel, init_ode_state
+import ClimateMachine.DGMethods: DGFVModel, init_ode_state
 import ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 import ClimateMachine.MPIStateArrays: MPIStateArray, euclidean_distance
@@ -110,7 +110,7 @@ function test_run(
         polynomialorder = N,
     )
     model = AdvectionDiffusion{dim}(Pseudo1D{n, α}(), diffusion = false)
-    dgfvm = DGFVMModel(
+    dgfvm = DGFVModel(
         model,
         grid,
         RusanovNumericalFlux(),

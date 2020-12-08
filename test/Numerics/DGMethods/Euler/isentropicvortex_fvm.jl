@@ -177,7 +177,7 @@ function test_run(
         source = (),
     )
 
-    dgfvm = DGFVMModel(
+    dgfvm = DGFVModel(
         model,
         grid,
         NumericalFlux(),

@@ -182,7 +182,7 @@ function test_run(mpicomm, dim, polynomialorders, level, ArrayType, FT, vtkdir)
     )
 
     # Main DG discretization
-    dgfvm = DGFVMModel(
+    dgfvm = DGFVModel(
         model,
         grid,
         RusanovNumericalFlux(),

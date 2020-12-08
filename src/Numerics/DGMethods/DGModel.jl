@@ -14,7 +14,7 @@ Must have the following properties:
 """
 abstract type SpaceDiscretization end
 
-struct DGFVMModel{BL, G, NFND, NFD, GNF, AS, DS, D, DD, MD} <:
+struct DGFVModel{BL, G, NFND, NFD, GNF, AS, DS, D, DD, MD} <:
        SpaceDiscretization
     balance_law::BL
     grid::G
@@ -28,7 +28,7 @@ struct DGFVMModel{BL, G, NFND, NFD, GNF, AS, DS, D, DD, MD} <:
     modeldata::MD
 end
 
-function DGFVMModel(
+function DGFVModel(
     balance_law,
     grid,
     numerical_flux_first_order,
@@ -51,7 +51,7 @@ function DGFVMModel(
     @assert isstacked(grid.topology)
     state_auxiliary =
         init_state(state_auxiliary, balance_law, grid, direction, Auxiliary())
-    DGFVMModel(
+    DGFVModel(
         balance_law,
         grid,
         numerical_flux_first_order,
@@ -184,7 +184,7 @@ function (spacedisc::SpaceDiscretization)(
 end
 
 """
-    (dgfvm::DGFVMModel)(tendency, state_prognostic, _, t, α, β)
+    (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
 
 Uses spectral element discontinuous Galerkin in the horizontal and finite volume
 in the vertical to compute the tendency.
@@ -197,7 +197,7 @@ The 4-argument form will just compute
 
     tendency .= dQdt(state_prognostic, p, t)
 """
-function (dgfvm::DGFVMModel)(tendency, state_prognostic, _, t, α, β)
+function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
     device = array_device(state_prognostic)
 
     FT = eltype(state_prognostic)
@@ -1210,7 +1210,7 @@ Launches horizontal and vertical kernels for computing the volume gradients.
 function launch_volume_gradients!(spacedisc, state_prognostic, t; dependencies)
     FT = eltype(state_prognostic)
     # XXX: This is until FVM with hyperdiffusion for DG is implemented
-    if spacedisc isa DGFVMModel
+    if spacedisc isa DGFVModel
         @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
         Qhypervisc_grad_data = nothing
     elseif spacedisc isa DGModel
@@ -1309,7 +1309,7 @@ function launch_interface_gradients!(
 )
     @assert surface === :interior || surface === :exterior
     # XXX: This is until FVM with DG hyperdiffusion is implemented
-    if spacedisc isa DGFVMModel
+    if spacedisc isa DGFVModel
         @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
         Qhypervisc_grad_data = nothing
     elseif spacedisc isa DGModel
@@ -1398,7 +1398,7 @@ function launch_interface_gradients!(
                 ndrange = ndrange,
                 dependencies = comp_stream,
             )
-        elseif spacedisc isa DGFVMModel
+        elseif spacedisc isa DGFVModel
             # Make sure FVM in the vertical
             @assert info.N[info.dim] == 0
 
@@ -1798,7 +1798,7 @@ function launch_volume_tendency!(
     dependencies,
 )
     # XXX: This is until FVM with hyperdiffusion is implemented
-    if spacedisc isa DGFVMModel
+    if spacedisc isa DGFVModel
         @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
         Qhypervisc_grad_data = nothing
     elseif spacedisc isa DGModel
@@ -1920,7 +1920,7 @@ function launch_interface_tendency!(
 )
     @assert surface === :interior || surface === :exterior
     # XXX: This is until FVM with diffusion is implemented
-    if spacedisc isa DGFVMModel
+    if spacedisc isa DGFVModel
         @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
         Qhypervisc_grad_data = nothing
     elseif spacedisc isa DGModel
@@ -2012,7 +2012,7 @@ function launch_interface_tendency!(
                 ndrange = ndrange,
                 dependencies = comp_stream,
             )
-        elseif spacedisc isa DGFVMModel
+        elseif spacedisc isa DGFVModel
             # Make sure FVM in the vertical
             @assert info.N[info.dim] == 0
 

@@ -163,7 +163,7 @@ function test_run(mpicomm, vtkdir, polynomialorders, level, ArrayType, FT)
     model = AdvectionDiffusion{dim}(Pseudo1D{u, v, ν}(), num_equations = 2)
 
     # Main DG discretization
-    dgfvm = DGFVMModel(
+    dgfvm = DGFVModel(
         model,
         grid,
         RusanovNumericalFlux(),
