@@ -210,27 +210,20 @@ struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
 end
 
 function flux_first_order!(
-    lm::AtmosAcousticLinearModel,
+    lm::AtmosLinearModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
     direction,
 )
-    FT = eltype(state)
-    ref = aux.ref_state
-    e_pot = gravitational_potential(lm.atmos.orientation, aux)
-
-    flux.ρ = state.ρu
-    pL = linearized_pressure(
-        lm.atmos.moisture,
-        lm.atmos.param_set,
-        lm.atmos.orientation,
-        state,
-        aux,
-    )
-    flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
+    ρu_pad = SVector(1, 1, 1)
+    ts = recover_thermo_state(lm.atmos, state, aux)
+    tend = Flux{FirstOrder}()
+    args = (lm, state, aux, t, ts, direction)
+    flux.ρ = Σfluxes(eq_tends(Mass(), lm, tend), args...)
+    flux.ρu = Σfluxes(eq_tends(Momentum(), lm, tend), args...) .* ρu_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), lm, tend), args...)
     nothing
 end
 source!(::AtmosAcousticLinearModel, _...) = nothing
@@ -244,30 +237,7 @@ struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
         new{M}(atmos)
     end
 end
-function flux_first_order!(
-    lm::AtmosAcousticGravityLinearModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    FT = eltype(state)
-    ref = aux.ref_state
-    e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
-    flux.ρ = state.ρu
-    pL = linearized_pressure(
-        lm.atmos.moisture,
-        lm.atmos.param_set,
-        lm.atmos.orientation,
-        state,
-        aux,
-    )
-    flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
-    nothing
-end
 function source!(
     lm::AtmosAcousticGravityLinearModel,
     source::Vars,
@@ -277,10 +247,12 @@ function source!(
     t::Real,
     ::NTuple{1, Dir},
 ) where {Dir <: Direction}
-    if Dir === VerticalDirection || Dir === EveryDirection
-        ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
-        source.ρu -= state.ρ * ∇Φ
-    end
+    ρu_pad = SVector(1, 1, 1)
+    tend = Source()
+    ts = recover_thermo_state(lm.atmos, state, aux)
+    args = (lm, state, aux, t, ts, direction, diffusive)
+    # Sources for the linear atmos model only appear in the momentum equation
+    source.ρu = Σsources(eq_tends(Momentum(), lm, tend), args...) .* ρu_pad
     nothing
 end
 

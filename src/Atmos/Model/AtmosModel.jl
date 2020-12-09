@@ -456,6 +456,9 @@ include("linear.jl")
 include("courant.jl")
 include("filters.jl")
 
+include("linear_tendencies.jl")
+include("linear_atmos_tendencies.jl")
+
 include("atmos_tendencies.jl")        # specify atmos tendencies
 include("get_prognostic_vars.jl")     # get tuple of prognostic variables
 
