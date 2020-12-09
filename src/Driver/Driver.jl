@@ -78,6 +78,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     array_type::Type = Array
     sim_time::Float64 = NaN
     fixed_number_of_steps::Int = -1
+    degree::NTuple{2, Int} = (4, 4)
 end
 
 const Settings = ClimateMachine_Settings()
@@ -293,6 +294,11 @@ function parse_commandline(
         metavar = "<number>"
         arg_type = Int
         default = get_setting(:fixed_number_of_steps, defaults, global_defaults)
+        "--degree"
+        help = "tuple of horizontal and vertical polynomial degrees for spatial discretization order"
+        metavar = "<number>"
+        arg_type = Int # Q: Should this be arg_type = tuple ?
+        default = get_setting(:degree, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
     if !isnothing(custom_clargs)
@@ -369,6 +375,8 @@ Recognized keyword arguments are:
         run for the specified time (in simulation seconds)
 - `fixed_number_of_steps::Int = -1`:
         if `≥0` perform specified number of steps
+- `degree::NTuple{2, Int} = (4, 4)`:
+        tuple of horizontal and vertical polynomial degrees for spatial discretization order
 
 Returns `nothing`, or if `parse_clargs = true`, returns parsed command line
 arguments.
