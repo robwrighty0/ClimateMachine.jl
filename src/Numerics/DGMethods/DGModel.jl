@@ -218,13 +218,13 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
             typeof(dgfvm.direction) <: VerticalDirection
         )
 
-    #JK update_auxiliary_state!(
-    #JK     dg,
-    #JK     dg.balance_law,
-    #JK     state_prognostic,
-    #JK     t,
-    #JK     dg.grid.topology.realelems,
-    #JK )
+    update_auxiliary_state!(
+        dgfvm,
+        dgfvm.balance_law,
+        state_prognostic,
+        t,
+        dgfvm.grid.topology.realelems,
+    )
 
     exchange_state_gradient_flux = NoneEvent()
     exchange_state_prognostic = NoneEvent()
@@ -266,15 +266,15 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
 
             # update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
-            #JK wait(device, exchange_state_prognostic)
-            #JK update_auxiliary_state!(
-            #JK     dgfvm,
-            #JK     dgfvm.balance_law,
-            #JK     state_prognostic,
-            #JK     t,
-            #JK     dgfvm.grid.topology.ghostelems,
-            #JK )
-            #JK exchange_state_prognostic = Event(device)
+            wait(device, exchange_state_prognostic)
+            update_auxiliary_state!(
+                dgfvm,
+                dgfvm.balance_law,
+                state_prognostic,
+                t,
+                dgfvm.grid.topology.ghostelems,
+            )
+            exchange_state_prognostic = Event(device)
         end
 
         comp_stream = launch_interface_gradients!(
@@ -295,19 +295,19 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
             end
         end
 
-        #JK if num_state_gradient_flux > 0
-        #JK     # update_aux_diffusive may start asynchronous work on the compute device
-        #JK     # and we synchronize those here through a device event.
-        #JK     wait(device, comp_stream)
-        #JK     update_auxiliary_state_gradient!(
-        #JK         dgfvm,
-        #JK         dgfvm.balance_law,
-        #JK         state_prognostic,
-        #JK         t,
-        #JK         dgfvm.grid.topology.realelems,
-        #JK     )
-        #JK     comp_stream = Event(device)
-        #JK end
+        if num_state_gradient_flux > 0
+            # update_aux_diffusive may start asynchronous work on the compute device
+            # and we synchronize those here through a device event.
+            wait(device, comp_stream)
+            update_auxiliary_state_gradient!(
+                dgfvm,
+                dgfvm.balance_law,
+                state_prognostic,
+                t,
+                dgfvm.grid.topology.realelems,
+            )
+            comp_stream = Event(device)
+        end
     end
 
     ###################
@@ -335,23 +335,42 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
     )
 
     if communicate
-        # TODO: gradient and hyperdiffusion communication
-        exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
-            state_prognostic;
-            dependencies = exchange_state_prognostic,
-        )
+        if num_state_gradient_flux > 0
+            exchange_state_gradient_flux = MPIStateArrays.end_ghost_exchange!(
+                dgfvm.state_gradient_flux;
+                dependencies = exchange_state_gradient_flux,
+            )
 
-        # update_aux may start asynchronous work on the compute device and
-        # we synchronize those here through a device event.
-        wait(device, exchange_state_prognostic)
-        #JK update_auxiliary_state!(
-        #JK     dg,
-        #JK     dg.balance_law,
-        #JK     state_prognostic,
-        #JK     t,
-        #JK     dg.grid.topology.ghostelems,
-        #JK )
-        #JK exchange_state_prognostic = Event(device)
+            # update_aux_diffusive may start asynchronous work on the
+            # compute device and we synchronize those here through a device
+            # event.
+            wait(device, exchange_state_gradient_flux)
+            update_auxiliary_state_gradient!(
+                dgfvm,
+                dgfvm.balance_law,
+                state_prognostic,
+                t,
+                dgfvm.grid.topology.ghostelems,
+            )
+            exchange_state_gradient_flux = Event(device)
+        else
+            exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
+                state_prognostic;
+                dependencies = exchange_state_prognostic,
+            )
+
+            # update_aux may start asynchronous work on the compute device and
+            # we synchronize those here through a device event.
+            wait(device, exchange_state_prognostic)
+            update_auxiliary_state!(
+                dgfvm,
+                dgfvm.balance_law,
+                state_prognostic,
+                t,
+                dgfvm.grid.topology.ghostelems,
+            )
+            exchange_state_prognostic = Event(device)
+        end
     end
 
     comp_stream = launch_interface_tendency!(
@@ -365,7 +384,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
         dependencies = (
             comp_stream,
             exchange_state_prognostic,
-            #JK exchange_state_gradient_flux,
+            exchange_state_gradient_flux,
             #JK exchange_Qhypervisc_grad,
         ),
     )
@@ -849,15 +868,7 @@ function init_state_auxiliary!(
     wait(device, event)
 end
 
-function update_auxiliary_state_gradient!(
-    dg::DGModel,
-    balance_law,
-    state_prognostic,
-    t,
-    elems,
-)
-    return false
-end
+update_auxiliary_state_gradient!(::SpaceDiscretization, _...) = false
 
 function indefinite_stack_integral!(
     dg::DGModel,
@@ -954,16 +965,16 @@ end
 # TODO: this should really be a separate function
 function update_auxiliary_state!(
     f!,
-    dg::DGModel,
+    spacedisc::SpaceDiscretization,
     m::BalanceLaw,
     state_prognostic::MPIStateArray,
     t::Real,
-    elems::UnitRange = dg.grid.topology.realelems;
+    elems::UnitRange = spacedisc.grid.topology.realelems;
     diffusive = false,
 )
     device = array_device(state_prognostic)
 
-    grid = dg.grid
+    grid = spacedisc.grid
     topology = grid.topology
 
     dim = dimensionality(grid)
@@ -983,8 +994,8 @@ function update_auxiliary_state!(
             Val(N),
             f!,
             state_prognostic.data,
-            dg.state_auxiliary.data,
-            dg.state_gradient_flux.data,
+            spacedisc.state_auxiliary.data,
+            spacedisc.state_gradient_flux.data,
             t,
             elems,
             grid.activedofs;
@@ -998,7 +1009,7 @@ function update_auxiliary_state!(
             Val(N),
             f!,
             state_prognostic.data,
-            dg.state_auxiliary.data,
+            spacedisc.state_auxiliary.data,
             t,
             elems,
             grid.activedofs;
