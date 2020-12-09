@@ -18,7 +18,7 @@ struct AtmosLESSpecificInfo <: ConfigSpecificInfo end
 struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     domain_height::FT
     nelem_vert::Int
-    nelem_horz::Int
+    nelem_horiz::Int
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
 struct OceanSplitExplicitSpecificInfo <: ConfigSpecificInfo
@@ -39,7 +39,7 @@ struct DriverConfiguration{FT}
     config_type::ClimateMachineConfigType
 
     name::String
-    # polynomial order tuple (polyorder_horz, polyorder_vert)
+    # polynomial order tuple (polyorder_horiz, polyorder_vert)
     polyorders::NTuple{2, Int}
     array_type::Any
     solver_type::AbstractSolverType
@@ -141,13 +141,17 @@ function AtmosLESConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horiz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    # Check if polynomial degree was passed as a CL option
+    if ClimateMachine.Settings.degree != "(-1,-1)"
+        (polyorder_horiz, polyorder_vert) = parse_tuple(ClimateMachine.Settings.degree)
+    end
 
     print_model_info(model)
 
     brickrange = (
-        grid1d(xmin, xmax, elemsize = Δx * polyorder_horz),
-        grid1d(ymin, ymax, elemsize = Δy * polyorder_horz),
+        grid1d(xmin, xmax, elemsize = Δx * polyorder_horiz),
+        grid1d(ymin, ymax, elemsize = Δy * polyorder_horiz),
         grid1d(zmin, zmax, elemsize = Δz * polyorder_vert),
     )
     topology = StackedBrickTopology(
@@ -161,24 +165,24 @@ function AtmosLESConfiguration(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
-        polynomialorder = (polyorder_horz, polyorder_vert),
+        polynomialorder = (polyorder_horiz, polyorder_vert),
         meshwarp = meshwarp,
     )
 
     @info @sprintf(
         """
 Establishing Atmos LES configuration for %s
-    precision              = %s
-    horiz polynomial order = %d
-    vert polynomial order  = %d
-    domain                 = %.2f m x%.2f m x%.2f m
-    resolution             = %dx%dx%d
-    MPI ranks              = %d
-    min(Δ_horz)            = %.2f m
-    min(Δ_vert)            = %.2f m""",
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    domain                  = %.2f m x%.2f m x%.2f m
+    resolution              = %dx%dx%d
+    MPI ranks               = %d
+    min(Δ_horiz)            = %.2f m
+    min(Δ_vert)             = %.2f m""",
         name,
         FT,
-        polyorder_horz,
+        polyorder_horiz,
         polyorder_vert,
         xmax,
         ymax,
@@ -194,7 +198,7 @@ Establishing Atmos LES configuration for %s
     return DriverConfiguration(
         AtmosLESConfigType(),
         name,
-        (polyorder_horz, polyorder_vert),
+        (polyorder_horiz, polyorder_vert),
         FT,
         array_type,
         solver_type,
@@ -212,7 +216,7 @@ end
 function AtmosGCMConfiguration(
     name::String,
     N::Union{Int, NTuple{2, Int}},
-    (nelem_horz, nelem_vert)::NTuple{2, Int},
+    (nelem_horiz, nelem_vert)::NTuple{2, Int},
     domain_height::FT,
     param_set::AbstractParameterSet,
     init_GCM!;
@@ -230,7 +234,11 @@ function AtmosGCMConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horiz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    # Check if polynomial degree was passed as a CL option
+    if ClimateMachine.Settings.degree != "(-1,-1)"
+        (polyorder_horiz, polyorder_vert) = parse_tuple(ClimateMachine.Settings.degree)
+    end
 
     print_model_info(model)
 
@@ -243,7 +251,7 @@ function AtmosGCMConfiguration(
 
     topology = StackedCubedSphereTopology(
         mpicomm,
-        nelem_horz,
+        nelem_horiz,
         vert_range;
         boundary = (1, 2),
     )
@@ -252,27 +260,27 @@ function AtmosGCMConfiguration(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
-        polynomialorder = (polyorder_horz, polyorder_vert),
+        polynomialorder = (polyorder_horiz, polyorder_vert),
         meshwarp = meshwarp,
     )
 
     @info @sprintf(
         """
 Establishing Atmos GCM configuration for %s
-    precision              = %s
-    horiz polynomial order = %d
-    vert polynomial order  = %d
-    # horiz elem           = %d
-    # vert elems           = %d
-    domain height          = %.2e m
-    MPI ranks              = %d
-    min(Δ_horz)            = %.2f m
-    min(Δ_vert)            = %.2f m""",
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    # horiz elem            = %d
+    # vert elems            = %d
+    domain height           = %.2e m
+    MPI ranks               = %d
+    min(Δ_horiz)            = %.2f m
+    min(Δ_vert)             = %.2f m""",
         name,
         FT,
-        polyorder_horz,
+        polyorder_horiz,
         polyorder_vert,
-        nelem_horz,
+        nelem_horiz,
         nelem_vert,
         domain_height,
         MPI.Comm_size(mpicomm),
@@ -283,7 +291,7 @@ Establishing Atmos GCM configuration for %s
     return DriverConfiguration(
         AtmosGCMConfigType(),
         name,
-        (polyorder_horz, polyorder_vert),
+        (polyorder_horiz, polyorder_vert),
         FT,
         array_type,
         solver_type,
@@ -294,7 +302,7 @@ Establishing Atmos GCM configuration for %s
         numerical_flux_first_order,
         numerical_flux_second_order,
         numerical_flux_gradient,
-        AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horz),
+        AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horiz),
     )
 end
 
@@ -317,7 +325,11 @@ function OceanBoxGCMConfiguration(
     boundary = ((1, 1), (1, 1), (2, 3)),
 )
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horiz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    # Check if polynomial degree was passed as a CL option
+    if ClimateMachine.Settings.degree != "(-1,-1)"
+        (polyorder_horiz, polyorder_vert) = parse_tuple(ClimateMachine.Settings.degree)
+    end
 
     brickrange = (
         range(FT(0); length = Nˣ + 1, stop = model.problem.Lˣ),
@@ -336,13 +348,13 @@ function OceanBoxGCMConfiguration(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
-        polynomialorder = (polyorder_horz, polyorder_vert),
+        polynomialorder = (polyorder_horiz, polyorder_vert),
     )
 
     return DriverConfiguration(
         OceanBoxGCMConfigType(),
         name,
-        (polyorder_horz, polyorder_vert),
+        (polyorder_horiz, polyorder_vert),
         FT,
         array_type,
         solver_type,
@@ -374,7 +386,11 @@ function OceanSplitExplicitConfiguration(
     boundary = ((1, 1), (1, 1), (2, 3)),
 )
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horiz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    # Check if polynomial degree was passed as a CL option
+    if ClimateMachine.Settings.degree != "(-1,-1)"
+        (polyorder_horiz, polyorder_vert) = parse_tuple(ClimateMachine.Settings.degree)
+    end
 
     xrange = range(FT(0); length = Nˣ + 1, stop = model_3D.problem.Lˣ)
     yrange = range(FT(0); length = Nʸ + 1, stop = model_3D.problem.Lʸ)
@@ -400,13 +416,13 @@ function OceanSplitExplicitConfiguration(
         topology_2D,
         FloatType = FT,
         DeviceArray = array_type,
-        polynomialorder = polyorder_horz,
+        polynomialorder = polyorder_horiz,
     )
     grid_3D = DiscontinuousSpectralElementGrid(
         topology_3D,
         FloatType = FT,
         DeviceArray = array_type,
-        polynomialorder = (polyorder_horz, polyorder_vert),
+        polynomialorder = (polyorder_horiz, polyorder_vert),
     )
 
     model_2D = BarotropicModel(model_3D)
@@ -496,7 +512,7 @@ function OceanSplitExplicitConfiguration(
     return DriverConfiguration(
         OceanSplitExplicitConfigType(),
         name,
-        (polyorder_horz, polyorder_vert),
+        (polyorder_horiz, polyorder_vert),
         FT,
         array_type,
         solver_type,
@@ -531,7 +547,11 @@ function SingleStackConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horiz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    # Check if polynomial degree was passed as a CL option
+    if ClimateMachine.Settings.degree != "(-1,-1)"
+        (polyorder_horiz, polyorder_vert) = parse_tuple(ClimateMachine.Settings.degree)
+    end
 
     print_model_info(model)
 
@@ -553,25 +573,25 @@ function SingleStackConfiguration(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
-        polynomialorder = (polyorder_horz, polyorder_vert),
+        polynomialorder = (polyorder_horiz, polyorder_vert),
         meshwarp = meshwarp,
     )
 
     @info @sprintf(
         """
 Establishing single stack configuration for %s
-    precision              = %s
-    horiz polynomial order = %d
-    vert polynomial order  = %d
-    domain_min             = %.2f m x%.2f m x%.2f m
-    domain_max             = %.2f m x%.2f m x%.2f m
-    # vert elems           = %d
-    MPI ranks              = %d
-    min(Δ_horz)            = %.2f m
-    min(Δ_vert)            = %.2f m""",
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    domain_min              = %.2f m x%.2f m x%.2f m
+    domain_max              = %.2f m x%.2f m x%.2f m
+    # vert elems            = %d
+    MPI ranks               = %d
+    min(Δ_horiz)            = %.2f m
+    min(Δ_vert)             = %.2f m""",
         name,
         FT,
-        polyorder_horz,
+        polyorder_horiz,
         polyorder_vert,
         xmin,
         ymin,
@@ -588,7 +608,7 @@ Establishing single stack configuration for %s
     return DriverConfiguration(
         SingleStackConfigType(),
         name,
-        (polyorder_horz, polyorder_vert),
+        (polyorder_horiz, polyorder_vert),
         FT,
         array_type,
         solver_type,

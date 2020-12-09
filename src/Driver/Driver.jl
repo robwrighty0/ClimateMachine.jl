@@ -296,8 +296,8 @@ function parse_commandline(
         default = get_setting(:fixed_number_of_steps, defaults, global_defaults)
         "--degree"
         help = "tuple of horizontal and vertical polynomial degrees for spatial discretization order"
-        metavar = "<number>"
-        arg_type = Int # Q: Should this be arg_type = tuple ?
+        metavar = "(horizontal,vertical)"
+        arg_type = String
         default = get_setting(:degree, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
@@ -375,7 +375,7 @@ Recognized keyword arguments are:
         run for the specified time (in simulation seconds)
 - `fixed_number_of_steps::Int = -1`:
         if `≥0` perform specified number of steps
-- `degree::NTuple{2, Int} = (4, 4)`:
+- `degree::NTuple{2, Int} = (-1, -1)`:
         tuple of horizontal and vertical polynomial degrees for spatial discretization order
 
 Returns `nothing`, or if `parse_clargs = true`, returns parsed command line
