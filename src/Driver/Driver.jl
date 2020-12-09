@@ -78,7 +78,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     array_type::Type = Array
     sim_time::Float64 = NaN
     fixed_number_of_steps::Int = -1
-    degree::NTuple{2, Int} = (4, 4)
+    degree::NTuple{2, Int} = (-1, -1)
 end
 
 const Settings = ClimateMachine_Settings()
