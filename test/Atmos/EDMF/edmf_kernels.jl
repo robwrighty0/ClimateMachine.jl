@@ -168,6 +168,10 @@ struct up_ρa{i} <: UpdraftPrognosticVariable{i} end
 struct up_ρaw{i} <: UpdraftPrognosticVariable{i} end
 struct up_ρaθ_liq{i} <: UpdraftPrognosticVariable{i} end
 struct up_ρaq_tot{i} <: UpdraftPrognosticVariable{i} end
+const UP_ρa = Union{up_ρa{i} where i}
+const UP_ρaw = Union{up_ρaw{i} where i}
+const UP_ρaθ_liq = Union{up_ρaθ_liq{i} where i}
+const UP_ρaq_tot = Union{up_ρaq_tot{i} where i}
 
 prognostic_vars(m::EDMF) =
     (prognostic_vars(m.environment)..., prognostic_vars(m.updraft)...)
@@ -207,8 +211,7 @@ eq_tends(
     ::Flux{FirstOrder},
 ) where {PV <: EDMFPrognosticVariable} = (Advect{PV}(),)
 
-struct SGSFlux{PV <: Union{Momentum, Energy, TotalMoisture}} <:
-       TendencyDef{Flux{SecondOrder}, PV} end
+include("tendencies_edmf.jl")
 
 """
     init_aux_turbconv!(
@@ -260,7 +263,7 @@ function turbconv_nodal_update_auxiliary_state!(
     up = state.turbconv.updraft
 
     # Recover thermo states
-    ts = recover_thermo_state_all(m, state, aux)
+    ts_all = recover_thermo_state_all(m, state, aux)
 
     # Get environment variables
     env = environment_vars(state, aux, N_up)
@@ -271,11 +274,11 @@ function turbconv_nodal_update_auxiliary_state!(
 
     z = altitude(m, aux)
 
-    ρ_en = air_density(ts.en)
+    ρ_en = air_density(ts_all.en)
     en_aux.buoyancy = -_grav * (ρ_en - aux.ref_state.ρ) * ρ_inv
 
     @unroll_map(N_up) do i
-        ρ_i = air_density(ts.up[i])
+        ρ_i = air_density(ts_all.up[i])
         up_aux[i].buoyancy = -_grav * (ρ_i - aux.ref_state.ρ) * ρ_inv
         up_aux[i].a = up[i].ρa * ρ_inv
         up_aux[i].θ_liq = up[i].ρaθ_liq / up[i].ρa
@@ -291,7 +294,7 @@ function turbconv_nodal_update_auxiliary_state!(
     en_aux.buoyancy -= b_gm
 
     EΔ_up = ntuple(N_up) do i
-        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts, env, i)
+        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts_all, env, i)
     end
 
     E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
@@ -323,7 +326,7 @@ function compute_gradient_argument!(
     en = state.turbconv.environment
 
     # Recover thermo states
-    ts = recover_thermo_state_all(m, state, aux)
+    ts_all = recover_thermo_state_all(m, state, aux)
 
     # Get environment variables
     env = environment_vars(state, aux, N_up)
@@ -334,8 +337,8 @@ function compute_gradient_argument!(
     _grav::FT = grav(m.param_set)
 
     ρ_inv = 1 / gm.ρ
-    θ_liq_en = liquid_ice_pottemp(ts.en)
-    q_tot_en = total_specific_humidity(ts.en)
+    θ_liq_en = liquid_ice_pottemp(ts_all.en)
+    q_tot_en = total_specific_humidity(ts_all.en)
 
     # populate gradient arguments
     en_tf.θ_liq = θ_liq_en
@@ -348,9 +351,9 @@ function compute_gradient_argument!(
     en_tf.θ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv / (env.a * gm.ρ)
 
     # TODO: is this supposed to be grabbed from grid mean?
-    en_tf.θv = virtual_pottemp(ts.gm)
+    en_tf.θv = virtual_pottemp(ts_all.gm)
     e_kin = FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w^2)
-    en_tf.e = total_energy(e_kin, _grav * z, ts.en)
+    en_tf.e = total_energy(e_kin, _grav * z, ts_all.en)
 end;
 
 function compute_gradient_flux!(
@@ -418,23 +421,23 @@ function atmos_source!(
     up_aux = aux.turbconv.updraft
 
     # Recover thermo states
-    ts = recover_thermo_state_all(m, state, aux)
+    ts_all = recover_thermo_state_all(m, state, aux)
 
     # Get environment variables
     env = environment_vars(state, aux, N_up)
 
     EΔ_up = ntuple(N_up) do i
-        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts, env, i)
+        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts_all, env, i)
     end
     E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
 
     # get environment values
     _grav::FT = grav(m.param_set)
     ρ_inv = 1 / gm.ρ
-    θ_liq_en = liquid_ice_pottemp(ts.en)
-    q_tot_en = total_specific_humidity(ts.en)
+    θ_liq_en = liquid_ice_pottemp(ts_all.en)
+    q_tot_en = total_specific_humidity(ts_all.en)
     tke_en = enforce_positivity(en.ρatke) * ρ_inv / env.a
-    θ_liq = liquid_ice_pottemp(ts.gm)
+    θ_liq = liquid_ice_pottemp(ts_all.gm)
     a_min = turbconv.subdomains.a_min
     a_max = turbconv.subdomains.a_max
 
@@ -536,7 +539,7 @@ function atmos_source!(
         t,
         Δ_dyn,
         E_trb,
-        ts,
+        ts_all,
         env,
     )
 
@@ -699,7 +702,7 @@ function flux_second_order!(
     en_dif = diffusive.turbconv.environment
 
     # Recover thermo states
-    ts = recover_thermo_state_all(m, state, aux)
+    ts_all = recover_thermo_state_all(m, state, aux)
 
     # Get environment variables
     env = environment_vars(state, aux, N_up)
@@ -711,7 +714,7 @@ function flux_second_order!(
     a_max = turbconv.subdomains.a_max
 
     EΔ_up = ntuple(N_up) do i
-        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts, env, i)
+        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts_all, env, i)
     end
 
     E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
@@ -725,7 +728,7 @@ function flux_second_order!(
         t,
         Δ_dyn,
         E_trb,
-        ts,
+        ts_all,
         env,
     )
     tke_en = enforce_positivity(en.ρatke) / env.a * ρ_inv
@@ -742,7 +745,7 @@ function flux_second_order!(
             (up[i].ρaw / up[i].ρa)^2
         )
     end
-    e_tot_up = ntuple(i -> total_energy(e_kin[i], _grav * z, ts.up[i]), N_up)
+    e_tot_up = ntuple(i -> total_energy(e_kin[i], _grav * z, ts_all.up[i]), N_up)
     ρa_up = vuntuple(N_up) do i
         gm.ρ * enforce_unit_bounds(up[i].ρa * ρ_inv, a_min, a_max)
     end
