@@ -167,12 +167,16 @@ function test_run(mpicomm, dim, Ne, N, FT, ArrayType)
     dg(dQdt, Q, nothing, 0.0)
 
     # Wrapping in Array ensure both GPU and CPU code use same approx
+    # Forward integral a
     @test Array(dg.state_auxiliary.data[:, 1, :]) ≈
           Array(dg.state_auxiliary.data[:, 8, :])
+    # Forward integral b
     @test Array(dg.state_auxiliary.data[:, 2, :]) ≈
           Array(dg.state_auxiliary.data[:, 9, :])
+    # Reverse integral a
     @test Array(dg.state_auxiliary.data[:, 3, :]) ≈
           Array(dg.state_auxiliary.data[:, 10, :])
+    # Reverse integral b
     @test Array(dg.state_auxiliary.data[:, 4, :]) ≈
           Array(dg.state_auxiliary.data[:, 11, :])
 end
@@ -186,22 +190,21 @@ let
     numelem = (5, 5, 5)
     lvls = 1
 
-    polynomialorder = (4, 0)
-
-    for FT in (Float64,) #Float32)
-        for dim in 2:3
-            polynomialorder = dim == 2 ? (4, 0) : (4, 4, 0)
-            err = zeros(FT, lvls)
-            for l in 1:lvls
-                @info (ArrayType, FT, dim)
-                test_run(
-                    mpicomm,
-                    dim,
-                    ntuple(j -> 2^(l - 1) * numelem[j], dim),
-                    polynomialorder,
-                    FT,
-                    ArrayType,
-                )
+    for polynomialorder = ((4, 4), (4, 3))
+        for FT in (Float64,)
+            for dim in 2:3
+                err = zeros(FT, lvls)
+                for l in 1:lvls
+                    @info (ArrayType, FT, dim, polynomialorder)
+                    test_run(
+                        mpicomm,
+                        dim,
+                        ntuple(j -> 2^(l - 1) * numelem[j], dim),
+                        polynomialorder,
+                        FT,
+                        ArrayType,
+                    )
+                end
             end
         end
     end

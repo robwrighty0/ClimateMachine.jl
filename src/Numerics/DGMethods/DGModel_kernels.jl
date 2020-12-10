@@ -2184,8 +2184,9 @@ end
     @inbounds begin
         eh = elems[_eh]
 
-        # Initialize the constant state at zero
-        ijk = i + Nq1 * ((j - 1) + Nq2 * (Nq1 - 1))
+        # Extract the top value from the top element which is degree of freedom
+        # (i, j, Nq3)
+        ijk = i + Nq1 * ((j - 1) + Nq2 * (Nq3 - 1))
         et = nvertelem + (eh - 1) * nvertelem
         reverse_integral_load_auxiliary_state!(
             balance_law,
