@@ -92,6 +92,9 @@ using ..DGMethods.NumericalFluxes:
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
+using Printf
+
+global gridd = true
 
 """
     AtmosModel <: BalanceLaw
@@ -388,6 +391,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
     @vars begin
         ∫dz::vars_state(m, UpwardIntegrals(), FT)
         ∫dnz::vars_state(m, DownwardIntegrals(), FT)
+        Ω_dg::SVector{3, FT}
         coord::SVector{3, FT}
         orientation::vars_state(m.orientation, st, FT)
         ref_state::vars_state(m.ref_state, st, FT)
@@ -466,6 +470,8 @@ include("filters.jl")
 
 include("atmos_tendencies.jl")        # specify atmos tendencies
 include("get_prognostic_vars.jl")     # get tuple of prognostic variables
+
+include("on_the_fly_diag.jl")     # for vorticity
 
 """
     flux_first_order!(
@@ -686,8 +692,15 @@ function update_auxiliary_state!(
         reverse_indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
     end
 
-    update_auxiliary_state!(nodal_update_auxiliary_state!, dg, m, Q, t, elems)
-
+    update_auxiliary_state!(
+        nodal_update_auxiliary_state!,
+        dg,
+        m,
+        Q,
+        t,
+        elems;
+        grid = dg.grid,
+    )
     # TODO: Remove this hook. This hook was added for implementing
     # the first draft of EDMF, and should be removed so that we can
     # rely on a single vertical element traversal. This hook allows
@@ -696,6 +709,10 @@ function update_auxiliary_state!(
     # into a higher level hierarchy.
     update_auxiliary_state!(dg, m.turbconv, m, Q, t, elems)
 
+    ix_Ω = varsindex(vars(state_auxiliary), :Ω_dg)
+    dg.state_auxiliary.data[:, ix_Ω, :] =
+        ∇diagnostics("AdditionalDiagnostics", m, Q, state_auxiliary, dg.grid)
+
     return true
 end
 
@@ -703,15 +720,21 @@ function nodal_update_auxiliary_state!(
     m::AtmosModel,
     state::Vars,
     aux::Vars,
-    t::Real,
+    t::Real;
+    grid = false,
 )
+    global gridd
+    grid = gridd
+
     atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.precipitation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
     turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
     turbconv_nodal_update_auxiliary_state!(m.turbconv, m, state, aux, t)
+
 end
+
 
 function integral_load_auxiliary_state!(
     m::AtmosModel,
@@ -752,12 +775,16 @@ function atmos_nodal_init_state_auxiliary!(
     geom::LocalGeometry,
 )
     aux.coord = geom.coord
+    aux.Ω_dg = SVector(0, 0, 0)
     init_aux_turbulence!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.ref_state, m, aux, tmp, geom)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
     init_aux_turbconv!(m.turbconv, m, aux, geom)
     m.problem.init_state_auxiliary(m.problem, m, aux, geom)
+
+    # initialize variables for the addition balance law(s) called in ∇diagnostics
+    #∇diagnostics_init("AdditionalDiagnostics", m, Float64)
 end
 
 """
@@ -798,6 +825,9 @@ function init_state_auxiliary!(
         direction;
         state_temporary = ∇p,
     )
+    global gridd
+    gridd = grid
+
 end
 
 """

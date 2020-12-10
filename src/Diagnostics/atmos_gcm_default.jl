@@ -48,8 +48,8 @@ diagnostic variables:
 - ei: specific internal energy
 - ht: specific enthalpy based on total energy
 - hi: specific enthalpy based on internal energy
-- vort: vertical component of relative vorticity
-- vort2: vertical component of relative vorticity from DGModel kernels via a mini balance law
+- vort: vertical component of relative velocity
+- vort2: vertical component of relative velocity from DGModel calculations
 
 When an `EquilMoist` moisture model is used, the following diagnostic
 variables are also output:
@@ -88,10 +88,8 @@ function setup_atmos_default_diagnostics(
 end
 
 include("diagnostic_fields.jl")
-include("vorticity_balancelaw.jl")
 
-
-# Declare all (3D) variables for this diagnostics group
+# Declare all (3D) variables for this group
 function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
     @vars begin
         u::FT
@@ -128,11 +126,12 @@ num_atmos_gcm_default_simple_3d_vars(m, FT) =
 atmos_gcm_default_simple_3d_vars(m, array) =
     Vars{vars_atmos_gcm_default_simple_3d(m, eltype(array))}(array)
 
-# Collect all (3D) variables for this diagnostics group
+# Collect all (3D) variables for this group
 function atmos_gcm_default_simple_3d_vars!(
     atmos::AtmosModel,
     state_prognostic,
     thermo,
+    dgdiags,
     dyni,
     vars,
 )
@@ -140,19 +139,18 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.v = state_prognostic.ρu[2] / state_prognostic.ρ
     vars.w = state_prognostic.ρu[3] / state_prognostic.ρ
     vars.rho = state_prognostic.ρ
-    vars.et = state_prognostic.ρe / state_prognostic.ρ
-    
+
     vars.temp = thermo.temp
     vars.pres = thermo.pres
     vars.thd = thermo.θ_dry
+    vars.et = state_prognostic.ρe / state_prognostic.ρ
     vars.ei = thermo.e_int
     vars.ht = thermo.h_tot
     vars.hi = thermo.h_int
-    
-    vars.vort = dyni.Ω₃
-    
+
     vars.vort2 = dgdiags.Ω_dg₃
 
+    vars.vort = dyni.Ω₃
 
     atmos_gcm_default_simple_3d_vars!(
         atmos.moisture,
@@ -187,7 +185,15 @@ function atmos_gcm_default_simple_3d_vars!(
     return nothing
 end
 
-
+# Declare placeholder variables for dynamic calculation by the Diagnostics module (TODO: move into separate file when Impero is ready)
+function vars_dyn(FT)
+    @vars begin
+        Ω₁::FT
+        Ω₂::FT
+        Ω₃::FT
+    end
+end
+dyn_vars(array) = Vars{vars_dyn(eltype(array))}(array)
 
 """
     atmos_gcm_default_init(dgngrp, currtime)
@@ -238,11 +244,6 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
             Settings.starttime,
         )
         dfilename = joinpath(Settings.output_dir, dprefix)
-        
-        # initiate mini balance laws that use the DGModel kernels
-        grad_dg = VorticityModel()
-        vort_init(grad_dg, Settings.Q)
-
         init_data(dgngrp.writer, dfilename, dims, vars)
     end
 
@@ -294,30 +295,16 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # TODO: can this be done in one pass?
     #
-    # Non-local vars, e.g. relative vorticity
+    # Compute variables which require manipulation of the whole MPIStateArrays (e.g. Q, dg.state_auxiliary),
+    # using the Diagnostics Module kernels (replicating the DGModel kernels)
     vgrad = VectorGradients(dg, Q)
     vort = Vorticity(dg, vgrad)
 
-    #_____________
-    # init output data
-    # Ω_dg = Array{FT}(undef, npoints, 3, nrealelem)
-    # Ω_dg = similar(state_auxiliary; vars = @vars(Ω_dg::SVector{3, FT}), nstate = 3)
+    # Collect MPIStateArray variables from DGModel mini balance laws 
+    ix_Ω_dg = varsindex(vars(dg.state_auxiliary), :Ω_dg)
+    vort2 = dg.state_auxiliary.data[:, ix_Ω_dg, :]
 
-    grad_dg = VorticityBalanceLawStruct.dgmodel
-
-    ix_ρu = varsindex(vars(Q), :ρu)
-    ix_ρ  = varsindex(vars(Q), :ρ)
-
-    ρ = Q.data[:, ix_ρ, :]
-    u = Q.data[:, ix_ρu, :] ./ ρ
-
-    grad_dg.state_auxiliary.data = u
-    
-    # run mini BL
-    grad_dg( VorticityBalanceLawStruct.Ω_dg, VorticityBalanceLawStruct.init, nothing, FT(0))
-    
-    
-    #___________
+    # Copute variables which require manipulation of whole state arrays, using the Diagnostics Module
 
     # Compute thermo variables element-wise
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
@@ -341,8 +328,8 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     idyn = ArrayType{FT}(undef, interpol.Npl, size(vort.data, 2))
     interpolate_local!(interpol, vort.data, idyn)
 
-    idgdiags = ArrayType{FT}(undef, interpol.Npl, size(VorticityBalanceLawStruct.Ω_dg, 2))
-    interpolate_local!(interpol, VorticityBalanceLawStruct.Ω_dg, idgdiags)
+    idgdiags = ArrayType{FT}(undef, interpol.Npl, size(vort2, 2))
+    interpolate_local!(interpol, vort2, idgdiags)
 
     # TODO: get indices here without hard-coding them
     _ρu, _ρv, _ρw = 2, 3, 4
@@ -352,7 +339,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     _Ω₁, _Ω₂, _Ω₃ = 1, 2, 3
     project_cubed_sphere!(interpol, idgdiags, (_Ω₁, _Ω₂, _Ω₃))
 
-    
+
     # FIXME: accumulating to rank 0 is not scalable
     all_state_data = accumulate_interpolated_data(mpicomm, interpol, istate)
     all_thermo_data = accumulate_interpolated_data(mpicomm, interpol, ithermo)
@@ -385,7 +372,8 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
                 :,
             ))
             thermoi = thermo_vars(atmos, view(all_thermo_data, lo, la, le, :))
-            dgdiagsi = dyn_bl_vars(atmos, view(all_dgdiags_data, lo, la, le, :))
+            dgdiagsi =
+                dgdiags_vars(atmos, view(all_dgdiags_data, lo, la, le, :))
             dyni = dyn_vars(view(all_dyn_data, lo, la, le, :))
             simple_3d_vars = atmos_gcm_default_simple_3d_vars(
                 atmos,
@@ -421,4 +409,3 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
 end # function collect
 
 function atmos_gcm_default_fini(dgngrp::DiagnosticsGroup, currtime) end
-    

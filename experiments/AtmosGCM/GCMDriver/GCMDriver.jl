@@ -49,6 +49,8 @@ using CLIMAParameters.Atmos.SubgridScale
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+global gridd = true
+
 # Menu for initial conditions, boundary conditions and sources
 include("gcm_bcs.jl")                # Boundary conditions
 include("gcm_perturbations.jl")      # Initial perturbation
@@ -316,7 +318,7 @@ function main()
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 8                              # horizontal element number
     n_vert = 4                               # vertical element number
-    n_days::FT = 0.1
+    n_days::FT = 31
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
@@ -372,7 +374,8 @@ function main()
         )
         nothing
     end
-
+    global gridd
+    gridd = solver_config.dg.grid
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
