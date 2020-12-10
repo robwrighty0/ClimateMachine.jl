@@ -1,3 +1,105 @@
+function numerical_boundary_flux_first_order!(
+    numerical_flux_first_order,
+    bctag::Int,
+    balance_law,
+    flux::AbstractArray,
+    normal_vector::AbstractArray,
+    state_prognostic⁻::AbstractArray,
+    state_auxiliary⁻::AbstractArray,
+    state_prognostic⁺::AbstractArray,
+    state_auxiliary⁺::AbstractArray,
+    t,
+    face_direction,
+    state_prognostic_bottom1::AbstractArray,
+    state_auxiliary_bottom1::AbstractArray,
+)
+    bcs = boundary_conditions(balance_law)
+    # TODO: there is probably a better way to unroll this loop
+    Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
+        bc = bcs[d]
+        numerical_boundary_flux_first_order!(
+            numerical_flux_first_order,
+            bc,
+            balance_law,
+            Vars{vars_state(balance_law, Prognostic(), FT)}(flux),
+            SVector(normal_vector),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁻),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁻),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁺),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁺),
+            t,
+            face_direction,
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
+                state_prognostic_bottom1,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                state_auxiliary_bottom1,
+            ),
+        )
+    end
+end
+
+function numerical_boundary_flux_second_order!(
+    numerical_flux_second_order,
+    bctag::Int,
+    balance_law,
+    flux::AbstractArray,
+    normal_vector::AbstractArray,
+    state_prognostic⁻::AbstractArray,
+    state_gradient_flux⁻::AbstractArray,
+    state_hyperdiffusion⁻::AbstractArray,
+    state_auxiliary⁻::AbstractArray,
+    state_prognostic⁺::AbstractArray,
+    state_gradient_flux⁺::AbstractArray,
+    state_hyperdiffusion⁺::AbstractArray,
+    state_auxiliary⁺::AbstractArray,
+    t,
+    state_prognostic_bottom1::AbstractArray,
+    state_auxiliary_bottom1::AbstractArray,
+    state_gradient_flux_bottom1::AbstractArray,
+)
+    bcs = boundary_conditions(balance_law)
+    # TODO: there is probably a better way to unroll this loop
+    Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
+        bc = bcs[d]
+        numerical_boundary_flux_second_order!(
+            numerical_flux_second_order,
+            bc,
+            balance_law,
+            Vars{vars_state(balance_law, Prognostic(), FT)}(flux),
+            SVector(normal_vector),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁻),
+            Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                state_gradient_flux⁻,
+            ),
+            Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                state_hyperdiffusive⁻,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁻),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁺),
+            Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                state_gradient_flux⁺,
+            ),
+            Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                state_hyperdiffusive⁺,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁺),
+            t,
+            face_direction,
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
+                state_prognostic_bottom1,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                state_auxiliary_bottom1,
+            ),
+            Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                state_gradient_flux_bottom1,
+            ),
+        )
+    end
+end
+
+
 @kernel function vert_fvm_interface_tendency!(
     balance_law::BalanceLaw,
     ::Val{info},
@@ -59,6 +161,9 @@
         end
 
         local_cell_weights = MArray{Tuple{stencil_diameter}, FT}(undef)
+
+        # Two mass matrix inverse corresponding to +/- cells
+        vMI = MArray{Tuple{2}, FT}(undef)
 
         # Storing the value below element when walking up the stack
         # cell i-1, face i - 1/2
@@ -143,10 +248,7 @@
 
         # Figure out the data we need
         els = ntuple(Val(stencil_diameter)) do k
-            eH + (
-                periodicstack ? mod1(k - stencil_width) :
-                max(k - stencil_width, 1)
-            )
+            eH + mod1(k - stencil_width, nvertelem)
         end
 
         # Load all the stencil data
@@ -157,10 +259,11 @@
                 local_state_gradient_flux[k],
                 els[k],
             )
+            # If local cell weights are NOT _M we need to load _vMI out of sgeo
             local_cell_weights[k] = vgeo[n, _M, els[k]]
         end
 
-        # transform all the data
+        # transform all the data into primitive variables
         @unroll for k in 1:stencil_diameter
             prognostic_to_primitive!(
                 balance_law,
@@ -181,12 +284,12 @@
                 local_cell_weights,
             )
 
-            # Transform the values to prognostic state
-            @unroll for k in 1:2
+            # Transform the values back to prognostic state
+            @unroll for f in 1:2
                 primitive_to_prognostic!(
                     balance_law,
-                    local_state_face_prognostic[k],
-                    local_state_face_primitive[k],
+                    local_state_face_prognostic[f],
+                    local_state_face_primitive[f],
                     # Use the cell auxiliary data
                     local_state_auxiliary[stencil_width + 1],
                 )
@@ -200,7 +303,7 @@
                 local_cell_weights[(stencil_width + 1):(stencil_width + 1)],
             )
 
-            # Transform the values to prognostic state
+            # Transform the values back to prognostic state
             @unroll for k in 1:2
                 primitive_to_prognostic!(
                     balance_law,
@@ -211,8 +314,63 @@
                 )
             end
 
-            # TODO: Compute boundary flux and add it in
-            error()
+            bctag = elemtobndy[faces[1], eH + eV]
+
+            # Fill ghost cell data
+            local_state_face_prognostic_neighbor .=
+                local_state_face_prognostic[1]
+            local_state_auxiliary[stencil_width] .=
+                local_state_auxiliary[stencil_width + 1]
+            numerical_boundary_flux_first_order!(
+                numerical_flux_first_order,
+                bctag,
+                balance_law,
+                local_flux,
+                normal_vector,
+                local_state_face_prognostic[1],
+                local_state_auxiliary[stencil_width + 1],
+                local_state_face_prognostic_neighbor,
+                local_state_auxiliary[stencil_width],
+                t,
+                face_direction,
+                local_state_prognostic_bottom1,
+                local_state_auxiliary_bottom1,
+            )
+
+            # Fill / reset ghost cell data
+            local_state_prognostic[stencil_width] .=
+                local_state_prognostic[stencil_width + 1]
+            local_state_gradient_flux[stencil_width] .=
+                local_state_gradient_flux[stencil_width + 1]
+            local_state_hyperdiffusion[stencil_width] .=
+                local_state_hyperdiffusion[stencil_width + 1]
+            local_state_auxiliary[stencil_width] .=
+                local_state_auxiliary[stencil_width + 1]
+            numerical_boundary_flux_second_order!(
+                numerical_flux_second_order,
+                bctag,
+                balance_law,
+                local_flux,
+                normal_vector,
+                local_state_prognostic[stencil_width + 1],
+                local_state_gradient_flux[stencil_width + 1],
+                local_state_hyperdiffusion[stencil_width + 1],
+                local_state_auxiliary[stencil_width + 1],
+                local_state_prognostic[stencil_width],
+                local_state_gradient_flux[stencil_width],
+                local_state_hyperdiffusion[stencil_width],
+                local_state_auxiliary[stencil_width],
+                t,
+                local_state_prognostic_bottom1,
+                local_state_gradient_flux_bottom1,
+                local_state_auxiliary_bottom1,
+            )
+
+            # Compute boundary flux and add it in
+            vMI = 1 / local_cell_weights[stencil_width + 1]
+            @unroll for s in 1:num_state_prognostic
+                tendency[n, s, eH + eV] -= α * sM * vMI * local_flux[s]
+            end
         end
 
         for eV in 2:nvertelem
@@ -224,6 +382,8 @@
                 local_state_gradient_flux[k] .= local_state_gradient_flux[k + 1]
                 local_cell_weights[k] = local_cell_weights[k]
             end
+
+            vMI[1] = vMI[2]
 
             # Last times top is the new neighbor bottom
             local_state_face_prognostic_neighbor .=
