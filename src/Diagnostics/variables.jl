@@ -536,9 +536,4 @@ function setup_variables()
         DiagnosticVariable("mass_loss", var_attrib("", "", ""))
     Variables["energy_loss"] =
         DiagnosticVariable("energy_loss", var_attrib("", "", ""))
-
-    Variables["vort2"] = DiagnosticVariable(
-        "vort2",
-        var_attrib("s^-1", "vorticity from DG kernels", ""),
-    )
 end

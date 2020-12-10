@@ -694,7 +694,6 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange = dg.grid.topology.realelems;
     diffusive = false,
-    grid = false,
 )
     device = array_device(state_prognostic)
 
