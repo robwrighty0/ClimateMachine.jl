@@ -14,6 +14,7 @@ using ..BalanceLaws:
     BalanceLaw,
     AbstractStateType,
     Prognostic,
+    Primitive,
     Auxiliary,
     Gradient,
     GradientFlux,
@@ -22,7 +23,9 @@ using ..BalanceLaws:
     UpwardIntegrals,
     DownwardIntegrals,
     vars_state,
-    number_states
+    number_states,
+    primitive_to_prognostic!,
+    prognostic_to_primitive!
 
 import ..BalanceLaws:
     BalanceLaw,
