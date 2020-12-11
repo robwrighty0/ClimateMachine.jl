@@ -329,7 +329,7 @@ end
 
         # Figure out the data we need
         els = ntuple(Val(stencil_diameter)) do k
-            eH + mod1(k - stencil_center - 1, nvertelem)
+            eH + mod1(k - (stencil_center - 1), nvertelem)
         end
 
         # Load all the stencil data
@@ -406,6 +406,7 @@ end
             end
 
             # Fill ghost cell data
+            fill!(local_flux, -zero(FT))
             local_state_face_prognostic_neighbor .=
                 local_state_face_prognostic[1]
             local_state_auxiliary[stencil_center - 1] .=
@@ -480,7 +481,7 @@ end
                 local_state_prognostic[k] .= local_state_prognostic[k + 1]
                 local_state_auxiliary[k] .= local_state_auxiliary[k + 1]
                 local_state_gradient_flux[k] .= local_state_gradient_flux[k + 1]
-                local_cell_weights[k] = local_cell_weights[k]
+                local_cell_weights[k] = local_cell_weights[k + 1]
             end
 
             # Update volume mass inverse as we move up the stack of elements
@@ -501,7 +502,7 @@ end
                 local_state_face_prognostic[2]
 
             # Next data we need to load
-            eV_n = eV + stencil_center - 1
+            eV_n = eV + stencil_width
 
             # Assume periodic for now (will mask out below as needed for
             # boundary conditions)
@@ -580,6 +581,7 @@ end
 
             # Compute the flux for the bottom face of the element we are
             # considering
+            fill!(local_flux, -zero(FT))
             numerical_flux_first_order!(
                 numerical_flux_first_order,
                 balance_law,
@@ -637,6 +639,8 @@ end
 
                 # Since we are at the last element to update, we can safely use
                 # `stencil_center - 1` to store the ghost data
+
+                fill!(local_flux, -zero(FT))
 
                 # Fill ghost cell data
                 # Use the top reconstruction (since handling top face)
