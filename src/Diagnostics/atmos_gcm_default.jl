@@ -24,6 +24,7 @@ using Statistics
 
 using ..Atmos
 using ..Atmos: recover_thermo_state
+using ..DGMethods.NumericalFluxes
 using ..TurbulenceClosures: turbulence_tensors
 
 include("diagnostic_fields.jl")
@@ -372,8 +373,8 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     idyn = ArrayType{FT}(undef, interpol.Npl, size(vort.data, 2))
     interpolate_local!(interpol, vort.data, idyn)
 
-    idyn_bl = ArrayType{FT}(undef, interpol.Npl, size(vort_state.dQ, 2))
-    interpolate_local!(interpol, vort_state.dQ, idyn_bl)
+    idyn_bl = ArrayType{FT}(undef, interpol.Npl, size(vort_state.dQ.data, 2))
+    interpolate_local!(interpol, vort_state.dQ.data, idyn_bl)
 
     # TODO: get indices here without hard-coding them
     _ρu, _ρv, _ρw = 2, 3, 4

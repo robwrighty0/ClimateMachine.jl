@@ -32,16 +32,10 @@ import ..BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 
-"""
-    VorticityModel
-
-A mini balance law that is used to take the gradient of u and v to obtain vorticity
-
-"""
+# A mini balance law that is used to take the gradient of u and v
+# to obtain vorticity.
 struct VorticityModel <: BalanceLaw end
 
-# declare gradient, diffusive and auxiliary variables for the VorticityModel balance law
-#
 # output vorticity vector
 vars_state(::VorticityModel, ::Prognostic, FT) = @vars(Ω_bl::SVector{3, FT})
 # input velocity vector
@@ -49,7 +43,7 @@ vars_state(::VorticityModel, ::Auxiliary, FT) = @vars(u::SVector{3, FT})
 vars_state(::VorticityModel, ::Gradient, FT) = @vars()
 vars_state(::VorticityModel, ::GradientFlux, FT) = @vars()
 
-# list initiate kernels and compute kernels, as required for each balance law 
+# required for each balance law 
 function init_state_auxiliary!(
     m::VorticityModel,
     state_auxiliary::MPIStateArray,
