@@ -515,35 +515,6 @@ function const_reconstruction!(
 end
 
 
-
-
-"""
-    prognostic_to_primitive!(bl, state_prim, state_prog)
-
-Compute `state_prim` from `state_prog`. By default,
-we use the identity.
-"""
-function prognostic_to_primitive!(bl, state_prim, state_prog, state_aux)
-    state_prog_arr = parent(state_prog)
-    state_prim_arr = parent(state_prim)
-    state_prim_arr .= state_prog_arr
-end
-
-"""
-    primitive_to_prognostic!(bl, state_prog, state_prim)
-
-Compute `state_prog` from `state_prim`. By default,
-we use the identity.
-"""
-function primitive_to_prognostic!(bl, state_prog, state_prim, state_aux)
-    state_prog_arr = parent(state_prog)
-    state_prim_arr = parent(state_prim)
-    state_prog_arr .= state_prim_arr
-end
-
-
-
-
 @kernel function vert_fvm_interface_tendency!(
     balance_law::BalanceLaw,
     ::Val{info},
@@ -747,21 +718,21 @@ end
 
             prognostic_to_primitive!(
                 balance_law,
-                Vars{vsp}(local_state_primitive⁻),
-                Vars{vsp}(local_state_prognostic⁻),
-                Vars{vsa}(local_state_auxiliary⁻),
+                local_state_primitive⁻,
+                local_state_prognostic⁻,
+                local_state_auxiliary⁻,
             )
             prognostic_to_primitive!(
                 balance_law,
-                Vars{vsp}(local_state_primitive),
-                Vars{vsp}(local_state_prognostic),
-                Vars{vsa}(local_state_auxiliary),
+                local_state_primitive,
+                local_state_prognostic,
+                local_state_auxiliary,
             )
             prognostic_to_primitive!(
                 balance_law,
-                Vars{vsp}(local_state_primitive⁺),
-                Vars{vsp}(local_state_prognostic⁺),
-                Vars{vsa}(local_state_auxiliary⁺),
+                local_state_primitive⁺,
+                local_state_prognostic⁺,
+                local_state_auxiliary⁺,
             )
 
             cell_states_primitive = (
@@ -785,16 +756,16 @@ end
 
             primitive_to_prognostic!(
                 balance_law,
-                Vars{vsp}(local_state_prognostic_bottom),
-                Vars{vsp}(local_state_primitive_bottom),
-                Vars{vsa}(local_state_auxiliary_bottom),
+                local_state_prognostic_bottom,
+                local_state_primitive_bottom,
+                local_state_auxiliary_bottom,
             )
 
             primitive_to_prognostic!(
                 balance_law,
-                Vars{vsp}(local_state_prognostic_top),
-                Vars{vsp}(local_state_primitive_top),
-                Vars{vsa}(local_state_auxiliary_top),
+                local_state_prognostic_top,
+                local_state_primitive_top,
+                local_state_auxiliary_top,
             )
 
             # this is used for the stack top element
@@ -821,9 +792,9 @@ end
 
             prognostic_to_primitive!(
                 balance_law,
-                Vars{vsp}(local_state_primitive),
-                Vars{vsp}(local_state_prognostic),
-                Vars{vsa}(local_state_auxiliary),
+                local_state_primitive,
+                local_state_prognostic,
+                local_state_auxiliary,
             )
             cell_states_primitive = (local_state_primitive,)
             cell_weights = SVector(cw)
@@ -841,16 +812,16 @@ end
 
             primitive_to_prognostic!(
                 balance_law,
-                Vars{vsp}(local_state_prognostic_bottom),
-                Vars{vsp}(local_state_primitive_bottom),
-                Vars{vsa}(local_state_auxiliary_bottom),
+                local_state_prognostic_bottom,
+                local_state_primitive_bottom,
+                local_state_auxiliary_bottom,
             )
 
             primitive_to_prognostic!(
                 balance_law,
-                Vars{vsp}(local_state_prognostic_top),
-                Vars{vsp}(local_state_primitive_top),
-                Vars{vsa}(local_state_auxiliary_top),
+                local_state_prognostic_top,
+                local_state_primitive_top,
+                local_state_auxiliary_top,
             )
 
             fill!(
@@ -964,23 +935,23 @@ end
 
         prognostic_to_primitive!(
             balance_law,
-            Vars{vsp}(local_state_primitive⁻),
-            Vars{vsp}(local_state_prognostic⁻),
-            Vars{vsa}(local_state_auxiliary⁻),
+            local_state_primitive⁻,
+            local_state_prognostic⁻,
+            local_state_auxiliary⁻,
         )
 
         prognostic_to_primitive!(
             balance_law,
-            Vars{vsp}(local_state_primitive),
-            Vars{vsp}(local_state_prognostic),
-            Vars{vsa}(local_state_auxiliary),
+            local_state_primitive,
+            local_state_prognostic,
+            local_state_auxiliary,
         )
 
         prognostic_to_primitive!(
             balance_law,
-            Vars{vsp}(local_state_primitive⁺),
-            Vars{vsp}(local_state_prognostic⁺),
-            Vars{vsa}(local_state_auxiliary⁺),
+            local_state_primitive⁺,
+            local_state_prognostic⁺,
+            local_state_auxiliary⁺,
         )
 
 
@@ -1005,16 +976,16 @@ end
 
         primitive_to_prognostic!(
             balance_law,
-            Vars{vsp}(local_state_prognostic_bottom),
-            Vars{vsp}(local_state_primitive_bottom),
-            Vars{vsa}(local_state_auxiliary_bottom),
+            local_state_prognostic_bottom,
+            local_state_primitive_bottom,
+            local_state_auxiliary_bottom,
         )
 
         primitive_to_prognostic!(
             balance_law,
-            Vars{vsp}(local_state_prognostic_top),
-            Vars{vsp}(local_state_primitive_top),
-            Vars{vsa}(local_state_auxiliary_top),
+            local_state_prognostic_top,
+            local_state_primitive_top,
+            local_state_auxiliary_top,
         )
 
         ###  TODO HYDROSTATIC BALANCE RECONSTRUCTION
@@ -1141,21 +1112,21 @@ end
 
             prognostic_to_primitive!(
                 balance_law,
-                Vars{vsp}(local_state_primitive⁻),
-                Vars{vsp}(local_state_prognostic⁻),
-                Vars{vsa}(local_state_auxiliary⁻),
+                local_state_primitive⁻,
+                local_state_prognostic⁻,
+                local_state_auxiliary⁻,
             )
             prognostic_to_primitive!(
                 balance_law,
-                Vars{vsp}(local_state_primitive),
-                Vars{vsp}(local_state_prognostic),
-                Vars{vsa}(local_state_auxiliary),
+                local_state_primitive,
+                local_state_prognostic,
+                local_state_auxiliary,
             )
             prognostic_to_primitive!(
                 balance_law,
-                Vars{vsp}(local_state_primitive⁺),
-                Vars{vsp}(local_state_prognostic⁺),
-                Vars{vsa}(local_state_auxiliary⁺),
+                local_state_primitive⁺,
+                local_state_prognostic⁺,
+                local_state_auxiliary⁺,
             )
 
             cell_states_primitive = (
@@ -1179,16 +1150,16 @@ end
 
             primitive_to_prognostic!(
                 balance_law,
-                Vars{vsp}(local_state_prognostic_bottom),
-                Vars{vsp}(local_state_primitive_bottom),
-                Vars{vsa}(local_state_auxiliary_bottom),
+                local_state_prognostic_bottom,
+                local_state_primitive_bottom,
+                local_state_auxiliary_bottom,
             )
 
             primitive_to_prognostic!(
                 balance_law,
-                Vars{vsp}(local_state_prognostic_top),
-                Vars{vsp}(local_state_primitive_top),
-                Vars{vsa}(local_state_auxiliary_top),
+                local_state_prognostic_top,
+                local_state_primitive_top,
+                local_state_auxiliary_top,
             )
 
             # compute the bottom flux
@@ -1339,9 +1310,9 @@ end
 
             prognostic_to_primitive!(
                 balance_law,
-                Vars{vsp}(local_state_primitive),
-                Vars{vsp}(local_state_prognostic),
-                Vars{vsa}(local_state_auxiliary),
+                local_state_primitive,
+                local_state_prognostic,
+                local_state_auxiliary,
             )
             cell_states_primitive = (local_state_primitive,)
             cell_weights = SVector(cw)
@@ -1355,16 +1326,16 @@ end
 
             primitive_to_prognostic!(
                 balance_law,
-                Vars{vsp}(local_state_prognostic_bottom),
-                Vars{vsp}(local_state_primitive_bottom),
-                Vars{vsa}(local_state_auxiliary_bottom),
+                local_state_prognostic_bottom,
+                local_state_primitive_bottom,
+                local_state_auxiliary_bottom,
             )
 
             primitive_to_prognostic!(
                 balance_law,
-                Vars{vsp}(local_state_prognostic_top),
-                Vars{vsp}(local_state_primitive_top),
-                Vars{vsa}(local_state_auxiliary_top),
+                local_state_prognostic_top,
+                local_state_primitive_top,
+                local_state_auxiliary_top,
             )
 
             # bottom flux
