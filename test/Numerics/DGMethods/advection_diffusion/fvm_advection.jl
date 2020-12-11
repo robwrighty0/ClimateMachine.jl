@@ -4,6 +4,7 @@ import Dates
 import MPI
 
 import ClimateMachine
+import ClimateMachine.DGMethods.FVReconstructions: FVConstant
 import ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxSecondOrder,
@@ -113,6 +114,7 @@ function test_run(
     dgfvm = DGFVModel(
         model,
         grid,
+        FVConstant(),
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();

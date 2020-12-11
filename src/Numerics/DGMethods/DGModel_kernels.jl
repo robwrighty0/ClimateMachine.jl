@@ -11,6 +11,8 @@ using .NumericalFluxes:
     numerical_boundary_flux_higher_order!,
     CentralNumericalFluxGradient
 
+using .FVReconstructions: FVConstant
+
 using ..Mesh.Geometry
 
 # {{{ FIXME: remove this after we've figure out how to pass through to kernel
@@ -998,6 +1000,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     ::Val{nvertelem},
     ::Val{periodicstack},
     ::VerticalDirection,
+    ::FVConstant,
     numerical_flux_first_order,
     numerical_flux_second_order,
     tendency,

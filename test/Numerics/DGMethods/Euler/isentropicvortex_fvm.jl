@@ -4,6 +4,7 @@ using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
+import ClimateMachine.DGMethods.FVReconstructions: FVConstant
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Geometry
 using ClimateMachine.Mesh.Grids
@@ -180,6 +181,7 @@ function test_run(
     dgfvm = DGFVModel(
         model,
         grid,
+        FVConstant(),
         NumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),

@@ -6,6 +6,7 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
 using ClimateMachine.BalanceLaws: update_auxiliary_state!
 using ClimateMachine.DGMethods.NumericalFluxes
+import ClimateMachine.DGMethods.FVReconstructions: FVConstant
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.Atmos: SphericalOrientation, latitude, longitude
@@ -214,6 +215,7 @@ function test_run(
     dgfvm = DGFVModel(
         model,
         grid,
+        FVConstant(),
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),

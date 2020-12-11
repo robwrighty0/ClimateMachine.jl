@@ -14,10 +14,11 @@ Must have the following properties:
 """
 abstract type SpaceDiscretization end
 
-struct DGFVModel{BL, G, NFND, NFD, GNF, AS, DS, D, DD, MD} <:
+struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, D, DD, MD} <:
        SpaceDiscretization
     balance_law::BL
     grid::G
+    fv_reconstruction::FVR
     numerical_flux_first_order::NFND
     numerical_flux_second_order::NFD
     numerical_flux_gradient::GNF
@@ -31,6 +32,7 @@ end
 function DGFVModel(
     balance_law,
     grid,
+    fv_reconstruction,
     numerical_flux_first_order,
     numerical_flux_second_order,
     numerical_flux_gradient;
@@ -54,6 +56,7 @@ function DGFVModel(
     DGFVModel(
         balance_law,
         grid,
+        fv_reconstruction,
         numerical_flux_first_order,
         numerical_flux_second_order,
         numerical_flux_gradient,
@@ -2046,6 +2049,7 @@ function launch_interface_tendency!(
                 Val(nvertelem),
                 Val(periodicstack),
                 VerticalDirection(),
+                spacedisc.fv_reconstruction,
                 spacedisc.numerical_flux_first_order,
                 numerical_flux_second_order,
                 tendency.data,
