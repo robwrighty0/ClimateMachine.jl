@@ -49,15 +49,7 @@ width(recon::AbstractReconstruction) = throw(MethodError(width, (recon,)))
 Perform the finite volume reconstruction for the top and bottom states using the
 tuple of `cell_state` values using the `cell_weights`.
 """
-(::AbstractReconstruction)(
-    state_top,
-    state_bottom,
-    cell_state::NTuple,
-    cell_weights,
-) = throw(MethodError(
-    (AbstractReconstruction()),
-    (recon, state_top, state_bottom, cell_state, cell_weights),
-))
+function (::AbstractReconstruction) end
 
 """
     FVConstant <: AbstractReconstruction
