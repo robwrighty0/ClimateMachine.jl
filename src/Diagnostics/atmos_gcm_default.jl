@@ -26,6 +26,15 @@ using ..Atmos
 using ..Atmos: recover_thermo_state
 using ..TurbulenceClosures: turbulence_tensors
 
+struct VorticityBLState <: DiagnosticsGroupParams
+    bl::Union{Nothing, VorticityModel}
+    dg::Union{Nothing, DGModel}
+    state::Union{Nothing, MPIStateArray}
+    dQ::Union{Nothing, MPIStateArray}
+
+    VorticityBLState() = new(nothing, nothing, nothing, nothing)
+end
+
 """
     setup_atmos_default_diagnostics(
         ::AtmosGCMConfigType,
@@ -84,12 +93,12 @@ function setup_atmos_default_diagnostics(
         out_prefix,
         writer,
         interpol,
+        VorticityBLState(),
     )
 end
 
 include("diagnostic_fields.jl")
 include("vorticity_balancelaw.jl")
-
 
 # Declare all (3D) variables for this diagnostics group
 function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
@@ -106,7 +115,7 @@ function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
         ht::FT
         hi::FT
         vort::FT                # Ω₃
-        vort2::FT               # Ω_dg₃
+        vort2::FT               # Ω_bl₃
 
         moisture::vars_atmos_gcm_default_simple_3d(atmos.moisture, FT)
     end
@@ -134,6 +143,7 @@ function atmos_gcm_default_simple_3d_vars!(
     state_prognostic,
     thermo,
     dyni,
+    dyn_bli,
     vars,
 )
     vars.u = state_prognostic.ρu[1] / state_prognostic.ρ
@@ -141,18 +151,17 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.w = state_prognostic.ρu[3] / state_prognostic.ρ
     vars.rho = state_prognostic.ρ
     vars.et = state_prognostic.ρe / state_prognostic.ρ
-    
+
     vars.temp = thermo.temp
     vars.pres = thermo.pres
     vars.thd = thermo.θ_dry
     vars.ei = thermo.e_int
     vars.ht = thermo.h_tot
     vars.hi = thermo.h_int
-    
-    vars.vort = dyni.Ω₃
-    
-    vars.vort2 = dgdiags.Ω_dg₃
 
+    vars.vort = dyni.Ω₃
+
+    vars.vort2 = dyn_bli.Ω_bl₃
 
     atmos_gcm_default_simple_3d_vars!(
         atmos.moisture,
@@ -187,6 +196,24 @@ function atmos_gcm_default_simple_3d_vars!(
     return nothing
 end
 
+# Dynamic variables
+function vars_dyn(FT)
+    @vars begin
+        Ω₁::FT
+        Ω₂::FT
+        Ω₃::FT
+    end
+end
+dyn_vars(array) = Vars{vars_dyn(eltype(array))}(array)
+
+function vars_dyn_bl(FT)
+    @vars begin
+        Ω_bl₁::FT
+        Ω_bl₂::FT
+        Ω_bl₃::FT
+    end
+end
+dyn_bl_vars(array) = Vars{vars_dyn_bl(eltype(array))}(array)
 
 
 """
@@ -196,7 +223,9 @@ Initialize the GCM default diagnostics group, establishing the output file's
 dimensions and variables.
 """
 function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
-    atmos = Settings.dg.balance_law
+    dg = Settings.dg
+    grid = dg.grid
+    atmos = dg.balance_law
     FT = eltype(Settings.Q)
     mpicomm = Settings.mpicomm
     mpirank = MPI.Comm_rank(mpicomm)
@@ -207,6 +236,23 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
             """
         return nothing
     end
+
+    # set up the vorticity mini balance law
+    vort_state = dgngrp.params
+    vort_state.bl = VorticityModel()
+    vort_state.dg = DGModel(
+        vort_state.bl,
+        grid,
+        CentralNumericalFluxFirstOrder(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient(),
+    )
+    vort_state.state = init_ode_state(vort_state.dg, FT(0))
+    vort_state.dQ = similar(
+        vort_state.state;
+        vars = @vars(Ω_bl::SVector{3, FT}),
+        nstate = 3,
+    )
 
     if mpirank == 0
         # get dimensions for the interpolated grid
@@ -238,10 +284,6 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
             Settings.starttime,
         )
         dfilename = joinpath(Settings.output_dir, dprefix)
-        
-        # initiate mini balance laws that use the DGModel kernels
-        #grad_dg = VorticityModel()
-        #vort_init(grad_dg, Settings.Q)
 
         init_data(dgngrp.writer, dfilename, dims, vars)
     end
@@ -263,6 +305,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
             """
         return nothing
     end
+    vort_state = dgngrp.params
 
     mpicomm = Settings.mpicomm
     dg = Settings.dg
@@ -298,26 +341,14 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     vgrad = VectorGradients(dg, Q)
     vort = Vorticity(dg, vgrad)
 
-    #_____________
-    # init output data
-    # Ω_dg = Array{FT}(undef, npoints, 3, nrealelem)
-    # Ω_dg = similar(state_auxiliary; vars = @vars(Ω_dg::SVector{3, FT}), nstate = 3)
-
-    grad_dg = VorticityBalanceLawStruct.dgmodel
-
+    # run the vorticity mini balance law
     ix_ρu = varsindex(vars(Q), :ρu)
-    ix_ρ  = varsindex(vars(Q), :ρ)
-
+    ix_ρ = varsindex(vars(Q), :ρ)
     ρ = Q.data[:, ix_ρ, :]
     u = Q.data[:, ix_ρu, :] ./ ρ
 
-    grad_dg.state_auxiliary.data = u
-    
-    # run mini BL
-    grad_dg( VorticityBalanceLawStruct.Ω_dg, VorticityBalanceLawStruct.init, nothing, FT(0))
-    
-    
-    #___________
+    vort_state.dg.state_auxiliary.data .= u
+    vort_state.dg(vort_state.dQ, vort_state.state, nothing, FT(0))
 
     # Compute thermo variables element-wise
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
@@ -341,23 +372,22 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     idyn = ArrayType{FT}(undef, interpol.Npl, size(vort.data, 2))
     interpolate_local!(interpol, vort.data, idyn)
 
-    idgdiags = ArrayType{FT}(undef, interpol.Npl, size(VorticityBalanceLawStruct.Ω_dg, 2))
-    interpolate_local!(interpol, VorticityBalanceLawStruct.Ω_dg, idgdiags)
+    idyn_bl = ArrayType{FT}(undef, interpol.Npl, size(vort_state.dQ, 2))
+    interpolate_local!(interpol, vort_state.dQ, idyn_bl)
 
     # TODO: get indices here without hard-coding them
     _ρu, _ρv, _ρw = 2, 3, 4
     project_cubed_sphere!(interpol, istate, (_ρu, _ρv, _ρw))
     _Ω₁, _Ω₂, _Ω₃ = 1, 2, 3
     project_cubed_sphere!(interpol, idyn, (_Ω₁, _Ω₂, _Ω₃))
-    _Ω₁, _Ω₂, _Ω₃ = 1, 2, 3
-    project_cubed_sphere!(interpol, idgdiags, (_Ω₁, _Ω₂, _Ω₃))
+    project_cubed_sphere!(interpol, idyn_bl, (_Ω₁, _Ω₂, _Ω₃))
 
-    
+
     # FIXME: accumulating to rank 0 is not scalable
     all_state_data = accumulate_interpolated_data(mpicomm, interpol, istate)
     all_thermo_data = accumulate_interpolated_data(mpicomm, interpol, ithermo)
-    all_dgdiags_data = accumulate_interpolated_data(mpicomm, interpol, idgdiags)
     all_dyn_data = accumulate_interpolated_data(mpicomm, interpol, idyn)
+    all_dyn_bl_data = accumulate_interpolated_data(mpicomm, interpol, idyn_bl)
 
     if mpirank == 0
         # get dimensions for the interpolated grid
@@ -385,8 +415,8 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
                 :,
             ))
             thermoi = thermo_vars(atmos, view(all_thermo_data, lo, la, le, :))
-            dgdiagsi = dyn_bl_vars(atmos, view(all_dgdiags_data, lo, la, le, :))
             dyni = dyn_vars(view(all_dyn_data, lo, la, le, :))
+            dyn_bli = dyn_bl_vars(view(all_dyn_bl_data, lo, la, le, :))
             simple_3d_vars = atmos_gcm_default_simple_3d_vars(
                 atmos,
                 view(simple_3d_vars_array, lo, la, le, :),
@@ -396,8 +426,8 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
                 atmos,
                 statei,
                 thermoi,
-                dgdiagsi,
                 dyni,
+                dyn_bli,
                 simple_3d_vars,
             )
         end
@@ -421,4 +451,3 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
 end # function collect
 
 function atmos_gcm_default_fini(dgngrp::DiagnosticsGroup, currtime) end
-    

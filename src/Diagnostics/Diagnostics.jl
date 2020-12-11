@@ -77,7 +77,6 @@ include("variables.jl")
 include("helpers.jl")
 include("atmos_common.jl")
 include("thermo.jl")
-include("dyni.jl")
 include("groups.jl")
 
 """
