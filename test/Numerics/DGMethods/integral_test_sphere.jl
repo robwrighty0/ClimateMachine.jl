@@ -193,7 +193,7 @@ function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
         @test all(Router - Rinner .≈ aux[:, :, end, int_r_ind, end, :])
         # FIXME: Reverse integral is currently off by one cell width
         Δ = (Router - Rinner) / nvertelem
-        @test all(Router - Rinner - Δ .≈ aux[:, :, 1, rev_int_r_ind, 1, :])
+        @test all(Router - Rinner .≈ aux[:, :, 1, rev_int_r_ind, 1, :])
         # All the `JcV` (line integral metrics) values should be `Δ / 2`
         @test all(Δ .≈ 2grid.vgeo[:, Grids._JcV, :])
     end
