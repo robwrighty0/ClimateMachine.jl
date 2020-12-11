@@ -40,7 +40,6 @@ width(recon::AbstractReconstruction) = throw(MethodError(width, (recon,)))
 
 """
 (::AbstractReconstruction)(
-        recon::AbstractReconstruction,
         state_top,
         state_bottom,
         cell_state,
