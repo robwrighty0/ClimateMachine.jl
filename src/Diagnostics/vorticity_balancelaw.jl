@@ -1,14 +1,36 @@
-# This allows computation of variables using model kernels using mini balance laws
-using DocStringExtensions
-using ..TemperatureProfiles
-using ..DGMethods: init_ode_state
-export ReferenceState, NoReferenceState, HydrostaticState
-const TD = Thermodynamics
-using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref
+# A mini balance law for computing vorticity using the DG kernels.
+#
 
-using ClimateMachine.BalanceLaws: AbstractStateType, Auxiliary, Gradient
+using StaticArrays
 
-import ClimateMachine.BalanceLaws: vars_state
+using ..BalanceLaws
+using ..VariableTemplates
+using ..MPIStateArrays
+
+import ..BalanceLaws:
+    vars_state,
+    flux_first_order!,
+    flux_second_order!,
+    source!,
+    eq_tends,
+    flux,
+    source,
+    wavespeed,
+    boundary_conditions,
+    boundary_state!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
+    transform_post_gradient_laplacian!,
+    init_state_auxiliary!,
+    init_state_prognostic!,
+    update_auxiliary_state!,
+    indefinite_stack_integral!,
+    reverse_indefinite_stack_integral!,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!
+
 
 """
     VorticityModel
@@ -18,9 +40,12 @@ A mini balance law that is used to take the gradient of u and v to obtain vortic
 """
 struct VorticityModel <: BalanceLaw end
 
-# declare gradient, diffusice and auxillary variables for the VorticityModel balance law
-vars_state(::VorticityModel, ::Prognostic, FT) = @vars(Ω_bl::SVector{3, FT}) # output vorticity vector
-vars_state(::VorticityModel, ::Auxiliary, FT) = @vars(u::SVector{3, FT}) # input velocity vector
+# declare gradient, diffusive and auxiliary variables for the VorticityModel balance law
+#
+# output vorticity vector
+vars_state(::VorticityModel, ::Prognostic, FT) = @vars(Ω_bl::SVector{3, FT})
+# input velocity vector
+vars_state(::VorticityModel, ::Auxiliary, FT) = @vars(u::SVector{3, FT})
 vars_state(::VorticityModel, ::Gradient, FT) = @vars()
 vars_state(::VorticityModel, ::GradientFlux, FT) = @vars()
 
