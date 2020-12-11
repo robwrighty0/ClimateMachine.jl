@@ -10,12 +10,22 @@ Concrete types must provide implementions of
     - `width(recon)`
        returns the width of the reconstruction. Total number of points used in
        reconstruction of top and bottom states is `2width(recon) + 1`
-       - (::AbstractReconstruction)(state_top, state_bottom, cell_state::NTuple,
-                                    cell_weights::NTuple)
+       - (::AbstractReconstruction)(state_top, state_bottom, cell_states::NTuple,
+                                    cell_weights)
       compute the reconstruction
 
+(::AbstractReconstruction)(
+        state_top,
+        state_bottom,
+        cell_states,
+        cell_weights,
+    )
+
+Perform the finite volume reconstruction for the top and bottom states using the
+tuple of `cell_states` values using the `cell_weights`.
 """
 abstract type AbstractReconstruction end
+function (::AbstractReconstruction) end
 
 """
     AbstractSlopeLimiter
@@ -39,19 +49,6 @@ number of values used in the reconstruction are `2width(recon) + 1`
 width(recon::AbstractReconstruction) = throw(MethodError(width, (recon,)))
 
 """
-(::AbstractReconstruction)(
-        state_top,
-        state_bottom,
-        cell_state,
-        cell_weights,
-    )
-
-Perform the finite volume reconstruction for the top and bottom states using the
-tuple of `cell_state` values using the `cell_weights`.
-"""
-function (::AbstractReconstruction) end
-
-"""
     FVConstant <: AbstractReconstruction
 
 Reconstruction type for cell centered finite volume methods (e.g., constants)
@@ -63,11 +60,11 @@ width(::FVConstant) = 0
 function (::FVConstant)(
     state_bot,
     state_top,
-    cell_state::NTuple{1},
+    cell_states::NTuple{1},
     _,
 ) where {FT}
-    state_top .= cell_state[1]
-    state_bot .= cell_state[1]
+    state_top .= cell_states[1]
+    state_bot .= cell_states[1]
 end
 """
     FVLinear <: AbstractReconstruction
@@ -81,18 +78,18 @@ end
 
 width(::FVLinear) = 1
 
-function (fv_recon::FVLinear)(
+function (fvrecon::FVLinear)(
     state_bot,
     state_top,
-    cell_state::NTuple{3},
-    cell_weights::NTuple{3},
+    cell_states::NTuple{3},
+    cell_weights,
 ) where {FT}
     wi_top = 1 / (cell_weights[3] + cell_weights[2])
     wi_bot = 1 / (cell_weights[2] + cell_weights[1])
     @inbounds @unroll for s in 1:length(state_top)
         # Compute the edge gradient approximations
-        Δ_top = wi_top * (cell_state[3][s] - cell_states[2][s])
-        Δ_bot = wi_bot * (cell_state[2][s] - cell_states[1][s])
+        Δ_top = wi_top * (cell_states[3][s] - cell_states[2][s])
+        Δ_bot = wi_bot * (cell_states[2][s] - cell_states[1][s])
 
         # Compute the limited slope
         Δ = fvrecon.limiter(Δ_top, Δ_bot)
@@ -103,13 +100,13 @@ function (fv_recon::FVLinear)(
     end
 end
 
-function (fv_recon::FVLinear)(
+function (fvrecon::FVLinear)(
     state_bot,
     state_top,
-    cell_state::NTuple{1},
-    cell_weights::NTuple{1},
+    cell_states::NTuple{1},
+    cell_weights,
 ) where {FT}
-    FVConstant()(state_bot, state_top, cell_state, cell_weights)
+    FVConstant()(state_bot, state_top, cell_states, cell_weights)
 end
 
 """
