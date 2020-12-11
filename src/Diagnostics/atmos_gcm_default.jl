@@ -26,7 +26,10 @@ using ..Atmos
 using ..Atmos: recover_thermo_state
 using ..TurbulenceClosures: turbulence_tensors
 
-struct VorticityBLState <: DiagnosticsGroupParams
+include("diagnostic_fields.jl")
+include("vorticity_balancelaw.jl")
+
+mutable struct VorticityBLState <: DiagnosticsGroupParams
     bl::Union{Nothing, VorticityModel}
     dg::Union{Nothing, DGModel}
     state::Union{Nothing, MPIStateArray}
@@ -96,9 +99,6 @@ function setup_atmos_default_diagnostics(
         VorticityBLState(),
     )
 end
-
-include("diagnostic_fields.jl")
-include("vorticity_balancelaw.jl")
 
 # Declare all (3D) variables for this diagnostics group
 function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
