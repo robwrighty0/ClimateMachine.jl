@@ -191,13 +191,13 @@ function test_run(mpicomm, dim, Ne, N, FT, ArrayType)
         A_faces = reshape(
             Array(dg.state_auxiliary.data[:, 1, :]),
             prod(Nq),
-            Ne[end],           # Vertical element is fastest on stacked meshes
+            Ne[end],               # Vertical element is fastest on stacked meshes
             prod(Ne[1:(end - 1)]), # Horiztonal elements
         )
         A_center_exact = reshape(
             Array(dg.state_auxiliary.data[:, 8, :]),
             prod(Nq),
-            Ne[end],           # Vertical element is fastest on stacked meshes
+            Ne[end],               # Vertical element is fastest on stacked meshes
             prod(Ne[1:(end - 1)]), # Horiztonal elements
         )
         # With N = 0, the integral will return the values in the faces. Namely,
@@ -218,14 +218,14 @@ function test_run(mpicomm, dim, Ne, N, FT, ArrayType)
         # Storage for the averaging
         A_center = similar(A_faces)
 
-        # bottom cell value is average of 0 and top face of cell
+        # Bottom cell value is average of 0 and top face of cell
         A_center[:, 1, :] .= A_faces[:, 1, :] / 2
 
         # Remaining cells are average of the two faces
         A_center[:, 2:end, :, :] .=
             (A_faces[:, 1:(end - 1), :] + A_faces[:, 2:end, :]) / 2
 
-        # compare the exact and computed
+        # Compare the exact and computed
         @test A_center ≈ A_center_exact
 
         # We do the same things for the reverse integral, the only difference is
@@ -237,20 +237,20 @@ function test_run(mpicomm, dim, Ne, N, FT, ArrayType)
         RA_faces = reshape(
             Array(dg.state_auxiliary.data[:, 3, :]),
             prod(Nq),
-            Ne[end],           # Vertical element is fastest on stacked meshes
+            Ne[end],               # Vertical element is fastest on stacked meshes
             prod(Ne[1:(end - 1)]), # Horiztonal elements
         )
         RA_center_exact = reshape(
             Array(dg.state_auxiliary.data[:, 10, :]),
             prod(Nq),
-            Ne[end],           # Vertical element is fastest on stacked meshes
+            Ne[end],               # Vertical element is fastest on stacked meshes
             prod(Ne[1:(end - 1)]), # Horiztonal elements
         )
 
         # Storage for the averaging
         RA_center = similar(RA_faces)
 
-        # top cell value is average of 0 and top face of cell
+        # Top cell value is average of 0 and top face of cell
         RA_center[:, end, :] .= RA_faces[:, end, :] / 2
 
         # Remaining cells are average of the two faces
@@ -258,10 +258,7 @@ function test_run(mpicomm, dim, Ne, N, FT, ArrayType)
             (RA_faces[:, 1:(end - 1), :] + RA_faces[:, 2:end, :]) / 2
 
         # compare the exact and computed
-        # TODO: This won't pass until the
-        # kernel_reverse_indefinite_stack_integral!
-        # is updated
-        #JK @test RA_center ≈ RA_center_exact
+        @test RA_center ≈ RA_center_exact
     end
 end
 
