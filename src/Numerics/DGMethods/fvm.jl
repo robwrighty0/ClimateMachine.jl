@@ -47,11 +47,11 @@ function numerical_boundary_flux_second_order!(
     normal_vector::AbstractArray,
     state_prognostic⁻::AbstractArray,
     state_gradient_flux⁻::AbstractArray,
-    state_hyperdiffusion⁻::AbstractArray,
+    state_hyperdiffusive⁻::AbstractArray,
     state_auxiliary⁻::AbstractArray,
     state_prognostic⁺::AbstractArray,
     state_gradient_flux⁺::AbstractArray,
-    state_hyperdiffusion⁺::AbstractArray,
+    state_hyperdiffusive⁺::AbstractArray,
     state_auxiliary⁺::AbstractArray,
     t,
     state_prognostic_bottom1::AbstractArray,
@@ -127,8 +127,8 @@ end
         num_state_primitive = number_states(balance_law, Primitive())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
-        num_state_hyperdiffusion = number_states(balance_law, Hyperdiffusive())
-        @assert num_state_hyperdiffusion == 0
+        num_state_hyperdiffusive = number_states(balance_law, Hyperdiffusive())
+        @assert num_state_hyperdiffusive == 0
 
         vsp = Vars{vars_state(balance_law, Prognostic(), FT)}
         vsa = Vars{vars_state(balance_law, Auxiliary(), FT)}
@@ -186,8 +186,8 @@ end
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         end
 
-        local_state_hyperdiffusion = ntuple(Val(stencil_diameter)) do
-            MArray{Tuple{num_state_hyperdiffusion}, FT}(undef)
+        local_state_hyperdiffusive = ntuple(Val(stencil_diameter)) do
+            MArray{Tuple{num_state_hyperdiffusive}, FT}(undef)
         end
 
         local_state_prognostic_bottom1 =
@@ -342,8 +342,8 @@ end
                 local_state_prognostic[stencil_width + 1]
             local_state_gradient_flux[stencil_width] .=
                 local_state_gradient_flux[stencil_width + 1]
-            local_state_hyperdiffusion[stencil_width] .=
-                local_state_hyperdiffusion[stencil_width + 1]
+            local_state_hyperdiffusive[stencil_width] .=
+                local_state_hyperdiffusive[stencil_width + 1]
             local_state_auxiliary[stencil_width] .=
                 local_state_auxiliary[stencil_width + 1]
             numerical_boundary_flux_second_order!(
@@ -354,11 +354,11 @@ end
                 normal_vector,
                 local_state_prognostic[stencil_width + 1],
                 local_state_gradient_flux[stencil_width + 1],
-                local_state_hyperdiffusion[stencil_width + 1],
+                local_state_hyperdiffusive[stencil_width + 1],
                 local_state_auxiliary[stencil_width + 1],
                 local_state_prognostic[stencil_width],
                 local_state_gradient_flux[stencil_width],
-                local_state_hyperdiffusion[stencil_width],
+                local_state_hyperdiffusive[stencil_width],
                 local_state_auxiliary[stencil_width],
                 t,
                 local_state_prognostic_bottom1,
