@@ -1,3 +1,176 @@
+import .NumericalFluxes:
+    numerical_flux_first_order!,
+    numerical_boundary_flux_first_order!,
+    numerical_flux_second_order!,
+    numerical_boundary_flux_second_order!
+
+function numerical_flux_first_order!(
+    numerical_flux_first_order,
+    balance_law,
+    flux::AbstractArray,
+    normal_vector::AbstractArray,
+    state_prognostic⁻::AbstractArray,
+    state_auxiliary⁻::AbstractArray,
+    state_prognostic⁺::AbstractArray,
+    state_auxiliary⁺::AbstractArray,
+    t,
+    face_direction,
+)
+    FT = eltype(flux)
+    numerical_flux_first_order!(
+        numerical_flux_first_order,
+        balance_law,
+        Vars{vars_state(balance_law, Prognostic(), FT)}(flux),
+        SVector(normal_vector),
+        Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁻),
+        Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁻),
+        Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁺),
+        Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁺),
+        t,
+        face_direction,
+    )
+end
+
+function numerical_boundary_flux_first_order!(
+    numerical_flux_first_order,
+    bctag::Int,
+    balance_law,
+    flux::AbstractArray,
+    normal_vector::AbstractArray,
+    state_prognostic⁻::AbstractArray,
+    state_auxiliary⁻::AbstractArray,
+    state_prognostic⁺::AbstractArray,
+    state_auxiliary⁺::AbstractArray,
+    t,
+    face_direction,
+    state_prognostic_bottom1::AbstractArray,
+    state_auxiliary_bottom1::AbstractArray,
+)
+    FT = eltype(flux)
+    bcs = boundary_conditions(balance_law)
+    # TODO: there is probably a better way to unroll this loop
+    Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
+        bc = bcs[d]
+        numerical_boundary_flux_first_order!(
+            numerical_flux_first_order,
+            bc,
+            balance_law,
+            Vars{vars_state(balance_law, Prognostic(), FT)}(flux),
+            SVector(normal_vector),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁻),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁻),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁺),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁺),
+            t,
+            face_direction,
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
+                state_prognostic_bottom1,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                state_auxiliary_bottom1,
+            ),
+        )
+    end
+end
+
+function numerical_flux_second_order!(
+    numerical_flux_second_order,
+    balance_law,
+    flux::AbstractArray,
+    normal_vector::AbstractArray,
+    state_prognostic⁻::AbstractArray,
+    state_gradient_flux⁻::AbstractArray,
+    state_hyperdiffusive⁻::AbstractArray,
+    state_auxiliary⁻::AbstractArray,
+    state_prognostic⁺::AbstractArray,
+    state_gradient_flux⁺::AbstractArray,
+    state_hyperdiffusive⁺::AbstractArray,
+    state_auxiliary⁺::AbstractArray,
+    t,
+)
+    FT = eltype(flux)
+    numerical_flux_second_order!(
+        numerical_flux_second_order,
+        balance_law,
+        Vars{vars_state(balance_law, Prognostic(), FT)}(flux),
+        SVector(normal_vector),
+        Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁻),
+        Vars{vars_state(balance_law, GradientFlux(), FT)}(state_gradient_flux⁻),
+        Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+            state_hyperdiffusive⁻,
+        ),
+        Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁻),
+        Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁺),
+        Vars{vars_state(balance_law, GradientFlux(), FT)}(state_gradient_flux⁺),
+        Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+            state_hyperdiffusive⁺,
+        ),
+        Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁺),
+        t,
+    )
+end
+
+function numerical_boundary_flux_second_order!(
+    numerical_flux_second_order,
+    bctag::Int,
+    balance_law,
+    flux::AbstractArray,
+    normal_vector::AbstractArray,
+    state_prognostic⁻::AbstractArray,
+    state_gradient_flux⁻::AbstractArray,
+    state_hyperdiffusive⁻::AbstractArray,
+    state_auxiliary⁻::AbstractArray,
+    state_prognostic⁺::AbstractArray,
+    state_gradient_flux⁺::AbstractArray,
+    state_hyperdiffusive⁺::AbstractArray,
+    state_auxiliary⁺::AbstractArray,
+    t,
+    state_prognostic_bottom1::AbstractArray,
+    state_auxiliary_bottom1::AbstractArray,
+    state_gradient_flux_bottom1::AbstractArray,
+)
+    FT = eltype(flux)
+    bcs = boundary_conditions(balance_law)
+    # TODO: there is probably a better way to unroll this loop
+    Base.Cartesian.@nif 7 d -> bctag == d <= length(bcs) d -> begin
+        bc = bcs[d]
+        numerical_boundary_flux_second_order!(
+            numerical_flux_second_order,
+            bc,
+            balance_law,
+            Vars{vars_state(balance_law, Prognostic(), FT)}(flux),
+            SVector(normal_vector),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁻),
+            Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                state_gradient_flux⁻,
+            ),
+            Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                state_hyperdiffusive⁻,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁻),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(state_prognostic⁺),
+            Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                state_gradient_flux⁺,
+            ),
+            Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
+                state_hyperdiffusive⁺,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(state_auxiliary⁺),
+            t,
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
+                state_prognostic_bottom1,
+            ),
+            Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                state_gradient_flux_bottom1,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                state_auxiliary_bottom1,
+            ),
+        )
+    end
+end
+
+import .FVReconstructions: FVLinear
 using LinearAlgebra
 export vert_fvm_interface_tendency!
 """
@@ -371,52 +544,13 @@ end
 
 
 
-@doc """
-    function vert_fvm_interface_tendency!(
-        balance_law::BalanceLaw,
-        ::Val{info},
-        ::Val{nvertelem},
-        ::Val{periodicstack},
-        ::VerticalDirection,
-        numerical_flux_first_order,
-        tendency,
-        state_prognostic,
-        state_auxiliary,
-        vgeo,
-        sgeo,
-        t,
-        vmap⁻,
-        vmap⁺,
-        elemtobndy,
-        elems,
-        α,
-    )
-
-Compute kernel for evaluating the interface tendencies using vertical FVM
-reconstructions with a DG method of the form:
-
-∫ₑ ψ⋅ ∂q/∂t dx - ∫ₑ ∇ψ⋅(Fⁱⁿᵛ + Fᵛⁱˢᶜ) dx + ∮ₑ n̂ ψ⋅(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆) dS,
-
-or equivalently in matrix form:
-
-dQ/dt = M⁻¹(MS + DᵀM(Fⁱⁿᵛ + Fᵛⁱˢᶜ) + ∑ᶠ LᵀMf(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆)).
-
-This kernel computes the surface terms: M⁻¹ ∑ᶠ LᵀMf(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆)), where M
-is the mass matrix, Mf is the face mass matrix, L is an interpolator from
-volume to face, and Fⁱⁿᵛ⋆, Fᵛⁱˢᶜ⋆ are the numerical fluxes for the inviscid
-and viscous fluxes, respectively.
-
-A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
-
-!!! note
-    Currently `Fᵛⁱˢᶜ⋆` is not supported
-""" vert_fvm_interface_tendency!
 @kernel function vert_fvm_interface_tendency!(
     balance_law::BalanceLaw,
     ::Val{info},
     ::Val{nvertelem},
     ::Val{periodicstack},
     ::VerticalDirection,
+    ::FVLinear,
     numerical_flux_first_order,
     numerical_flux_second_order,
     tendency,

@@ -954,6 +954,7 @@ fluxes, respectively.
     end
 end
 
+include("FVModel.jl")
 @doc """
     function vert_fvm_interface_tendency!(
         balance_law::BalanceLaw,
