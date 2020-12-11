@@ -344,3 +344,48 @@ function initialize_states! end
 function tendency_from_slow_to_fast! end
 function cummulate_fast_solution! end
 function reconcile_from_fast_to_slow! end
+
+# By default the primitive is the prognostic
+vars_state(bl::BalanceLaw, ::Primitive, FT) = vars_state(bl, Prognostic(), FT)
+
+"""
+    primitive_to_prognostic!(
+        ::BalanceLaw,
+        prognostic,
+        primitive,
+        auxiliary,
+    )
+
+Converts the primitive variables for a balance law back to primitive variables.
+
+By default the primitive and prognostic are the same and so this is just a copy.
+"""
+function primitive_to_prognostic!(
+    ::BalanceLaw,
+    prognostic,
+    primitive,
+    auxiliary,
+)
+    prognostic .= primitive
+end
+
+"""
+    function prognostic_to_primitive!(
+        ::BalanceLaw,
+        primitive,
+        prognostic,
+        auxiliary,
+    )
+
+Converts the prognostic variables for a balance law back to primitive variables.
+
+By default the primitive and prognostic are the same and so this is just a copy.
+"""
+function prognostic_to_primitive!(
+    ::BalanceLaw,
+    primitive,
+    prognostic,
+    auxiliary,
+)
+    primitive .= prognostic
+end

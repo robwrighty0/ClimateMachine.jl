@@ -2,6 +2,7 @@
 
 export AbstractStateType,
     Prognostic,
+    Primitive,
     Auxiliary,
     Gradient,
     GradientFlux,
@@ -35,6 +36,11 @@ which are specified by the [`BalanceLaw`](@ref), and
 solved for by the ODE solver.
 """
 struct Prognostic <: AbstractStateType end
+
+"""
+    Primitive <: AbstractStateType
+"""
+struct Primitive <: AbstractStateType end
 
 """
     Auxiliary <: AbstractStateType
