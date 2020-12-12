@@ -473,8 +473,8 @@ function limiter(
     return Δ
 end
 function fv_reconstruction!(
-    state_primitive_top::AbstractArray{FT},
     state_primitive_bottom::AbstractArray{FT},
+    state_primitive_top::AbstractArray{FT},
     cell_states_primitive::NTuple{3, AbstractArray{FT}},
     cell_weights::SVector{3, FT},
 ) where {FT}
@@ -495,8 +495,8 @@ end
 
 """
     const_reconstruction!(
-        state_primitive_top::AbstractArray{FT},
         state_primitive_bottom::AbstractArray{FT},
+        state_primitive_top::AbstractArray{FT},
         cell_states_primitive::NTuple{1, AbstractArray{FT}},
         cell_weights::SVector{1, FT},
     ) where {FT}
@@ -505,8 +505,8 @@ First order (constant) FV reconstruction on nonuniform grids
 Mainly used for Boundary conditions
 """
 function const_reconstruction!(
-    state_primitive_top::AbstractArray{FT},
     state_primitive_bottom::AbstractArray{FT},
+    state_primitive_top::AbstractArray{FT},
     cell_states_primitive::NTuple{1, AbstractArray{FT}},
     cell_weights::SVector{1, FT},
 ) where {FT}
@@ -521,7 +521,7 @@ end
     ::Val{nvertelem},
     ::Val{periodicstack},
     ::VerticalDirection,
-    ::FVLinear,
+    reconstruction!::FVLinear,
     numerical_flux_first_order,
     numerical_flux_second_order,
     tendency,
@@ -743,9 +743,10 @@ end
 
             cell_weights = SVector(cw⁻, cw, cw⁺)
 
-            fv_reconstruction!(
-                local_state_primitive_top,
+            # Linear Reconstuction
+            reconstruction!(
                 local_state_primitive_bottom,
+                local_state_primitive_top,
                 cell_states_primitive,
                 cell_weights,
             )
@@ -799,9 +800,10 @@ end
             cell_states_primitive = (local_state_primitive,)
             cell_weights = SVector(cw)
 
-            const_reconstruction!(
-                local_state_primitive_top,
+            # Constant reconstruction
+            reconstruction!(
                 local_state_primitive_bottom,
+                local_state_primitive_top,
                 cell_states_primitive,
                 cell_weights,
             )
@@ -963,9 +965,10 @@ end
 
         cell_weights = SVector(cw⁻, cw, cw⁺)
 
-        fv_reconstruction!(
-            local_state_primitive_top,
+        # Linear Reconstuction
+        reconstruction!(
             local_state_primitive_bottom,
+            local_state_primitive_top,
             cell_states_primitive,
             cell_weights,
         )
@@ -1137,9 +1140,10 @@ end
 
             cell_weights = SVector(cw⁻, cw, cw⁺)
 
-            fv_reconstruction!(
-                local_state_primitive_top,
+            # Linear Reconstuction
+            reconstruction!(
                 local_state_primitive_bottom,
+                local_state_primitive_top,
                 cell_states_primitive,
                 cell_weights,
             )
@@ -1317,9 +1321,10 @@ end
             cell_states_primitive = (local_state_primitive,)
             cell_weights = SVector(cw)
 
-            const_reconstruction!(
-                local_state_primitive_top,
+            # Constant reconstruction
+            reconstruction!(
                 local_state_primitive_bottom,
+                local_state_primitive_top,
                 cell_states_primitive,
                 cell_weights,
             )
