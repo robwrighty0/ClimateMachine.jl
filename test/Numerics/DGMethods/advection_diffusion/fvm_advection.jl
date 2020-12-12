@@ -4,7 +4,7 @@ import Dates
 import MPI
 
 import ClimateMachine
-import ClimateMachine.DGMethods.FVReconstructions: FVConstant
+import ClimateMachine.DGMethods.FVReconstructions: FVConstant, FVLinear
 import ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxSecondOrder,
@@ -16,7 +16,8 @@ import ClimateMachine.MPIStateArrays: MPIStateArray, euclidean_distance
 import ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, EveryDirection
 import ClimateMachine.Mesh.Topologies: StackedBrickTopology
-import ClimateMachine.ODESolvers: LSRK54CarpenterKennedy, solve!, gettime
+import ClimateMachine.ODESolvers:
+    LSRK54CarpenterKennedy, solve!, gettime, LSRKEulerMethod
 import ClimateMachine.VTK: writevtk, writepvtu
 
 
@@ -114,7 +115,7 @@ function test_run(
     dgfvm = DGFVModel(
         model,
         grid,
-        FVConstant(),
+        FVLinear(), #FVConstant(),
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
@@ -124,6 +125,7 @@ function test_run(
     Q = init_ode_state(dgfvm, FT(0))
 
     lsrk = LSRK54CarpenterKennedy(dgfvm, Q; dt = dt, t0 = 0)
+    # lsrk = LSRKEulerMethod(dgfvm, Q; dt = dt, t0 = 0)
 
     eng0 = norm(Q)
     @info @sprintf """Starting
@@ -187,6 +189,7 @@ function test_run(
     end
 
     solve!(Q, lsrk; timeend = timeend, callbacks = callbacks)
+    # solve!(Q, lsrk; numberofsteps = 1, callbacks = callbacks)
 
     # Print some end of the simulation information
     engf = norm(Q)
@@ -232,13 +235,14 @@ let
     expected_result[3, 4, Float32] = 5.3404398262500763e-02
 
     @testset "$(@__FILE__)" begin
-        for FT in (Float64, Float32)
+        for FT in (Float64,) #Float32)
             numlevels =
                 integration_testing ||
                 ClimateMachine.Settings.integration_testing ?
                 4 : 1
+            numlevels = 4
             result = zeros(FT, numlevels)
-            for dim in 2:3
+            for dim in 2:2#3
                 polynomialorder = (ntuple(j -> 2, dim - 1)..., 0)
                 n =
                     dim == 2 ? SVector{3, FT}(1 / sqrt(2), 1 / sqrt(2), 0) :

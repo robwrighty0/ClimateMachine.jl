@@ -225,58 +225,59 @@ end
         stencil_center = max(stencil_width, 1) + 1
 
         local_first_order_numerical_flux =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            fill!(MArray{Tuple{num_state_prognostic}, FT}(undef), NaN)
         local_second_order_numerical_flux =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            fill!(MArray{Tuple{num_state_prognostic}, FT}(undef), NaN)
 
         local_state_prognostic = ntuple(Val(stencil_diameter)) do _
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            fill!(MArray{Tuple{num_state_prognostic}, FT}(undef), NaN)
         end
 
         # 1 → cell i, face i - 1/2
         # 2 → cell i, face i + 1/2
         local_state_face_prognostic = ntuple(Val(stencil_diameter)) do _
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            fill!(MArray{Tuple{num_state_prognostic}, FT}(undef), NaN)
         end
 
-        local_cell_weights = MArray{Tuple{stencil_diameter}, FT}(undef)
+        local_cell_weights =
+            fill!(MArray{Tuple{stencil_diameter}, FT}(undef), NaN)
 
         # Two mass matrix inverse corresponding to +/- cells
-        vMI = MArray{Tuple{2}, FT}(undef)
+        vMI = fill!(MArray{Tuple{2}, FT}(undef), NaN)
 
         # Storing the value below element when walking up the stack
         # cell i-1, face i - 1/2
         local_state_face_prognostic_neighbor =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            fill!(MArray{Tuple{num_state_prognostic}, FT}(undef), NaN)
 
         local_state_face_primitive = ntuple(Val(2)) do _
-            MArray{Tuple{num_state_primitive}, FT}(undef)
+            fill!(MArray{Tuple{num_state_primitive}, FT}(undef), NaN)
         end
 
         local_state_primitive = ntuple(Val(stencil_diameter)) do _
-            MArray{Tuple{num_state_primitive}, FT}(undef)
+            fill!(MArray{Tuple{num_state_primitive}, FT}(undef), NaN)
         end
 
         local_state_auxiliary = ntuple(Val(stencil_diameter)) do _
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+            fill!(MArray{Tuple{num_state_auxiliary}, FT}(undef), NaN)
         end
 
         local_state_gradient_flux = ntuple(Val(stencil_diameter)) do _
-            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+            fill!(MArray{Tuple{num_state_gradient_flux}, FT}(undef), NaN)
         end
 
         local_state_hyperdiffusive = ntuple(Val(stencil_diameter)) do _
-            MArray{Tuple{num_state_hyperdiffusive}, FT}(undef)
+            fill!(MArray{Tuple{num_state_hyperdiffusive}, FT}(undef), NaN)
         end
 
-        local_flux = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_flux = fill!(MArray{Tuple{num_state_prognostic}, FT}(undef), NaN)
 
         local_state_prognostic_bottom1 =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            fill!(MArray{Tuple{num_state_prognostic}, FT}(undef), NaN)
         local_state_gradient_flux_bottom1 =
-            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+            fill!(MArray{Tuple{num_state_gradient_flux}, FT}(undef), NaN)
         local_state_auxiliary_bottom1 =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+            fill!(MArray{Tuple{num_state_auxiliary}, FT}(undef), NaN)
 
         # XXX: will revisit this later for FVM
         fill!(local_state_prognostic_bottom1, NaN)
@@ -324,7 +325,7 @@ end
 
     # We need to compute the first element we handles bottom flux (only for nonperiodic boundary condition)
     # elements will just copied from the prior element)
-    @inbounds begin
+    begin
         eV = 1
 
         # Figure out the data we need
