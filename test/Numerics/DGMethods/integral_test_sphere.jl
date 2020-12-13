@@ -178,7 +178,7 @@ function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
               dg.state_auxiliary[:, rev_int_r_ind, :]
     else
         # FIXME: With the N = 0 case, the value of the integral actually will be
-        # the value of the computed integral is at the cell faces, NOT the cell
+        # the value of the computed integral at the cell faces, NOT the cell
         # centers, so we will be off in the direct comparison. So instead we
         # only compare the last value for now of the FORWARD integral. The
         # reverse integral and other cases will be fixed up later.
@@ -193,7 +193,7 @@ function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
         @test all(Router - Rinner .≈ aux[:, :, end, int_r_ind, end, :])
         # FIXME: Reverse integral is currently off by one cell width
         Δ = (Router - Rinner) / nvertelem
-        @test all(Router - Rinner - Δ .≈ aux[:, :, 1, rev_int_r_ind, 1, :])
+        @test all(Router - Rinner .≈ aux[:, :, 1, rev_int_r_ind, 1, :])
         # All the `JcV` (line integral metrics) values should be `Δ / 2`
         @test all(Δ .≈ 2grid.vgeo[:, Grids._JcV, :])
     end
